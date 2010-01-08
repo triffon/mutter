@@ -1,3 +1,10 @@
+mutter (2.28.1~git20091208-1ubuntu1) lucid; urgency=low
+
+  * Merge with Debian squeeze.
+  * debian/rules: Replace remaining occurances of "metacity" with "mutter". 
+
+ -- Michael Bienia <geser@ubuntu.com>  Fri, 08 Jan 2010 14:40:43 +0100
+
 mutter (2.28.1~git20091208-1) unstable; urgency=low
 
   * New upstream snapshot
