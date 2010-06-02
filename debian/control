@@ -6,8 +6,9 @@
 Source: mutter
 Section: x11
 Priority: optional
-Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
-Uploaders: Gustavo Noronha Silva <kov@debian.org>
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+XSBC-Original-Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
+Uploaders: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>, Gustavo Noronha Silva <kov@debian.org>
 Build-Depends: cdbs (>= 0.4.41),
                debhelper (>= 5),
                quilt,
@@ -41,6 +42,7 @@ Build-Depends: cdbs (>= 0.4.41),
                gnome-pkg-tools (>= 0.10),
                dpkg-dev (>= 1.13.19)
 Standards-Version: 3.8.3
+Vcs-Bzr: https://code.launchpad.net/~ubuntu-desktop/mutter/ubuntu/
 
 Package: mutter
 Section: x11
