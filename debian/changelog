@@ -1,3 +1,29 @@
+mutter (2.31.2-2ubuntu1) maverick; urgency=low
+
+  * Merge from debian experimental, remaining changes:
+    + debian/control.in:
+      - Vcs-Bzr tag
+    + renamed debian/gir1.0-mutter-2.29.install to
+      debian/gir1.0-mutter-2.31.install as bin package name changed
+    + debian/patches/10_no-ws-switcher.patch:
+      Don't show ws selector when you only have one ws
+    + debian/patches/11_hide_tooltip_on_decorator.patch:
+      add a gconf key (/desktop/gnome/interface/hide_decorator_tooltip)
+      to disable tooltip in decorator bar. If key not present, show the
+      tooltip.
+    + debian/patches/80_no_session_delay.patch:
+      Start mutter as early as possible, since with plugins (such as
+      gnome-shell) it will take the longest time to start up; Let the
+      scheduler deal with squeezing the other processes into mutter's
+      idle periods.
+    + debian/patches/91_add_window_groups.patch:
+      Adds support for a above, normal and below window groups, for more 
+      control by plugins
+    + debian/rules:
+      use DEB_INSTALL_DOCS_mutter, not DEB_INSTALL_DOCS_metacity
+
+ -- Didier Roche <didrocks@ubuntu.com>  Wed, 02 Jun 2010 17:26:33 +0200
+
 mutter (2.31.2-2) experimental; urgency=low
 
   * debian/control:
