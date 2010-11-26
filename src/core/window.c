@@ -2708,7 +2708,7 @@ meta_window_show (MetaWindow *window)
   if (window->showing_for_first_time)
     {
       window->showing_for_first_time = FALSE;
-      if (takes_focus_on_map)
+      if (takes_focus_on_map && meta_prefs_get_focus_mode () != META_FOCUS_MODE_STRICT)
         {
           guint32     timestamp;
 

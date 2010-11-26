@@ -2019,6 +2019,7 @@ event_callback (XEvent   *event,
         {
           switch (meta_prefs_get_focus_mode ())
             {
+            case META_FOCUS_MODE_STRICT:
             case META_FOCUS_MODE_SLOPPY:
             case META_FOCUS_MODE_MOUSE:
               display->mouse_mode = TRUE;
