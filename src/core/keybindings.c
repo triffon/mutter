@@ -470,7 +470,7 @@ regrab_key_bindings (MetaDisplay *display)
       
       tmp = tmp->next;
     }
-  meta_error_trap_pop (display, FALSE);
+  meta_error_trap_pop (display);
 
   g_slist_free (windows);
 }
@@ -502,21 +502,21 @@ display_get_keybinding (MetaDisplay  *display,
 /**
  * meta_display_get_keybinding_action:
  * @display: A #MetaDisplay
- * @keysym: Key symbol
  * @keycode: Raw keycode
  * @mask: Event mask
  *
- * Returns: The action that should be taken for the given key, or %META_KEYBINDING_ACTION_NONE.
- *
+ * Returns: The action that should be taken for the given key, or
+ * %META_KEYBINDING_ACTION_NONE.
  */
 MetaKeyBindingAction
 meta_display_get_keybinding_action (MetaDisplay  *display,
-                                    unsigned int  keysym,
                                     unsigned int  keycode,
                                     unsigned long mask)
 {
   MetaKeyBinding *binding;
+  KeySym keysym;
 
+  keysym = XKeycodeToKeysym (display->xdisplay, keycode, 0);
   mask = mask & 0xff & ~display->ignored_modifier_mask;
   binding = display_get_keybinding (display, keysym, keycode, mask);
 
@@ -700,7 +700,7 @@ meta_change_keygrab (MetaDisplay *display,
         {
           int result;
           
-          result = meta_error_trap_pop_with_return (display, FALSE);
+          result = meta_error_trap_pop_with_return (display);
           
           if (grab && result != Success)
             {      
@@ -716,7 +716,7 @@ meta_change_keygrab (MetaDisplay *display,
       ++ignored_mask;
     }
 
-  meta_error_trap_pop (display, FALSE);
+  meta_error_trap_pop (display);
 }
 
 static void
@@ -758,7 +758,7 @@ grab_keys (MetaKeyBinding *bindings,
       ++i;
     }
 
-  meta_error_trap_pop (display, FALSE);
+  meta_error_trap_pop (display);
 }
 
 static void
@@ -777,14 +777,14 @@ ungrab_all_keys (MetaDisplay *display,
     {
       int result;
       
-      result = meta_error_trap_pop_with_return (display, FALSE);
+      result = meta_error_trap_pop_with_return (display);
       
       if (result != Success)    
         meta_topic (META_DEBUG_KEYBINDINGS,
                     "Ungrabbing all keys on 0x%lx failed\n", xwindow);
     }
   else
-    meta_error_trap_pop (display, FALSE);
+    meta_error_trap_pop (display);
 }
 
 void
@@ -916,7 +916,7 @@ grab_keyboard (MetaDisplay *display,
   
   if (grab_status != GrabSuccess)
     {
-      meta_error_trap_pop_with_return (display, TRUE);
+      meta_error_trap_pop_with_return (display);
       meta_topic (META_DEBUG_KEYBINDINGS,
                   "XGrabKeyboard() returned failure status %s time %u\n",
                   grab_status_to_string (grab_status),
@@ -925,7 +925,7 @@ grab_keyboard (MetaDisplay *display,
     }
   else
     {
-      result = meta_error_trap_pop_with_return (display, TRUE);
+      result = meta_error_trap_pop_with_return (display);
       if (result != Success)
         {
           meta_topic (META_DEBUG_KEYBINDINGS,
@@ -948,7 +948,7 @@ ungrab_keyboard (MetaDisplay *display, guint32 timestamp)
               "Ungrabbing keyboard with timestamp %u\n",
               timestamp);
   XUngrabKeyboard (display->xdisplay, timestamp);
-  meta_error_trap_pop (display, FALSE);
+  meta_error_trap_pop (display);
 }
 
 gboolean
@@ -1373,8 +1373,7 @@ meta_display_process_key_event (MetaDisplay *display,
     return FALSE; /* event window is destroyed */
   
   /* ignore key events on popup menus and such. */
-  if (window == NULL &&
-      meta_ui_window_is_widget (screen->ui, event->xany.window))
+  if (meta_ui_window_is_widget (screen->ui, event->xany.window))
     return FALSE;
   
   /* window may be NULL */
@@ -2109,6 +2108,16 @@ process_tab_grab (MetaDisplay *display,
               return TRUE;
             }
           break;
+        case META_KEYBINDING_ACTION_NONE:
+          {
+            /*
+             * If this is simply user pressing the Shift key, we do not want
+             * to cancel the grab.
+             */
+            if (is_modifier (display, event->xkey.keycode))
+              return TRUE;
+          }
+
         default:
           break;
         }
@@ -2768,7 +2777,6 @@ process_workspace_switch_grab (MetaDisplay *display,
       MetaKeyBindingAction action;
 
       action = meta_display_get_keybinding_action (display,
-                                                   keysym,
                                                    event->xkey.keycode,
                                                    display->grab_mask);
 
@@ -2890,7 +2898,7 @@ handle_panel (MetaDisplay    *display,
 	      StructureNotifyMask,
 	      (XEvent*) &ev);
 
-  meta_error_trap_pop (display, FALSE);
+  meta_error_trap_pop (display);
 }
 
 static void
@@ -3537,6 +3545,10 @@ meta_keybindings_set_custom_handler (const gchar        *name,
   return TRUE;
 }
 
+/**
+ * meta_keybindings_switch_window: (skip)
+ *
+ */
 void
 meta_keybindings_switch_window (MetaDisplay    *display,
                                 MetaScreen     *screen,
