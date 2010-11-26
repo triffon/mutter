@@ -1709,6 +1709,36 @@ ancestor_is_minimized (MetaWindow *window)
 }
 
 gboolean
+meta_window_is_minimized (MetaWindow *window)
+{
+  return window->minimized;
+}
+
+gboolean
+meta_window_is_maximized (MetaWindow *window)
+{
+  return META_WINDOW_MAXIMIZED(window);
+}
+
+gboolean
+meta_window_is_maximized_horizontally (MetaWindow *window)
+{
+  return META_WINDOW_MAXIMIZED_HORIZONTALLY (window);
+}
+
+gboolean
+meta_window_is_maximized_vertically (MetaWindow *window)
+{
+  return META_WINDOW_MAXIMIZED_VERTICALLY (window);
+}
+
+gboolean
+meta_window_allows_resize (MetaWindow *window)
+{
+  return META_WINDOW_ALLOWS_RESIZE (window);
+}
+
+gboolean
 meta_window_showing_on_its_workspace (MetaWindow *window)
 {
   gboolean showing;
