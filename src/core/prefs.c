@@ -105,6 +105,7 @@ static int   cursor_size = 24;
 static gboolean compositing_manager = FALSE;
 static gboolean resize_with_right_button = FALSE;
 static gboolean side_by_side_tiling = FALSE;
+static gboolean hide_decorator_tooltip = FALSE;
 static gboolean force_fullscreen = TRUE;
 
 static MetaVisualBellType visual_bell_type = META_VISUAL_BELL_FULLSCREEN_FLASH;
@@ -437,6 +438,11 @@ static MetaBoolPreference preferences_bool[] =
     { "/apps/metacity/general/no_tab_popup",
       META_PREF_NO_TAB_POPUP,
       &no_tab_popup,
+      FALSE,
+    },
+    { "/desktop/gnome/interface/hide_decorator_tooltip",
+      META_PREF_HIDE_DECORATOR_TOOLTIP,
+      &hide_decorator_tooltip,
       FALSE,
     },
     { NULL, 0, NULL, FALSE },
@@ -1518,6 +1524,12 @@ meta_prefs_get_raise_on_click (void)
   return raise_on_click;
 }
 
+gboolean
+meta_prefs_get_hide_decorator_tooltip (void)
+{
+  return hide_decorator_tooltip;
+}
+
 const char*
 meta_prefs_get_theme (void)
 {
@@ -2022,6 +2034,9 @@ meta_preference_to_string (MetaPreference pref)
 
     case META_PREF_NO_TAB_POPUP:
       return "NO_TAB_POPUP";
+
+    case META_PREF_HIDE_DECORATOR_TOOLTIP:
+      return "HIDE_DECORATOR_TOOLTIP";
     }
 
   return "(unknown)";
