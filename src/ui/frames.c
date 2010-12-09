@@ -1084,6 +1084,9 @@ show_tip_now (MetaFrames *frames)
   if (frame == NULL)
     return;
 
+  if (meta_prefs_get_hide_decorator_tooltip ())
+    return;
+
   display = GDK_DISPLAY_XDISPLAY (gdk_display_get_default ());
 
   XQueryPointer (display,
