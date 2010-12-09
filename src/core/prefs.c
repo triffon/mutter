@@ -199,6 +199,7 @@ static GConfEnumStringPair symtab_focus_mode[] =
     { META_FOCUS_MODE_CLICK,  "click" },
     { META_FOCUS_MODE_SLOPPY, "sloppy" },
     { META_FOCUS_MODE_MOUSE,  "mouse" },
+    { META_FOCUS_MODE_STRICT, "strict" },
     { 0, NULL },
   };
 
