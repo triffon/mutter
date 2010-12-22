@@ -1241,13 +1241,33 @@ process_overlay_key (MetaDisplay *display,
 {
   if (event->xkey.keycode != display->overlay_key_combo.keycode)
     {
+      if (display->overlay_key_only_pressed == TRUE)
+        {
+          // emit signal
+          if (event->xkey.type == KeyPress)
+            {
+              g_signal_emit_by_name (display, "overlay-key-with-modifier-down",
+                                     event->xkey.keycode);
       display->overlay_key_only_pressed = FALSE;
+            }
+        }
+      else
+        {
+          if (event->xkey.type == KeyRelease)
+            {
+              g_signal_emit_by_name (display, "overlay-key-with-modifier",
+                                     event->xkey.keycode);
+              display->overlay_key_only_pressed = TRUE;
+            }
+        }
+
       return FALSE;
     }
 
   if (event->xkey.type == KeyPress)
     {
       display->overlay_key_only_pressed = TRUE;
+      g_signal_emit_by_name (display, "overlay-key-down", NULL);
     }
   else if (event->xkey.type == KeyRelease && display->overlay_key_only_pressed)
     {

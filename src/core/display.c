@@ -131,6 +131,9 @@ G_DEFINE_TYPE(MetaDisplay, meta_display, G_TYPE_OBJECT);
 enum
 {
   OVERLAY_KEY,
+  OVERLAY_KEY_DOWN,
+  OVERLAY_KEY_WITH_MODIFIER,
+  OVERLAY_KEY_WITH_MODIFIER_DOWN,
   FOCUS_WINDOW,
   WINDOW_CREATED,
   WINDOW_DEMANDS_ATTENTION,
@@ -233,6 +236,33 @@ meta_display_class_init (MetaDisplayClass *klass)
                   NULL, NULL,
                   g_cclosure_marshal_VOID__VOID,
                   G_TYPE_NONE, 0);
+
+  display_signals[OVERLAY_KEY_DOWN] =
+    g_signal_new ("overlay-key-down",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__VOID,
+                  G_TYPE_NONE, 0);
+
+  display_signals[OVERLAY_KEY_WITH_MODIFIER] =
+    g_signal_new ("overlay-key-with-modifier",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__UINT,
+                  G_TYPE_NONE, 1, G_TYPE_UINT);
+
+  display_signals[OVERLAY_KEY_WITH_MODIFIER_DOWN] =
+    g_signal_new ("overlay-key-with-modifier-down",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL,
+                  g_cclosure_marshal_VOID__UINT,
+                  G_TYPE_NONE, 1, G_TYPE_UINT);
 
   display_signals[WINDOW_CREATED] =
     g_signal_new ("window-created",
