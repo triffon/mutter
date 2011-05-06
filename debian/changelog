@@ -1,3 +1,11 @@
+mutter (3.0.1-1ubuntu1) oneiric; urgency=low
+
+  * Merge with debian experimental, remaining changes:
+    + debian/patches/03_link_gles2.patch: Link to clutter-glx-1.0
+      explicitily at the end of link flags, to bring in libGLESv2 on armel.
+
+ -- Laurent Bigonville <bigon@ubuntu.com>  Sat, 07 May 2011 00:13:47 +0200
+
 mutter (3.0.1-1) experimental; urgency=low
 
   * New upstream release (3.0.0).
@@ -28,6 +36,22 @@ mutter (3.0.0-1) experimental; urgency=low
   * New upstream release (3.0.0).
 
  -- Raphaël Hertzog <hertzog@debian.org>  Sun, 10 Apr 2011 19:38:04 +0000
+
+mutter (3.0.0-0ubuntu1) natty; urgency=low
+
+  * New upstream release
+
+  * Merge with debian experimental (LP: #742458), remaining changes:
+    + debian/patches/03_link_gles2.patch: Link to clutter-glx-1.0
+      explicitily at the end of link flags, to bring in libGLESv2 on armel.
+  * debian/control.in:
+    + rename gir package to gir1.2-mutter-3.0
+  * debian/libmutter0.symbols:
+    + updated
+  * debian/patches:
+    + fix 03_link_gles2.patch
+
+ -- Rico Tzschichholz <ricotz@ubuntu.com>  Sun, 10 Apr 2011 22:27:59 -0500
 
 mutter (2.91.92-1) experimental; urgency=low
 
@@ -65,6 +89,20 @@ mutter (2.91.91-1) experimental; urgency=low
     versions of mutter-common, for the move of mutter-wm.desktop.
 
  -- Frederic Peters <fpeters@debian.org>  Mon, 14 Mar 2011 19:09:58 +0100
+
+mutter (2.91.90-1ubuntu2) natty; urgency=low
+
+  * debian/patches/03_link_gles2.patch: Link to clutter-glx-1.0
+    explicitily at the end of link flags, to bring in libGLESv2 on armel.
+    Fixes FTBFS (LP:#726827)
+
+ -- Jani Monoses <jani@ubuntu.com>  Wed, 16 Mar 2011 13:30:03 +0200
+
+mutter (2.91.90-1ubuntu1) natty; urgency=low
+
+  * debian/patches/02_arm_include_clutter_x11.patch: Fix armel FTBFS.
+
+ -- Jani Monoses <jani@ubuntu.com>  Wed, 02 Mar 2011 15:43:27 +0200
 
 mutter (2.91.90-1) experimental; urgency=low
 
