@@ -1,0 +1,48 @@
+## Description: Mutter is using a GL symbol (glGetBooleanv) and not explicit linking to it.
+##  The symbols is available in libGL and libGLESv2
+## Origin/Author: Jani Monoses
+## Bug: https://bugs.launchpad.net/ubuntu/+source/mutter/+bug/726827
+Index: mutter-2.91.92/src/Makefile.am
+===================================================================
+--- mutter-2.91.92.orig/src/Makefile.am
++++ mutter-2.91.92/src/Makefile.am
+@@ -155,7 +155,7 @@
+ 	$(mutter_built_sources)
+ 
+ libmutter_la_LDFLAGS = -no-undefined
+-libmutter_la_LIBADD  = $(MUTTER_LIBS)
++libmutter_la_LIBADD  = $(MUTTER_LIBS) -lclutter-glx-1.0
+ 
+ # Headers installed for plugins; introspected information will
+ # be extracted into Mutter-<version>.gir
+@@ -199,7 +199,7 @@
+ bin_PROGRAMS=mutter mutter-theme-viewer
+ 
+ mutter_SOURCES = core/mutter.c
+-mutter_LDADD = $(MUTTER_LIBS) libmutter.la
++mutter_LDADD = $(MUTTER_LIBS) libmutter.la -lclutter-glx-1.0
+ 
+ if HAVE_INTROSPECTION
+ include $(INTROSPECTION_MAKEFILE)
+Index: mutter-2.91.92/src/Makefile.in
+===================================================================
+--- mutter-2.91.92.orig/src/Makefile.in
++++ mutter-2.91.92/src/Makefile.in
+@@ -546,7 +546,7 @@
+ 	$(mutter_built_sources)
+ 
+ libmutter_la_LDFLAGS = -no-undefined
+-libmutter_la_LIBADD = $(MUTTER_LIBS)
++libmutter_la_LIBADD = $(MUTTER_LIBS) -lclutter-glx-1.0
+ 
+ # Headers installed for plugins; introspected information will
+ # be extracted into Mutter-<version>.gir
+@@ -588,7 +588,7 @@
+ 	ui/theme-viewer.c
+ 
+ mutter_SOURCES = core/mutter.c
+-mutter_LDADD = $(MUTTER_LIBS) libmutter.la
++mutter_LDADD = $(MUTTER_LIBS) libmutter.la -lclutter-glx-1.0
+ @HAVE_INTROSPECTION_TRUE@api_version = $(MUTTER_MAJOR_VERSION).$(MUTTER_MINOR_VERSION)
+ 
+ # These files are in package-private directories, even though they may be used
