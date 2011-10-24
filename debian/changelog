@@ -1,3 +1,19 @@
+mutter (3.2.1-0ubuntu1) oneiric-proposed; urgency=low
+
+  * New upstream release (LP: #878672).
+    - Allow keyboard window switching (alt-Tab) during drag-and-drop
+    - Don't add invisible resize borders to fullscreen windows
+    - Fix crash when toplevel windows were set to unexpected window types
+    - Correct problems with windows moving when restarting or switching
+      window managers
+    - Fix interaction of tiled windows with multiple monitors
+    - Make meta_display_unmanage_screen() public
+    - Fix problem with turning off window decorations on the fly
+    - Fix spurious assertion failures with themes such as Nodoka
+    - Misc bug fixes
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Mon, 24 Oct 2011 06:40:24 +0200
+
 mutter (3.2.0-0ubuntu2) oneiric; urgency=low
 
   * Remove debian/patches/debian-changes-3.2.0-0ubuntu1, which reverts our
@@ -19,6 +35,7 @@ mutter (3.1.92-0ubuntu3) oneiric; urgency=low
 
   * debian/patches/04_ignore_shadow_and_padding.patch: Silently ignore
     padding and shadow tags (LP: #800315)
+
  -- Timo Kluck <tkluck@infty.nl>   Wed, 21 Sep 2011 17:51:28 +0200
 
 mutter (3.1.92-0ubuntu2) oneiric; urgency=low
