@@ -189,6 +189,7 @@ struct _MetaDisplay
   int         grab_anchor_root_y;
   MetaRectangle grab_anchor_window_pos;
   MetaTileMode  grab_tile_mode;
+  int           grab_tile_monitor_number;
   int         grab_latest_motion_x;
   int         grab_latest_motion_y;
   gulong      grab_mask;
@@ -342,10 +343,6 @@ MetaScreen*   meta_display_screen_for_xwindow  (MetaDisplay *display,
                                                 Window       xindow);
 void          meta_display_grab                (MetaDisplay *display);
 void          meta_display_ungrab              (MetaDisplay *display);
-
-void          meta_display_unmanage_screen     (MetaDisplay *display,
-                                                MetaScreen  *screen,
-                                                guint32      timestamp);
 
 void          meta_display_unmanage_windows_for_screen (MetaDisplay *display,
                                                         MetaScreen  *screen,
