@@ -1,3 +1,10 @@
+mutter (3.2.1-0ubuntu2) oneiric-proposed; urgency=low
+
+  * Drop debian/patches/debian-changes-3.2.1-0ubuntu1
+    which caused ARM build failure.
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Tue, 25 Oct 2011 12:10:34 -0400
+
 mutter (3.2.1-0ubuntu1) oneiric-proposed; urgency=low
 
   * New upstream release (LP: #878672).
