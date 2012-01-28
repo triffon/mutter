@@ -1,3 +1,17 @@
+mutter (3.2.2-1ubuntu1) precise; urgency=low
+
+  * Sync with Debian. Remaining changes:
+  * debian/patches/03_link_gles2.patch: Link to clutter-glx-1.0
+    explicitily at the end of link flags, to bring in libGLESv2 on armel.
+  * debian/patches/04_ignore_shadow_and_padding.patch: Silently ignore
+    padding and shadow tags (LP: #800315)
+  * debian/patches/05_handle-gtk-backdrop-case.patch: Handle GTK 3.3.8's
+    backdrop window case
+  * debian/control.in: Bump minimum GTK to 3.3.8
+  * debian/rules: Don't fail on deprecated declarations
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Sat, 28 Jan 2012 12:40:45 -0500
+
 mutter (3.2.2-1) unstable; urgency=low
 
   [ Michael Biebl ]
