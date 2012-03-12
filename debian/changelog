@@ -1,3 +1,22 @@
+mutter (3.3.90-0ubuntu1) precise; urgency=low
+
+  [ Rico Tzschichholz ]
+  * Sync with Debian. (LP: #941755) Remaining changes:
+  * New upstream release.
+  * debian/control.in:
+    - Bump minimum GTK, cogl, clutter & gsettings-desktop-schemas
+    - Add mutter-dbg package
+  * debian/mutter-common.install:
+    - Install gsettings schemas
+  * debian/rules: Enable compile warnings
+  * debian/patches/04_ignore_shadow_and_padding.patch: Silently ignore
+    padding and shadow tags
+
+  [ Jeremy Bicha ]
+  * debian/control.in: Drop gconf dependency
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Sun, 11 Mar 2012 23:40:10 -0400
+
 mutter (3.2.2-1) unstable; urgency=low
 
   [ Michael Biebl ]

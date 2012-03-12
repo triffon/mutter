@@ -25,15 +25,6 @@ GType meta_grab_op_get_type (void) G_GNUC_CONST;
 GType meta_cursor_get_type (void) G_GNUC_CONST;
 #define MUTTER_TYPE_CURSOR (meta_cursor_get_type())
 
-GType meta_focus_mode_get_type (void) G_GNUC_CONST;
-#define MUTTER_TYPE_FOCUS_MODE (meta_focus_mode_get_type())
-
-GType meta_focus_new_windows_get_type (void) G_GNUC_CONST;
-#define MUTTER_TYPE_FOCUS_NEW_WINDOWS (meta_focus_new_windows_get_type())
-
-GType meta_action_titlebar_get_type (void) G_GNUC_CONST;
-#define MUTTER_TYPE_ACTION_TITLEBAR (meta_action_titlebar_get_type())
-
 GType meta_frame_type_get_type (void) G_GNUC_CONST;
 #define MUTTER_TYPE_FRAME_TYPE (meta_frame_type_get_type())
 
@@ -88,8 +79,8 @@ GType meta_preference_get_type (void) G_GNUC_CONST;
 GType meta_key_binding_action_get_type (void) G_GNUC_CONST;
 #define MUTTER_TYPE_KEY_BINDING_ACTION (meta_key_binding_action_get_type())
 
-GType meta_visual_bell_type_get_type (void) G_GNUC_CONST;
-#define MUTTER_TYPE_VISUAL_BELL_TYPE (meta_visual_bell_type_get_type())
+GType meta_key_binding_flags_get_type (void) G_GNUC_CONST;
+#define MUTTER_TYPE_KEY_BINDING_FLAGS (meta_key_binding_flags_get_type())
 
 /* enumerations from "meta/screen.h" */
 GType meta_screen_corner_get_type (void) G_GNUC_CONST;
