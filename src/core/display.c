@@ -230,8 +230,7 @@ meta_display_class_init (MetaDisplayClass *klass)
                   G_TYPE_FROM_CLASS (klass),
                   G_SIGNAL_RUN_LAST,
                   0,
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__VOID,
+                  NULL, NULL, NULL,
                   G_TYPE_NONE, 0);
 
   display_signals[WINDOW_CREATED] =
@@ -239,8 +238,7 @@ meta_display_class_init (MetaDisplayClass *klass)
                   G_TYPE_FROM_CLASS (klass),
                   G_SIGNAL_RUN_LAST,
                   0,
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__OBJECT,
+                  NULL, NULL, NULL,
                   G_TYPE_NONE, 1, META_TYPE_WINDOW);
 
   display_signals[WINDOW_DEMANDS_ATTENTION] =
@@ -248,8 +246,7 @@ meta_display_class_init (MetaDisplayClass *klass)
                   G_TYPE_FROM_CLASS (klass),
                   G_SIGNAL_RUN_LAST,
                   0,
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__OBJECT,
+                  NULL, NULL, NULL,
                   G_TYPE_NONE, 1, META_TYPE_WINDOW);
 
   display_signals[WINDOW_MARKED_URGENT] =
@@ -257,8 +254,7 @@ meta_display_class_init (MetaDisplayClass *klass)
                   G_TYPE_FROM_CLASS (klass),
                   G_SIGNAL_RUN_LAST,
                   0,
-                  NULL, NULL,
-                  g_cclosure_marshal_VOID__OBJECT,
+                  NULL, NULL, NULL,
                   G_TYPE_NONE, 1,
                   META_TYPE_WINDOW);
 
@@ -1921,7 +1917,7 @@ event_callback (XEvent   *event,
                * in application-based mode, and the different
                * app is not a dock or desktop, eat the focus click.
                */
-              if (meta_prefs_get_focus_mode () == META_FOCUS_MODE_CLICK &&
+              if (meta_prefs_get_focus_mode () == G_DESKTOP_FOCUS_MODE_CLICK &&
                   meta_prefs_get_application_based () &&
                   !window->has_focus &&
                   window->type != META_WINDOW_DOCK &&
@@ -2009,8 +2005,8 @@ event_callback (XEvent   *event,
         {
           switch (meta_prefs_get_focus_mode ())
             {
-            case META_FOCUS_MODE_SLOPPY:
-            case META_FOCUS_MODE_MOUSE:
+            case G_DESKTOP_FOCUS_MODE_SLOPPY:
+            case G_DESKTOP_FOCUS_MODE_MOUSE:
               display->mouse_mode = TRUE;
               if (window->type != META_WINDOW_DOCK &&
                   window->type != META_WINDOW_DESKTOP)
@@ -2048,7 +2044,7 @@ event_callback (XEvent   *event,
                * alternative mechanism works great.
                */
               if (window->type == META_WINDOW_DESKTOP &&
-                  meta_prefs_get_focus_mode() == META_FOCUS_MODE_MOUSE &&
+                  meta_prefs_get_focus_mode() == G_DESKTOP_FOCUS_MODE_MOUSE &&
                   display->expected_focus_window != NULL)
                 {
                   meta_topic (META_DEBUG_FOCUS,
@@ -2060,7 +2056,7 @@ event_callback (XEvent   *event,
                                                           event->xcrossing.time);
                 }
               break;
-            case META_FOCUS_MODE_CLICK:
+            case G_DESKTOP_FOCUS_MODE_CLICK:
               break;
             }
           
@@ -4003,7 +3999,7 @@ meta_display_grab_focus_window_button (MetaDisplay *display,
    * focus window may not be raised, and who wants to think about
    * mouse focus anyway.
    */
-  if (meta_prefs_get_focus_mode () != META_FOCUS_MODE_CLICK)
+  if (meta_prefs_get_focus_mode () != G_DESKTOP_FOCUS_MODE_CLICK)
     {
       meta_verbose (" (well, not grabbing since not in click to focus mode)\n");
       return;
@@ -5029,12 +5025,21 @@ meta_display_unmanage_windows_for_screen (MetaDisplay *display,
   winlist = meta_display_list_windows (display,
                                        META_LIST_INCLUDE_OVERRIDE_REDIRECT);
   winlist = g_slist_sort (winlist, meta_display_stack_cmp);
+  g_slist_foreach (winlist, (GFunc)g_object_ref, NULL);
 
   /* Unmanage all windows */
   tmp = winlist;
   while (tmp != NULL)
     {
-      meta_window_unmanage (tmp->data, timestamp);
+      MetaWindow *window = tmp->data;
+
+      /* Check if already unmanaged for safety - in particular, catch
+       * the case where unmanaging a parent window can cause attached
+       * dialogs to be (temporarily) unmanaged.
+       */
+      if (!window->unmanaging)
+        meta_window_unmanage (window, timestamp);
+      g_object_unref (window);
       
       tmp = tmp->next;
     }
