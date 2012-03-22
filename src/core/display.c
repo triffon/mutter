@@ -51,6 +51,8 @@
 #include <meta/compositor.h>
 #include <X11/Xatom.h>
 #include <X11/cursorfont.h>
+#include "mutter-enum-types.h"
+
 #ifdef HAVE_SOLARIS_XINERAMA
 #include <X11/extensions/xinerama.h>
 #endif
@@ -135,6 +137,8 @@ enum
   WINDOW_CREATED,
   WINDOW_DEMANDS_ATTENTION,
   WINDOW_MARKED_URGENT,
+  GRAB_OP_BEGIN,
+  GRAB_OP_END,
   LAST_SIGNAL
 };
 
@@ -257,6 +261,28 @@ meta_display_class_init (MetaDisplayClass *klass)
                   NULL, NULL, NULL,
                   G_TYPE_NONE, 1,
                   META_TYPE_WINDOW);
+
+  display_signals[GRAB_OP_BEGIN] =
+    g_signal_new ("grab-op-begin",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL, NULL,
+                  G_TYPE_NONE, 3,
+                  META_TYPE_SCREEN,
+                  META_TYPE_WINDOW,
+                  META_TYPE_GRAB_OP);
+
+  display_signals[GRAB_OP_END] =
+    g_signal_new ("grab-op-end",
+                  G_TYPE_FROM_CLASS (klass),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL, NULL,
+                  G_TYPE_NONE, 3,
+                  META_TYPE_SCREEN,
+                  META_TYPE_WINDOW,
+                  META_TYPE_GRAB_OP);
 
   g_object_class_install_property (object_class,
                                    PROP_FOCUS_WINDOW,
@@ -1378,6 +1404,19 @@ meta_display_get_current_time_roundtrip (MetaDisplay *display)
   sanity_check_timestamps (display, timestamp);
 
   return timestamp;
+}
+
+/**
+ * meta_display_get_ignored_modifier_mask:
+ * @display: a #MetaDisplay
+ *
+ * Returns: a mask of modifiers that should be ignored
+ *          when matching keybindings to events
+ */
+unsigned int
+meta_display_get_ignored_modifier_mask (MetaDisplay *display)
+{
+  return display->ignored_modifier_mask;
 }
 
 /**
@@ -3702,6 +3741,9 @@ meta_display_begin_grab_op (MetaDisplay *display,
     {
       meta_window_refresh_resize_popup (display->grab_window);
     }
+
+  g_signal_emit (display, display_signals[GRAB_OP_BEGIN], 0,
+                 screen, display->grab_window, display->grab_op);
   
   return TRUE;
 }
@@ -3715,6 +3757,9 @@ meta_display_end_grab_op (MetaDisplay *display,
   
   if (display->grab_op == META_GRAB_OP_NONE)
     return;
+
+  g_signal_emit (display, display_signals[GRAB_OP_END], 0,
+                 display->grab_screen, display->grab_window, display->grab_op);
 
   if (display->grab_window != NULL)
     display->grab_window->shaken_loose = FALSE;
@@ -4460,7 +4505,8 @@ get_focussed_group (MetaDisplay *display)
 
 #define IN_TAB_CHAIN(w,t) (((t) == META_TAB_LIST_NORMAL && META_WINDOW_IN_NORMAL_TAB_CHAIN (w)) \
     || ((t) == META_TAB_LIST_DOCKS && META_WINDOW_IN_DOCK_TAB_CHAIN (w)) \
-    || ((t) == META_TAB_LIST_GROUP && META_WINDOW_IN_GROUP_TAB_CHAIN (w, get_focussed_group(w->display))))
+    || ((t) == META_TAB_LIST_GROUP && META_WINDOW_IN_GROUP_TAB_CHAIN (w, get_focussed_group(w->display))) \
+    || ((t) == META_TAB_LIST_NORMAL_ALL && META_WINDOW_IN_NORMAL_TAB_CHAIN_TYPE (w)))
 
 static MetaWindow*
 find_tab_forward (MetaDisplay   *display,

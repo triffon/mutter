@@ -93,8 +93,8 @@ am_libmutter_la_OBJECTS = async-getprop.lo bell.lo boxes.lo \
 	errors.lo eventqueue.lo frame.lo gradient.lo group-props.lo \
 	group.lo iconcache.lo keybindings.lo main.lo place.lo prefs.lo \
 	screen.lo session.lo stack.lo stack-tracker.lo util.lo \
-	window-props.lo window.lo workspace.lo xprops.lo fixedtip.lo \
-	frames.lo menu.lo metaaccellabel.lo resizepopup.lo tabpopup.lo \
+	window-props.lo window.lo workspace.lo xprops.lo frames.lo \
+	menu.lo metaaccellabel.lo resizepopup.lo tabpopup.lo \
 	tile-preview.lo theme-parser.lo theme.lo ui.lo \
 	preview-widget.lo $(am__objects_1)
 libmutter_la_OBJECTS = $(am_libmutter_la_OBJECTS)
@@ -523,8 +523,6 @@ libmutter_la_SOURCES = \
 	core/core.h				\
 	ui/ui.h					\
 	inlinepixbufs.h				\
-	ui/fixedtip.c				\
-	ui/fixedtip.h				\
 	ui/frames.c				\
 	ui/frames.h				\
 	ui/menu.c				\
@@ -826,7 +824,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/edge-resistance.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/errors.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eventqueue.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fixedtip.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/frame.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/frames.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gradient.Plo@am__quote@
@@ -1249,14 +1246,6 @@ xprops.lo: core/xprops.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='core/xprops.c' object='xprops.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o xprops.lo `test -f 'core/xprops.c' || echo '$(srcdir)/'`core/xprops.c
-
-fixedtip.lo: ui/fixedtip.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT fixedtip.lo -MD -MP -MF $(DEPDIR)/fixedtip.Tpo -c -o fixedtip.lo `test -f 'ui/fixedtip.c' || echo '$(srcdir)/'`ui/fixedtip.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/fixedtip.Tpo $(DEPDIR)/fixedtip.Plo
-@am__fastdepCC_FALSE@	$(AM_V_CC) @AM_BACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='ui/fixedtip.c' object='fixedtip.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o fixedtip.lo `test -f 'ui/fixedtip.c' || echo '$(srcdir)/'`ui/fixedtip.c
 
 frames.lo: ui/frames.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT frames.lo -MD -MP -MF $(DEPDIR)/frames.Tpo -c -o frames.lo `test -f 'ui/frames.c' || echo '$(srcdir)/'`ui/frames.c

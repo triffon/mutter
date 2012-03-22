@@ -48,12 +48,19 @@
 #include <X11/Xatom.h>
 #include <X11/Xlibint.h> /* For display->resource_mask */
 #include <string.h>
+#include <math.h>
 
 #ifdef HAVE_SHAPE
 #include <X11/extensions/shape.h>
 #endif
 
 #include <X11/extensions/Xcomposite.h>
+
+/* Windows that unmaximize to a size bigger than that fraction of the workarea
+ * will be scaled down to that size (while maintaining aspect ratio).
+ * Windows that cover an area greater then this size are automaximized on map.
+ */
+#define MAX_UNMAXIMIZED_WINDOW_AREA .8
 
 static int destroying_windows_disallowed = 0;
 
@@ -214,8 +221,6 @@ meta_window_finalize (GObject *object)
     cairo_region_destroy (window->frame_bounds);
 
   meta_icon_cache_free (&window->icon_cache);
-
-  meta_prefs_remove_listener (prefs_changed_callback, window);
 
   g_free (window->sm_client_id);
   g_free (window->wm_client_machine);
@@ -411,7 +416,7 @@ meta_window_class_init (MetaWindowClass *klass)
                                    g_param_spec_enum ("window-type",
                                                       "Window Type",
                                                       "The type of the window",
-                                                      MUTTER_TYPE_WINDOW_TYPE,
+                                                      META_TYPE_WINDOW_TYPE,
                                                       META_WINDOW_NORMAL,
                                                       G_PARAM_READABLE));
 
@@ -1162,6 +1167,8 @@ meta_window_new_with_attrs (MetaDisplay       *display,
 
   window->monitor = meta_screen_get_monitor_for_window (window->screen, window);
 
+  window->tile_match = NULL;
+
   if (window->override_redirect)
     {
       window->decorated = FALSE;
@@ -1894,6 +1901,8 @@ meta_window_unmanage (MetaWindow  *window,
 #endif
 
   meta_error_trap_pop (window->display);
+
+  meta_prefs_remove_listener (prefs_changed_callback, window);
 
   g_signal_emit (window, window_signals[UNMANAGED], 0);
 
@@ -3008,7 +3017,20 @@ meta_window_show (MetaWindow *window)
     }
 
   if (!window->placed)
-    meta_window_force_placement (window);
+    {
+      if (window->showing_for_first_time)
+        {
+          MetaRectangle work_area;
+          meta_window_get_work_area_for_monitor (window, window->monitor->number, &work_area);
+          /* Automaximize windows that map with a size > MAX_UNMAXIMIZED_WINDOW_AREA of the work area */
+          if (window->rect.width * window->rect.height > work_area.width * work_area.height * MAX_UNMAXIMIZED_WINDOW_AREA)
+            {
+              window->maximize_horizontally_after_placement = TRUE;
+              window->maximize_vertically_after_placement = TRUE;
+            }
+        }
+      meta_window_force_placement (window);
+    }
 
   if (needs_stacking_adjustment)
     {
@@ -3682,6 +3704,7 @@ meta_window_can_tile_side_by_side (MetaWindow *window)
 {
   const MetaMonitorInfo *monitor;
   MetaRectangle tile_area;
+  MetaFrameBorders borders;
 
   if (!meta_window_can_tile_maximized (window))
     return FALSE;
@@ -3695,15 +3718,10 @@ meta_window_can_tile_side_by_side (MetaWindow *window)
 
   tile_area.width /= 2;
 
-  if (window->frame)
-    {
-      MetaFrameBorders borders;
+  meta_frame_calc_borders (window->frame, &borders);
 
-      meta_frame_calc_borders (window->frame, &borders);
-
-      tile_area.width  -= (borders.visible.left + borders.visible.right);
-      tile_area.height -= (borders.visible.top + borders.visible.bottom);
-    }
+  tile_area.width  -= (borders.visible.left + borders.visible.right);
+  tile_area.height -= (borders.visible.top + borders.visible.bottom);
 
   return tile_area.width >= window->size_hints.min_width &&
          tile_area.height >= window->size_hints.min_height;
@@ -3766,6 +3784,9 @@ meta_window_unmaximize_internal (MetaWindow        *window,
       (unmaximize_vertically   && window->maximized_vertically))
     {
       MetaRectangle target_rect;
+      MetaRectangle work_area;
+
+      meta_window_get_work_area_for_monitor (window, window->monitor->number, &work_area);
 
       meta_topic (META_DEBUG_WINDOW_OPS,
                   "Unmaximizing %s%s\n",
@@ -3790,6 +3811,28 @@ meta_window_unmaximize_internal (MetaWindow        *window,
        * being unmaximized.
        */
       meta_window_get_client_root_coords (window, &target_rect);
+
+      /* Avoid unmaximizing to "almost maximized" size when the previous size
+       * is greater then 80% of the work area use MAX_UNMAXIMIZED_WINDOW_AREA of the work area as upper limit
+       * while maintaining the aspect ratio.
+       */
+      if (unmaximize_horizontally && unmaximize_vertically &&
+          desired_rect->width * desired_rect->height > work_area.width * work_area.height * MAX_UNMAXIMIZED_WINDOW_AREA)
+        {
+          if (desired_rect->width > desired_rect->height)
+            {
+              float aspect = (float)desired_rect->height / (float)desired_rect->width;
+              desired_rect->width = MAX (work_area.width * sqrt (MAX_UNMAXIMIZED_WINDOW_AREA), window->size_hints.min_width);
+              desired_rect->height = MAX (desired_rect->width * aspect, window->size_hints.min_height);
+            }
+          else
+            {
+              float aspect = (float)desired_rect->width / (float)desired_rect->height;
+              desired_rect->height = MAX (work_area.height * sqrt (MAX_UNMAXIMIZED_WINDOW_AREA), window->size_hints.min_height);
+              desired_rect->width = MAX (desired_rect->height * aspect, window->size_hints.min_width);
+            }
+        }
+
       if (unmaximize_horizontally)
         {
           target_rect.x     = desired_rect->x;
@@ -4507,6 +4550,10 @@ meta_window_update_monitor (MetaWindow *window)
       if (old)
         g_signal_emit_by_name (window->screen, "window-left-monitor", old->number, window);
       g_signal_emit_by_name (window->screen, "window-entered-monitor", window->monitor->number, window);
+
+      /* If we're changing monitors, we need to update the has_maximize_func flag,
+       * as the working area has changed. */
+      recalc_window_features (window);
     }
 }
 
@@ -4599,9 +4646,8 @@ meta_window_move_resize_internal (MetaWindow          *window,
               is_user_action ? " (user move/resize)" : "",
               old_rect.x, old_rect.y, old_rect.width, old_rect.height);
 
-  if (window->frame)
-    meta_frame_calc_borders (window->frame,
-                             &borders);
+  meta_frame_calc_borders (window->frame,
+                           &borders);
 
   new_rect.x = root_x_nw;
   new_rect.y = root_y_nw;
@@ -4977,6 +5023,9 @@ meta_window_move_resize_internal (MetaWindow          *window,
     }
 
   meta_window_foreach_transient (window, maybe_move_attached_dialog, NULL);
+
+  meta_stack_update_window_tile_matches (window->screen->stack,
+                                         window->screen->active_workspace);
 }
 
 /**
@@ -5059,20 +5108,18 @@ meta_window_move_frame (MetaWindow  *window,
 {
   int x = root_x_nw;
   int y = root_y_nw;
+  MetaFrameBorders borders;
 
-  if (window->frame)
-    {
-      MetaFrameBorders borders;
-      meta_frame_calc_borders (window->frame, &borders);
+  meta_frame_calc_borders (window->frame, &borders);
 
-      /* root_x_nw and root_y_nw correspond to where the top of
-       * the visible frame should be. Offset by the distance between
-       * the origin of the window and the origin of the enclosing
-       * window decorations.
-       */
-      x += window->frame->child_x - borders.invisible.left;
-      y += window->frame->child_y - borders.invisible.top;
-    }
+  /* root_x_nw and root_y_nw correspond to where the top of
+   * the visible frame should be. Offset by the distance between
+   * the origin of the window and the origin of the enclosing
+   * window decorations.
+   */
+  x += window->frame->child_x - borders.invisible.left;
+  y += window->frame->child_y - borders.invisible.top;
+
   meta_window_move (window, user_op, x, y);
 }
 
@@ -5121,18 +5168,17 @@ meta_window_move_resize_frame (MetaWindow  *window,
                                int          w,
                                int          h)
 {
-  if (window->frame)
-    {
-      MetaFrameBorders borders;
-      meta_frame_calc_borders (window->frame, &borders);
-      /* offset by the distance between the origin of the window
-       * and the origin of the enclosing window decorations ( + border)
-       */
-      root_x_nw += borders.visible.left;
-      root_y_nw += borders.visible.top;
-      w -= borders.visible.left + borders.visible.right;
-      h -= borders.visible.top + borders.visible.bottom;
-    }
+  MetaFrameBorders borders;
+
+  meta_frame_calc_borders (window->frame, &borders);
+  /* offset by the distance between the origin of the window
+   * and the origin of the enclosing window decorations ( + border)
+   */
+  root_x_nw += borders.visible.left;
+  root_y_nw += borders.visible.top;
+  w -= borders.visible.left + borders.visible.right;
+  h -= borders.visible.top + borders.visible.bottom;
+
   meta_window_move_resize (window, user_op, root_x_nw, root_y_nw, w, h);
 }
 
@@ -5764,22 +5810,18 @@ meta_window_get_net_wm_desktop (MetaWindow *window)
 static void
 update_net_frame_extents (MetaWindow *window)
 {
-  unsigned long data[4] = { 0, 0, 0, 0 };
+  unsigned long data[4];
+  MetaFrameBorders borders;
 
-  if (window->frame)
-    {
-      MetaFrameBorders borders;
-
-      meta_frame_calc_borders (window->frame, &borders);
-      /* Left */
-      data[0] = borders.visible.left;
-      /* Right */
-      data[1] = borders.visible.right;
-      /* Top */
-      data[2] = borders.visible.top;
-      /* Bottom */
-      data[3] = borders.visible.bottom;
-    }
+  meta_frame_calc_borders (window->frame, &borders);
+  /* Left */
+  data[0] = borders.visible.left;
+  /* Right */
+  data[1] = borders.visible.right;
+  /* Top */
+  data[2] = borders.visible.top;
+  /* Bottom */
+  data[3] = borders.visible.bottom;
 
   meta_topic (META_DEBUG_GEOMETRY,
               "Setting _NET_FRAME_EXTENTS on managed window 0x%lx "
@@ -7425,8 +7467,10 @@ meta_window_get_workspaces (MetaWindow *window)
 {
   if (window->on_all_workspaces)
     return window->screen->workspaces;
-  else
+  else if (window->workspace != NULL)
     return window->workspace->list_containing_self;
+  else
+    return NULL;
 }
 
 static void
@@ -7964,6 +8008,23 @@ recalc_window_features (MetaWindow *window)
       window->has_move_func = FALSE;
       window->has_resize_func = FALSE;
       window->has_maximize_func = FALSE;
+    }
+
+  if (window->has_maximize_func)
+    {
+      MetaRectangle work_area;
+      MetaFrameBorders borders;
+      int min_frame_width, min_frame_height;
+
+      meta_window_get_work_area_current_monitor (window, &work_area);
+      meta_frame_calc_borders (window->frame, &borders);
+
+      min_frame_width = window->size_hints.min_width + borders.visible.left + borders.visible.right;
+      min_frame_height = window->size_hints.min_height + borders.visible.top + borders.visible.bottom;
+
+      if (min_frame_width >= work_area.width ||
+          min_frame_height >= work_area.height)
+        window->has_maximize_func = FALSE;
     }
 
   meta_topic (META_DEBUG_WINDOW_OPS,
@@ -10666,4 +10727,100 @@ gboolean
 meta_window_is_attached_dialog (MetaWindow *window)
 {
   return window->attached;
+}
+
+/**
+ * meta_window_get_tile_match:
+ *
+ * Returns the matching tiled window on the same monitor as @window. This is
+ * the topmost tiled window in a complementary tile mode that is:
+ *
+ *  - on the same monitor;
+ *  - on the same workspace;
+ *  - spanning the remaining monitor width;
+ *  - there is no 3rd window stacked between both tiled windows that's
+ *    partially visible in the common edge.
+ *
+ * Return value: (transfer none) (allow-none): the matching tiled window or
+ * %NULL if it doesn't exist.
+ */
+MetaWindow *
+meta_window_get_tile_match (MetaWindow *window)
+{
+  return window->tile_match;
+}
+
+void
+meta_window_compute_tile_match (MetaWindow *window)
+{
+  MetaWindow *match;
+  MetaStack *stack;
+  MetaTileMode match_tile_mode = META_TILE_NONE;
+
+  window->tile_match = NULL;
+
+  if (window->shaded || window->minimized)
+    return;
+
+  if (META_WINDOW_TILED_LEFT (window))
+    match_tile_mode = META_TILE_RIGHT;
+  else if (META_WINDOW_TILED_RIGHT (window))
+    match_tile_mode = META_TILE_LEFT;
+  else
+    return;
+
+  stack = window->screen->stack;
+
+  for (match = meta_stack_get_top (stack);
+       match;
+       match = meta_stack_get_below (stack, match, FALSE))
+    {
+      if (!match->shaded &&
+          !match->minimized &&
+          match->tile_mode == match_tile_mode &&
+          match->monitor == window->monitor &&
+          meta_window_get_workspace (match) == meta_window_get_workspace (window))
+        break;
+    }
+
+  if (match)
+    {
+      MetaWindow *above, *bottommost, *topmost;
+      MetaRectangle above_rect, bottommost_rect, topmost_rect;
+
+      if (meta_stack_windows_cmp (window->screen->stack, match, window) > 0)
+        {
+          topmost = match;
+          bottommost = window;
+        }
+      else
+        {
+          topmost = window;
+          bottommost = match;
+        }
+
+      meta_window_get_outer_rect (bottommost, &bottommost_rect);
+      meta_window_get_outer_rect (topmost, &topmost_rect);
+      /*
+       * If there's a window stacked in between which is partially visible
+       * behind the topmost tile we don't consider the tiles to match.
+       */
+      for (above = meta_stack_get_above (stack, bottommost, FALSE);
+           above && above != topmost;
+           above = meta_stack_get_above (stack, above, FALSE))
+        {
+          if (above->minimized ||
+              above->monitor != window->monitor ||
+              meta_window_get_workspace (above) != meta_window_get_workspace (window))
+            continue;
+
+          meta_window_get_outer_rect (above, &above_rect);
+
+          if (meta_rectangle_overlap (&above_rect, &bottommost_rect) &&
+              meta_rectangle_overlap (&above_rect, &topmost_rect))
+            return;
+        }
+
+      window->tile_match = match;
+    }
 }

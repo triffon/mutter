@@ -33,7 +33,8 @@ typedef enum
 {
   META_TAB_LIST_NORMAL,
   META_TAB_LIST_DOCKS,
-  META_TAB_LIST_GROUP
+  META_TAB_LIST_GROUP,
+  META_TAB_LIST_NORMAL_ALL
 } MetaTabList;
 
 typedef enum
@@ -90,6 +91,8 @@ gboolean meta_display_xserver_time_is_before (MetaDisplay *display,
 guint32 meta_display_get_last_user_time (MetaDisplay *display);
 guint32 meta_display_get_current_time (MetaDisplay *display);
 guint32 meta_display_get_current_time_roundtrip (MetaDisplay *display);
+
+unsigned int meta_display_get_ignored_modifier_mask (MetaDisplay  *display);
 
 GList* meta_display_get_tab_list (MetaDisplay   *display,
                                   MetaTabList    type,
