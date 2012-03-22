@@ -1,3 +1,13 @@
+mutter (3.3.92-0ubuntu1) precise; urgency=low
+
+  * New upstream release.
+    - No longer affects the number of workspaces in Unity 2D (LP: #826089)
+  * debian/control.in:
+    - Break gnome-shell (<< 3.3.92~) since this needs to be upgraded
+      at the same time as gnome-shell
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Thu, 22 Mar 2012 01:45:36 -0400
+
 mutter (3.3.90-0ubuntu1) precise; urgency=low
 
   [ Rico Tzschichholz ]

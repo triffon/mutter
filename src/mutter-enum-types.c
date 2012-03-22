@@ -441,6 +441,7 @@ meta_tab_list_get_type (void)
         { META_TAB_LIST_NORMAL, "META_TAB_LIST_NORMAL", "normal" },
         { META_TAB_LIST_DOCKS, "META_TAB_LIST_DOCKS", "docks" },
         { META_TAB_LIST_GROUP, "META_TAB_LIST_GROUP", "group" },
+        { META_TAB_LIST_NORMAL_ALL, "META_TAB_LIST_NORMAL_ALL", "normal-all" },
         { 0, NULL, NULL }
       };
       GType g_enum_type_id;
@@ -601,6 +602,7 @@ meta_preference_get_type (void)
         { META_PREF_THEME, "META_PREF_THEME", "theme" },
         { META_PREF_TITLEBAR_FONT, "META_PREF_TITLEBAR_FONT", "titlebar-font" },
         { META_PREF_NUM_WORKSPACES, "META_PREF_NUM_WORKSPACES", "num-workspaces" },
+        { META_PREF_DYNAMIC_WORKSPACES, "META_PREF_DYNAMIC_WORKSPACES", "dynamic-workspaces" },
         { META_PREF_APPLICATION_BASED, "META_PREF_APPLICATION_BASED", "application-based" },
         { META_PREF_KEYBINDINGS, "META_PREF_KEYBINDINGS", "keybindings" },
         { META_PREF_DISABLE_WORKAROUNDS, "META_PREF_DISABLE_WORKAROUNDS", "disable-workarounds" },
