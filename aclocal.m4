@@ -1,7 +1,8 @@
-# generated automatically by aclocal 1.11.1 -*- Autoconf -*-
+# generated automatically by aclocal 1.11.3 -*- Autoconf -*-
 
 # Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-# 2005, 2006, 2007, 2008, 2009  Free Software Foundation, Inc.
+# 2005, 2006, 2007, 2008, 2009, 2010, 2011 Free Software Foundation,
+# Inc.
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -19,11 +20,14 @@ You have another version of autoconf.  It may work, but is not guaranteed to.
 If you have problems, you may need to regenerate the build system entirely.
 To do so, use the procedure documented by the package, typically `autoreconf'.])])
 
-# Copyright (C) 2002, 2003, 2005, 2006, 2007, 2008  Free Software Foundation, Inc.
+# Copyright (C) 2002, 2003, 2005, 2006, 2007, 2008, 2011 Free Software
+# Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
+
+# serial 1
 
 # AM_AUTOMAKE_VERSION(VERSION)
 # ----------------------------
@@ -34,7 +38,7 @@ AC_DEFUN([AM_AUTOMAKE_VERSION],
 [am__api_version='1.11'
 dnl Some users find AM_AUTOMAKE_VERSION and mistake it for a way to
 dnl require some minimum version.  Point them to the right macro.
-m4_if([$1], [1.11.1], [],
+m4_if([$1], [1.11.3], [],
       [AC_FATAL([Do not call $0, use AM_INIT_AUTOMAKE([$1]).])])dnl
 ])
 
@@ -50,18 +54,20 @@ m4_define([_AM_AUTOCONF_VERSION], [])
 # Call AM_AUTOMAKE_VERSION and AM_AUTOMAKE_VERSION so they can be traced.
 # This function is AC_REQUIREd by AM_INIT_AUTOMAKE.
 AC_DEFUN([AM_SET_CURRENT_AUTOMAKE_VERSION],
-[AM_AUTOMAKE_VERSION([1.11.1])dnl
+[AM_AUTOMAKE_VERSION([1.11.3])dnl
 m4_ifndef([AC_AUTOCONF_VERSION],
   [m4_copy([m4_PACKAGE_VERSION], [AC_AUTOCONF_VERSION])])dnl
 _AM_AUTOCONF_VERSION(m4_defn([AC_AUTOCONF_VERSION]))])
 
 # AM_AUX_DIR_EXPAND                                         -*- Autoconf -*-
 
-# Copyright (C) 2001, 2003, 2005  Free Software Foundation, Inc.
+# Copyright (C) 2001, 2003, 2005, 2011 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
+
+# serial 1
 
 # For projects using AC_CONFIG_AUX_DIR([foo]), Autoconf sets
 # $ac_aux_dir to `$srcdir/foo'.  In other projects, it is set to
@@ -144,14 +150,14 @@ AC_CONFIG_COMMANDS_PRE(
 Usually this means the macro was only invoked conditionally.]])
 fi])])
 
-# Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2009
-# Free Software Foundation, Inc.
+# Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2009,
+# 2010, 2011 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
 
-# serial 10
+# serial 12
 
 # There are a few dirty hacks below to avoid letting `AC_PROG_CC' be
 # written in clear, in which case automake, when reading aclocal.m4,
@@ -191,6 +197,7 @@ AC_CACHE_CHECK([dependency style of $depcc],
   # instance it was reported that on HP-UX the gcc test will end up
   # making a dummy file named `D' -- because `-MD' means `put the output
   # in D'.
+  rm -rf conftest.dir
   mkdir conftest.dir
   # Copy depcomp to subdir because otherwise we won't find it if we're
   # using a relative directory.
@@ -255,7 +262,7 @@ AC_CACHE_CHECK([dependency style of $depcc],
 	break
       fi
       ;;
-    msvisualcpp | msvcmsys)
+    msvc7 | msvc7msys | msvisualcpp | msvcmsys)
       # This compiler won't grok `-c -o', but also, the minuso test has
       # not run yet.  These depmodes are late enough in the game, and
       # so weak that their functioning should not be impacted.
@@ -320,10 +327,13 @@ AC_DEFUN([AM_DEP_TRACK],
 if test "x$enable_dependency_tracking" != xno; then
   am_depcomp="$ac_aux_dir/depcomp"
   AMDEPBACKSLASH='\'
+  am__nodep='_no'
 fi
 AM_CONDITIONAL([AMDEP], [test "x$enable_dependency_tracking" != xno])
 AC_SUBST([AMDEPBACKSLASH])dnl
 _AM_SUBST_NOTMAKE([AMDEPBACKSLASH])dnl
+AC_SUBST([am__nodep])dnl
+_AM_SUBST_NOTMAKE([am__nodep])dnl
 ])
 
 # Generate code to set up dependency tracking.              -*- Autoconf -*-
@@ -545,11 +555,14 @@ for _am_header in $config_headers :; do
 done
 echo "timestamp for $_am_arg" >`AS_DIRNAME(["$_am_arg"])`/stamp-h[]$_am_stamp_count])
 
-# Copyright (C) 2001, 2003, 2005, 2008  Free Software Foundation, Inc.
+# Copyright (C) 2001, 2003, 2005, 2008, 2011 Free Software Foundation,
+# Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
+
+# serial 1
 
 # AM_PROG_INSTALL_SH
 # ------------------
@@ -590,8 +603,8 @@ AC_SUBST([am__leading_dot])])
 # Add --enable-maintainer-mode option to configure.         -*- Autoconf -*-
 # From Jim Meyering
 
-# Copyright (C) 1996, 1998, 2000, 2001, 2002, 2003, 2004, 2005, 2008
-# Free Software Foundation, Inc.
+# Copyright (C) 1996, 1998, 2000, 2001, 2002, 2003, 2004, 2005, 2008,
+# 2011 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -611,7 +624,7 @@ AC_DEFUN([AM_MAINTAINER_MODE],
        [disable], [m4_define([am_maintainer_other], [enable])],
        [m4_define([am_maintainer_other], [enable])
         m4_warn([syntax], [unexpected argument to AM@&t@_MAINTAINER_MODE: $1])])
-AC_MSG_CHECKING([whether to am_maintainer_other maintainer-specific portions of Makefiles])
+AC_MSG_CHECKING([whether to enable maintainer-specific portions of Makefiles])
   dnl maintainer-mode's default is 'disable' unless 'enable' is passed
   AC_ARG_ENABLE([maintainer-mode],
 [  --][am_maintainer_other][-maintainer-mode  am_maintainer_other make rules and dependencies not useful
@@ -722,11 +735,14 @@ else
 fi
 ])
 
-# Copyright (C) 2003, 2004, 2005, 2006  Free Software Foundation, Inc.
+# Copyright (C) 2003, 2004, 2005, 2006, 2011 Free Software Foundation,
+# Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
+
+# serial 1
 
 # AM_PROG_MKDIR_P
 # ---------------
@@ -750,13 +766,14 @@ esac
 
 # Helper functions for option handling.                     -*- Autoconf -*-
 
-# Copyright (C) 2001, 2002, 2003, 2005, 2008  Free Software Foundation, Inc.
+# Copyright (C) 2001, 2002, 2003, 2005, 2008, 2010 Free Software
+# Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
 
-# serial 4
+# serial 5
 
 # _AM_MANGLE_OPTION(NAME)
 # -----------------------
@@ -764,13 +781,13 @@ AC_DEFUN([_AM_MANGLE_OPTION],
 [[_AM_OPTION_]m4_bpatsubst($1, [[^a-zA-Z0-9_]], [_])])
 
 # _AM_SET_OPTION(NAME)
-# ------------------------------
+# --------------------
 # Set option NAME.  Presently that only means defining a flag for this option.
 AC_DEFUN([_AM_SET_OPTION],
 [m4_define(_AM_MANGLE_OPTION([$1]), 1)])
 
 # _AM_SET_OPTIONS(OPTIONS)
-# ----------------------------------
+# ------------------------
 # OPTIONS is a space-separated list of Automake options.
 AC_DEFUN([_AM_SET_OPTIONS],
 [m4_foreach_w([_AM_Option], [$1], [_AM_SET_OPTION(_AM_Option)])])
@@ -781,12 +798,14 @@ AC_DEFUN([_AM_SET_OPTIONS],
 AC_DEFUN([_AM_IF_OPTION],
 [m4_ifset(_AM_MANGLE_OPTION([$1]), [$2], [$3])])
 
-# Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2008, 2009
-# Free Software Foundation, Inc.
+# Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2008, 2009,
+# 2011 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
+
+# serial 2
 
 # AM_PATH_PYTHON([MINIMUM-VERSION], [ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
 # ---------------------------------------------------------------------------
@@ -815,8 +834,10 @@ AC_DEFUN([AM_PATH_PYTHON],
   dnl Find a Python interpreter.  Python versions prior to 2.0 are not
   dnl supported. (2.0 was released on October 16, 2000).
   m4_define_default([_AM_PYTHON_INTERPRETER_LIST],
-                    [python python2 python3 python3.0 python2.5 python2.4 python2.3 python2.2 dnl
-python2.1 python2.0])
+[python python2 python3 python3.2 python3.1 python3.0 python2.7 dnl
+ python2.6 python2.5 python2.4 python2.3 python2.2 python2.1 python2.0])
+
+  AC_ARG_VAR([PYTHON], [the Python interpreter])
 
   m4_if([$1],[],[
     dnl No version check is needed.
@@ -888,9 +909,7 @@ python2.1 python2.0])
   dnl   site-packages directory, not the python standard library
   dnl   directory like in previous automake betas.  This behavior
   dnl   is more consistent with lispdir.m4 for example.
-  dnl Query distutils for this directory.  distutils does not exist in
-  dnl Python 1.5, so we fall back to the hardcoded directory if it
-  dnl doesn't work.
+  dnl Query distutils for this directory.
   AC_CACHE_CHECK([for $am_display_PYTHON script directory],
     [am_cv_python_pythondir],
     [if test "x$prefix" = xNONE
@@ -899,8 +918,7 @@ python2.1 python2.0])
      else
        am_py_prefix=$prefix
      fi
-     am_cv_python_pythondir=`$PYTHON -c "import sys; from distutils import sysconfig; sys.stdout.write(sysconfig.get_python_lib(0,0,prefix='$am_py_prefix'))" 2>/dev/null ||
-     echo "$PYTHON_PREFIX/lib/python$PYTHON_VERSION/site-packages"`
+     am_cv_python_pythondir=`$PYTHON -c "import sys; from distutils import sysconfig; sys.stdout.write(sysconfig.get_python_lib(0,0,prefix='$am_py_prefix'))" 2>/dev/null`
      case $am_cv_python_pythondir in
      $am_py_prefix*)
        am__strip_prefix=`echo "$am_py_prefix" | sed 's|.|.|g'`
@@ -926,9 +944,7 @@ python2.1 python2.0])
 
   dnl pyexecdir -- directory for installing python extension modules
   dnl   (shared libraries)
-  dnl Query distutils for this directory.  distutils does not exist in
-  dnl Python 1.5, so we fall back to the hardcoded directory if it
-  dnl doesn't work.
+  dnl Query distutils for this directory.
   AC_CACHE_CHECK([for $am_display_PYTHON extension module directory],
     [am_cv_python_pyexecdir],
     [if test "x$exec_prefix" = xNONE
@@ -937,8 +953,7 @@ python2.1 python2.0])
      else
        am_py_exec_prefix=$exec_prefix
      fi
-     am_cv_python_pyexecdir=`$PYTHON -c "import sys; from distutils import sysconfig; sys.stdout.write(sysconfig.get_python_lib(1,0,prefix='$am_py_exec_prefix'))" 2>/dev/null ||
-     echo "$PYTHON_EXEC_PREFIX/lib/python$PYTHON_VERSION/site-packages"`
+     am_cv_python_pyexecdir=`$PYTHON -c "import sys; from distutils import sysconfig; sys.stdout.write(sysconfig.get_python_lib(1,0,prefix='$am_py_exec_prefix'))" 2>/dev/null`
      case $am_cv_python_pyexecdir in
      $am_py_exec_prefix*)
        am__strip_prefix=`echo "$am_py_exec_prefix" | sed 's|.|.|g'`
@@ -986,11 +1001,13 @@ for i in list(range(0, 4)): minverhex = (minverhex << 8) + minver[[i]]
 sys.exit(sys.hexversion < minverhex)"
   AS_IF([AM_RUN_LOG([$1 -c "$prog"])], [$3], [$4])])
 
-# Copyright (C) 2001, 2003, 2005  Free Software Foundation, Inc.
+# Copyright (C) 2001, 2003, 2005, 2011 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
+
+# serial 1
 
 # AM_RUN_LOG(COMMAND)
 # -------------------
@@ -1068,13 +1085,13 @@ Check your system clock])
 fi
 AC_MSG_RESULT(yes)])
 
-# Copyright (C) 2009  Free Software Foundation, Inc.
+# Copyright (C) 2009, 2011  Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
 
-# serial 1
+# serial 2
 
 # AM_SILENT_RULES([DEFAULT])
 # --------------------------
@@ -1089,17 +1106,49 @@ yes) AM_DEFAULT_VERBOSITY=0;;
 no)  AM_DEFAULT_VERBOSITY=1;;
 *)   AM_DEFAULT_VERBOSITY=m4_if([$1], [yes], [0], [1]);;
 esac
+dnl
+dnl A few `make' implementations (e.g., NonStop OS and NextStep)
+dnl do not support nested variable expansions.
+dnl See automake bug#9928 and bug#10237.
+am_make=${MAKE-make}
+AC_CACHE_CHECK([whether $am_make supports nested variables],
+   [am_cv_make_support_nested_variables],
+   [if AS_ECHO([['TRUE=$(BAR$(V))
+BAR0=false
+BAR1=true
+V=1
+am__doit:
+	@$(TRUE)
+.PHONY: am__doit']]) | $am_make -f - >/dev/null 2>&1; then
+  am_cv_make_support_nested_variables=yes
+else
+  am_cv_make_support_nested_variables=no
+fi])
+if test $am_cv_make_support_nested_variables = yes; then
+  dnl Using `$V' instead of `$(V)' breaks IRIX make.
+  AM_V='$(V)'
+  AM_DEFAULT_V='$(AM_DEFAULT_VERBOSITY)'
+else
+  AM_V=$AM_DEFAULT_VERBOSITY
+  AM_DEFAULT_V=$AM_DEFAULT_VERBOSITY
+fi
+AC_SUBST([AM_V])dnl
+AM_SUBST_NOTMAKE([AM_V])dnl
+AC_SUBST([AM_DEFAULT_V])dnl
+AM_SUBST_NOTMAKE([AM_DEFAULT_V])dnl
 AC_SUBST([AM_DEFAULT_VERBOSITY])dnl
 AM_BACKSLASH='\'
 AC_SUBST([AM_BACKSLASH])dnl
 _AM_SUBST_NOTMAKE([AM_BACKSLASH])dnl
 ])
 
-# Copyright (C) 2001, 2003, 2005  Free Software Foundation, Inc.
+# Copyright (C) 2001, 2003, 2005, 2011 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
+
+# serial 1
 
 # AM_PROG_INSTALL_STRIP
 # ---------------------
@@ -1123,13 +1172,13 @@ fi
 INSTALL_STRIP_PROGRAM="\$(install_sh) -c -s"
 AC_SUBST([INSTALL_STRIP_PROGRAM])])
 
-# Copyright (C) 2006, 2008  Free Software Foundation, Inc.
+# Copyright (C) 2006, 2008, 2010 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
 
-# serial 2
+# serial 3
 
 # _AM_SUBST_NOTMAKE(VARIABLE)
 # ---------------------------
@@ -1138,13 +1187,13 @@ AC_SUBST([INSTALL_STRIP_PROGRAM])])
 AC_DEFUN([_AM_SUBST_NOTMAKE])
 
 # AM_SUBST_NOTMAKE(VARIABLE)
-# ---------------------------
+# --------------------------
 # Public sister of _AM_SUBST_NOTMAKE.
 AC_DEFUN([AM_SUBST_NOTMAKE], [_AM_SUBST_NOTMAKE($@)])
 
 # Check how to create a tarball.                            -*- Autoconf -*-
 
-# Copyright (C) 2004, 2005  Free Software Foundation, Inc.
+# Copyright (C) 2004, 2005, 2012 Free Software Foundation, Inc.
 #
 # This file is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -1166,10 +1215,11 @@ AC_DEFUN([AM_SUBST_NOTMAKE], [_AM_SUBST_NOTMAKE($@)])
 # a tarball read from stdin.
 #     $(am__untar) < result.tar
 AC_DEFUN([_AM_PROG_TAR],
-[# Always define AMTAR for backward compatibility.
-AM_MISSING_PROG([AMTAR], [tar])
+[# Always define AMTAR for backward compatibility.  Yes, it's still used
+# in the wild :-(  We should find a proper way to deprecate it ...
+AC_SUBST([AMTAR], ['$${TAR-tar}'])
 m4_if([$1], [v7],
-     [am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'],
+     [am__tar='$${TAR-tar} chof - "$$tardir"' am__untar='$${TAR-tar} xf -'],
      [m4_case([$1], [ustar],, [pax],,
               [m4_fatal([Unknown tar format])])
 AC_MSG_CHECKING([how to create a $1 tar archive])
@@ -1241,8 +1291,8 @@ AC_SUBST([am__untar])
 # libtool.m4 - Configure libtool for the host system. -*-Autoconf-*-
 #
 #   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005,
-#                 2006, 2007, 2008, 2009, 2010 Free Software Foundation,
-#                 Inc.
+#                 2006, 2007, 2008, 2009, 2010, 2011 Free Software
+#                 Foundation, Inc.
 #   Written by Gordon Matzigkeit, 1996
 #
 # This file is free software; the Free Software Foundation gives
@@ -1251,8 +1301,8 @@ AC_SUBST([am__untar])
 
 m4_define([_LT_COPYING], [dnl
 #   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005,
-#                 2006, 2007, 2008, 2009, 2010 Free Software Foundation,
-#                 Inc.
+#                 2006, 2007, 2008, 2009, 2010, 2011 Free Software
+#                 Foundation, Inc.
 #   Written by Gordon Matzigkeit, 1996
 #
 #   This file is part of GNU Libtool.
@@ -1386,6 +1436,8 @@ AC_REQUIRE([AC_CANONICAL_BUILD])dnl
 AC_REQUIRE([_LT_PREPARE_SED_QUOTE_VARS])dnl
 AC_REQUIRE([_LT_PROG_ECHO_BACKSLASH])dnl
 
+_LT_DECL([], [PATH_SEPARATOR], [1], [The PATH separator for the build system])dnl
+dnl
 _LT_DECL([], [host_alias], [0], [The host system])dnl
 _LT_DECL([], [host], [0])dnl
 _LT_DECL([], [host_os], [0])dnl
@@ -1871,7 +1923,7 @@ m4_ifset([AC_PACKAGE_NAME], [AC_PACKAGE_NAME ])config.lt[]dnl
 m4_ifset([AC_PACKAGE_VERSION], [ AC_PACKAGE_VERSION])
 configured by $[0], generated by m4_PACKAGE_STRING.
 
-Copyright (C) 2010 Free Software Foundation, Inc.
+Copyright (C) 2011 Free Software Foundation, Inc.
 This config.lt script is free software; the Free Software Foundation
 gives unlimited permision to copy, distribute and modify it."
 
@@ -2035,6 +2087,7 @@ AC_DEFUN([LT_LANG],
 m4_case([$1],
   [C],			[_LT_LANG(C)],
   [C++],		[_LT_LANG(CXX)],
+  [Go],			[_LT_LANG(GO)],
   [Java],		[_LT_LANG(GCJ)],
   [Fortran 77],		[_LT_LANG(F77)],
   [Fortran],		[_LT_LANG(FC)],
@@ -2054,6 +2107,29 @@ m4_defun([_LT_LANG],
   m4_define([_LT_LANG_]$1[_enabled], [])dnl
   _LT_LANG_$1_CONFIG($1)])dnl
 ])# _LT_LANG
+
+
+m4_ifndef([AC_PROG_GO], [
+# NOTE: This macro has been submitted for inclusion into   #
+#  GNU Autoconf as AC_PROG_GO.  When it is available in    #
+#  a released version of Autoconf we should remove this    #
+#  macro and use it instead.                               #
+m4_defun([AC_PROG_GO],
+[AC_LANG_PUSH(Go)dnl
+AC_ARG_VAR([GOC],     [Go compiler command])dnl
+AC_ARG_VAR([GOFLAGS], [Go compiler flags])dnl
+_AC_ARG_VAR_LDFLAGS()dnl
+AC_CHECK_TOOL(GOC, gccgo)
+if test -z "$GOC"; then
+  if test -n "$ac_tool_prefix"; then
+    AC_CHECK_PROG(GOC, [${ac_tool_prefix}gccgo], [${ac_tool_prefix}gccgo])
+  fi
+fi
+if test -z "$GOC"; then
+  AC_CHECK_PROG(GOC, gccgo, gccgo, false)
+fi
+])#m4_defun
+])#m4_ifndef
 
 
 # _LT_LANG_DEFAULT_CONFIG
@@ -2085,6 +2161,10 @@ AC_PROVIDE_IFELSE([AC_PROG_GCJ],
 	[m4_define([A][M_PROG_GCJ], defn([A][M_PROG_GCJ])[LT_LANG(GCJ)])])
        m4_ifdef([LT_PROG_GCJ],
 	[m4_define([LT_PROG_GCJ], defn([LT_PROG_GCJ])[LT_LANG(GCJ)])])])])])
+
+AC_PROVIDE_IFELSE([AC_PROG_GO],
+  [LT_LANG(GO)],
+  [m4_define([AC_PROG_GO], defn([AC_PROG_GO])[LT_LANG(GO)])])
 
 AC_PROVIDE_IFELSE([LT_PROG_RC],
   [LT_LANG(RC)],
@@ -2188,7 +2268,13 @@ m4_defun_once([_LT_REQUIRED_DARWIN_CHECKS],[
 	$LTCC $LTCFLAGS $LDFLAGS -o libconftest.dylib \
 	  -dynamiclib -Wl,-single_module conftest.c 2>conftest.err
         _lt_result=$?
-	if test -f libconftest.dylib && test ! -s conftest.err && test $_lt_result = 0; then
+	# If there is a non-empty error log, and "single_module"
+	# appears in it, assume the flag caused a linker warning
+        if test -s conftest.err && $GREP single_module conftest.err; then
+	  cat conftest.err >&AS_MESSAGE_LOG_FD
+	# Otherwise, if the output was created with a 0 exit code from
+	# the compiler, it worked.
+	elif test -f libconftest.dylib && test $_lt_result -eq 0; then
 	  lt_cv_apple_cc_single_mod=yes
 	else
 	  cat conftest.err >&AS_MESSAGE_LOG_FD
@@ -2196,6 +2282,7 @@ m4_defun_once([_LT_REQUIRED_DARWIN_CHECKS],[
 	rm -rf libconftest.dylib*
 	rm -f conftest.*
       fi])
+
     AC_CACHE_CHECK([for -exported_symbols_list linker flag],
       [lt_cv_ld_exported_symbols_list],
       [lt_cv_ld_exported_symbols_list=no
@@ -2207,6 +2294,7 @@ m4_defun_once([_LT_REQUIRED_DARWIN_CHECKS],[
 	[lt_cv_ld_exported_symbols_list=no])
 	LDFLAGS="$save_LDFLAGS"
     ])
+
     AC_CACHE_CHECK([for -force_load linker flag],[lt_cv_ld_force_load],
       [lt_cv_ld_force_load=no
       cat > conftest.c << _LT_EOF
@@ -2224,7 +2312,9 @@ _LT_EOF
       echo "$LTCC $LTCFLAGS $LDFLAGS -o conftest conftest.c -Wl,-force_load,./libconftest.a" >&AS_MESSAGE_LOG_FD
       $LTCC $LTCFLAGS $LDFLAGS -o conftest conftest.c -Wl,-force_load,./libconftest.a 2>conftest.err
       _lt_result=$?
-      if test -f conftest && test ! -s conftest.err && test $_lt_result = 0 && $GREP forced_load conftest 2>&1 >/dev/null; then
+      if test -s conftest.err && $GREP force_load conftest.err; then
+	cat conftest.err >&AS_MESSAGE_LOG_FD
+      elif test -f conftest && test $_lt_result -eq 0 && $GREP forced_load conftest >/dev/null 2>&1 ; then
 	lt_cv_ld_force_load=yes
       else
 	cat conftest.err >&AS_MESSAGE_LOG_FD
@@ -2269,8 +2359,8 @@ _LT_EOF
 ])
 
 
-# _LT_DARWIN_LINKER_FEATURES
-# --------------------------
+# _LT_DARWIN_LINKER_FEATURES([TAG])
+# ---------------------------------
 # Checks for linker and compiler features on darwin
 m4_defun([_LT_DARWIN_LINKER_FEATURES],
 [
@@ -2281,6 +2371,8 @@ m4_defun([_LT_DARWIN_LINKER_FEATURES],
   _LT_TAGVAR(hardcode_shlibpath_var, $1)=unsupported
   if test "$lt_cv_ld_force_load" = "yes"; then
     _LT_TAGVAR(whole_archive_flag_spec, $1)='`for conv in $convenience\"\"; do test  -n \"$conv\" && new_convenience=\"$new_convenience ${wl}-force_load,$conv\"; done; func_echo_all \"$new_convenience\"`'
+    m4_case([$1], [F77], [_LT_TAGVAR(compiler_needs_object, $1)=yes],
+                  [FC],  [_LT_TAGVAR(compiler_needs_object, $1)=yes])
   else
     _LT_TAGVAR(whole_archive_flag_spec, $1)=''
   fi
@@ -2564,14 +2656,27 @@ s390*-*linux*|s390*-*tpf*|sparc*-*linux*)
     CFLAGS="$SAVE_CFLAGS"
   fi
   ;;
-sparc*-*solaris*)
+*-*solaris*)
   # Find out which ABI we are using.
   echo 'int i;' > conftest.$ac_ext
   if AC_TRY_EVAL(ac_compile); then
     case `/usr/bin/file conftest.o` in
     *64-bit*)
       case $lt_cv_prog_gnu_ld in
-      yes*) LD="${LD-ld} -m elf64_sparc" ;;
+      yes*)
+        case $host in
+        i?86-*-solaris*)
+          LD="${LD-ld} -m elf_x86_64"
+          ;;
+        sparc*-*-solaris*)
+          LD="${LD-ld} -m elf64_sparc"
+          ;;
+        esac
+        # GNU ld 2.21 introduced _sol2 emulations.  Use them if available.
+        if ${LD-ld} -V | grep _sol2 >/dev/null 2>&1; then
+          LD="${LD-ld}_sol2"
+        fi
+        ;;
       *)
 	if ${LD-ld} -64 -r -o conftest2.o conftest.o >/dev/null 2>&1; then
 	  LD="${LD-ld} -64"
@@ -2648,13 +2753,13 @@ old_postuninstall_cmds=
 if test -n "$RANLIB"; then
   case $host_os in
   openbsd*)
-    old_postinstall_cmds="$old_postinstall_cmds~\$RANLIB -t \$oldlib"
+    old_postinstall_cmds="$old_postinstall_cmds~\$RANLIB -t \$tool_oldlib"
     ;;
   *)
-    old_postinstall_cmds="$old_postinstall_cmds~\$RANLIB \$oldlib"
+    old_postinstall_cmds="$old_postinstall_cmds~\$RANLIB \$tool_oldlib"
     ;;
   esac
-  old_archive_cmds="$old_archive_cmds~\$RANLIB \$oldlib"
+  old_archive_cmds="$old_archive_cmds~\$RANLIB \$tool_oldlib"
 fi
 
 case $host_os in
@@ -2834,6 +2939,11 @@ AC_CACHE_VAL([lt_cv_sys_max_cmd_len], [dnl
     lt_cv_sys_max_cmd_len=196608
     ;;
 
+  os2*)
+    # The test takes a long time on OS/2.
+    lt_cv_sys_max_cmd_len=8192
+    ;;
+
   osf*)
     # Dr. Hans Ekkehard Plesser reports seeing a kernel panic running configure
     # due to this test when exec_disable_arg_limit is 1 on Tru64. It is not
@@ -2873,7 +2983,7 @@ AC_CACHE_VAL([lt_cv_sys_max_cmd_len], [dnl
       # If test is not a shell built-in, we'll probably end up computing a
       # maximum length that is only half of the actual maximum length, but
       # we can't tell.
-      while { test "X"`func_fallback_echo "$teststring$teststring" 2>/dev/null` \
+      while { test "X"`env echo "$teststring$teststring" 2>/dev/null` \
 	         = "X$teststring$teststring"; } >/dev/null 2>&1 &&
 	      test $i != 17 # 1/2 MB should be enough
       do
@@ -3419,7 +3529,7 @@ need_version=unknown
 
 case $host_os in
 aix3*)
-  version_type=linux
+  version_type=linux # correct to gnu/linux during the next big refactor
   library_names_spec='${libname}${release}${shared_ext}$versuffix $libname.a'
   shlibpath_var=LIBPATH
 
@@ -3428,7 +3538,7 @@ aix3*)
   ;;
 
 aix[[4-9]]*)
-  version_type=linux
+  version_type=linux # correct to gnu/linux during the next big refactor
   need_lib_prefix=no
   need_version=no
   hardcode_into_libs=yes
@@ -3493,7 +3603,7 @@ beos*)
   ;;
 
 bsdi[[45]]*)
-  version_type=linux
+  version_type=linux # correct to gnu/linux during the next big refactor
   need_version=no
   library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext}$major $libname${shared_ext}'
   soname_spec='${libname}${release}${shared_ext}$major'
@@ -3632,16 +3742,12 @@ m4_if([$1], [],[
   ;;
 
 dgux*)
-  version_type=linux
+  version_type=linux # correct to gnu/linux during the next big refactor
   need_lib_prefix=no
   need_version=no
   library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext}$major $libname$shared_ext'
   soname_spec='${libname}${release}${shared_ext}$major'
   shlibpath_var=LD_LIBRARY_PATH
-  ;;
-
-freebsd1*)
-  dynamic_linker=no
   ;;
 
 freebsd* | dragonfly*)
@@ -3651,7 +3757,7 @@ freebsd* | dragonfly*)
     objformat=`/usr/bin/objformat`
   else
     case $host_os in
-    freebsd[[123]]*) objformat=aout ;;
+    freebsd[[23]].*) objformat=aout ;;
     *) objformat=elf ;;
     esac
   fi
@@ -3669,7 +3775,7 @@ freebsd* | dragonfly*)
   esac
   shlibpath_var=LD_LIBRARY_PATH
   case $host_os in
-  freebsd2*)
+  freebsd2.*)
     shlibpath_overrides_runpath=yes
     ;;
   freebsd3.[[01]]* | freebsdelf3.[[01]]*)
@@ -3689,17 +3795,18 @@ freebsd* | dragonfly*)
   ;;
 
 gnu*)
-  version_type=linux
+  version_type=linux # correct to gnu/linux during the next big refactor
   need_lib_prefix=no
   need_version=no
   library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext}${major} ${libname}${shared_ext}'
   soname_spec='${libname}${release}${shared_ext}$major'
   shlibpath_var=LD_LIBRARY_PATH
+  shlibpath_overrides_runpath=no
   hardcode_into_libs=yes
   ;;
 
 haiku*)
-  version_type=linux
+  version_type=linux # correct to gnu/linux during the next big refactor
   need_lib_prefix=no
   need_version=no
   dynamic_linker="$host_os runtime_loader"
@@ -3760,7 +3867,7 @@ hpux9* | hpux10* | hpux11*)
   ;;
 
 interix[[3-9]]*)
-  version_type=linux
+  version_type=linux # correct to gnu/linux during the next big refactor
   need_lib_prefix=no
   need_version=no
   library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext}$major ${libname}${shared_ext}'
@@ -3776,7 +3883,7 @@ irix5* | irix6* | nonstopux*)
     nonstopux*) version_type=nonstopux ;;
     *)
 	if test "$lt_cv_prog_gnu_ld" = yes; then
-		version_type=linux
+		version_type=linux # correct to gnu/linux during the next big refactor
 	else
 		version_type=irix
 	fi ;;
@@ -3813,9 +3920,9 @@ linux*oldld* | linux*aout* | linux*coff*)
   dynamic_linker=no
   ;;
 
-# This must be Linux ELF.
+# This must be glibc/ELF.
 linux* | k*bsd*-gnu | kopensolaris*-gnu)
-  version_type=linux
+  version_type=linux # correct to gnu/linux during the next big refactor
   need_lib_prefix=no
   need_version=no
   library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext}$major $libname${shared_ext}'
@@ -3882,7 +3989,7 @@ netbsd*)
   ;;
 
 newsos6)
-  version_type=linux
+  version_type=linux # correct to gnu/linux during the next big refactor
   library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext}$major $libname${shared_ext}'
   shlibpath_var=LD_LIBRARY_PATH
   shlibpath_overrides_runpath=yes
@@ -3951,7 +4058,7 @@ rdos*)
   ;;
 
 solaris*)
-  version_type=linux
+  version_type=linux # correct to gnu/linux during the next big refactor
   need_lib_prefix=no
   need_version=no
   library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext}$major $libname${shared_ext}'
@@ -3976,7 +4083,7 @@ sunos4*)
   ;;
 
 sysv4 | sysv4.3*)
-  version_type=linux
+  version_type=linux # correct to gnu/linux during the next big refactor
   library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext}$major $libname${shared_ext}'
   soname_spec='${libname}${release}${shared_ext}$major'
   shlibpath_var=LD_LIBRARY_PATH
@@ -4000,7 +4107,7 @@ sysv4 | sysv4.3*)
 
 sysv4*MP*)
   if test -d /usr/nec ;then
-    version_type=linux
+    version_type=linux # correct to gnu/linux during the next big refactor
     library_names_spec='$libname${shared_ext}.$versuffix $libname${shared_ext}.$major $libname${shared_ext}'
     soname_spec='$libname${shared_ext}.$major'
     shlibpath_var=LD_LIBRARY_PATH
@@ -4031,7 +4138,7 @@ sysv5* | sco3.2v5* | sco5v6* | unixware* | OpenUNIX* | sysv4*uw2*)
 
 tpf*)
   # TPF is a cross-target only.  Preferred cross-host = GNU/Linux.
-  version_type=linux
+  version_type=linux # correct to gnu/linux during the next big refactor
   need_lib_prefix=no
   need_version=no
   library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext}$major $libname${shared_ext}'
@@ -4041,7 +4148,7 @@ tpf*)
   ;;
 
 uts4*)
-  version_type=linux
+  version_type=linux # correct to gnu/linux during the next big refactor
   library_names_spec='${libname}${release}${shared_ext}$versuffix ${libname}${release}${shared_ext}$major $libname${shared_ext}'
   soname_spec='${libname}${release}${shared_ext}$major'
   shlibpath_var=LD_LIBRARY_PATH
@@ -4463,7 +4570,7 @@ irix5* | irix6* | nonstopux*)
   lt_cv_deplibs_check_method=pass_all
   ;;
 
-# This must be Linux ELF.
+# This must be glibc/ELF.
 linux* | k*bsd*-gnu | kopensolaris*-gnu)
   lt_cv_deplibs_check_method=pass_all
   ;;
@@ -4883,6 +4990,7 @@ for ac_symprfx in "" "_"; do
     # which start with @ or ?.
     lt_cv_sys_global_symbol_pipe="$AWK ['"\
 "     {last_section=section; section=\$ 3};"\
+"     /^COFF SYMBOL TABLE/{for(i in hide) delete hide[i]};"\
 "     /Section length .*#relocs.*(pick any)/{hide[last_section]=1};"\
 "     \$ 0!~/External *\|/{next};"\
 "     / 0+ UNDEF /{next}; / UNDEF \([^|]\)*()/{next};"\
@@ -5467,7 +5575,9 @@ m4_if([$1], [CXX], [
     case $cc_basename in
     nvcc*) # Cuda Compiler Driver 2.2
       _LT_TAGVAR(lt_prog_compiler_wl, $1)='-Xlinker '
-      _LT_TAGVAR(lt_prog_compiler_pic, $1)='-Xcompiler -fPIC'
+      if test -n "$_LT_TAGVAR(lt_prog_compiler_pic, $1)"; then
+        _LT_TAGVAR(lt_prog_compiler_pic, $1)="-Xcompiler $_LT_TAGVAR(lt_prog_compiler_pic, $1)"
+      fi
       ;;
     esac
   else
@@ -5559,17 +5669,32 @@ m4_if([$1], [CXX], [
 	;;
       *)
 	case `$CC -V 2>&1 | sed 5q` in
-	*Sun\ F* | *Sun*Fortran*)
+	*Sun\ Ceres\ Fortran* | *Sun*Fortran*\ [[1-7]].* | *Sun*Fortran*\ 8.[[0-3]]*)
 	  # Sun Fortran 8.3 passes all unrecognized flags to the linker
 	  _LT_TAGVAR(lt_prog_compiler_pic, $1)='-KPIC'
 	  _LT_TAGVAR(lt_prog_compiler_static, $1)='-Bstatic'
 	  _LT_TAGVAR(lt_prog_compiler_wl, $1)=''
+	  ;;
+	*Sun\ F* | *Sun*Fortran*)
+	  _LT_TAGVAR(lt_prog_compiler_pic, $1)='-KPIC'
+	  _LT_TAGVAR(lt_prog_compiler_static, $1)='-Bstatic'
+	  _LT_TAGVAR(lt_prog_compiler_wl, $1)='-Qoption ld '
 	  ;;
 	*Sun\ C*)
 	  # Sun C 5.9
 	  _LT_TAGVAR(lt_prog_compiler_pic, $1)='-KPIC'
 	  _LT_TAGVAR(lt_prog_compiler_static, $1)='-Bstatic'
 	  _LT_TAGVAR(lt_prog_compiler_wl, $1)='-Wl,'
+	  ;;
+        *Intel*\ [[CF]]*Compiler*)
+	  _LT_TAGVAR(lt_prog_compiler_wl, $1)='-Wl,'
+	  _LT_TAGVAR(lt_prog_compiler_pic, $1)='-fPIC'
+	  _LT_TAGVAR(lt_prog_compiler_static, $1)='-static'
+	  ;;
+	*Portland\ Group*)
+	  _LT_TAGVAR(lt_prog_compiler_wl, $1)='-Wl,'
+	  _LT_TAGVAR(lt_prog_compiler_pic, $1)='-fpic'
+	  _LT_TAGVAR(lt_prog_compiler_static, $1)='-Bstatic'
 	  ;;
 	esac
 	;;
@@ -5730,7 +5855,9 @@ m4_if([$1], [CXX], [
     ;;
   cygwin* | mingw* | cegcc*)
     case $cc_basename in
-    cl*) ;;
+    cl*)
+      _LT_TAGVAR(exclude_expsyms, $1)='_NULL_IMPORT_DESCRIPTOR|_IMPORT_DESCRIPTOR_.*'
+      ;;
     *)
       _LT_TAGVAR(export_symbols_cmds, $1)='$NM $libobjs $convenience | $global_symbol_pipe | $SED -e '\''/^[[BCDGRS]][[ ]]/s/.*[[ ]]\([[^ ]]*\)/\1 DATA/;s/^.*[[ ]]__nm__\([[^ ]]*\)[[ ]][[^ ]]*/\1 DATA/;/^I[[ ]]/d;/^[[AITW]][[ ]]/s/.* //'\'' | sort | uniq > $export_symbols'
       _LT_TAGVAR(exclude_expsyms, $1)=['[_]+GLOBAL_OFFSET_TABLE_|[_]+GLOBAL__[FID]_.*|[_]+head_[A-Za-z0-9_]+_dll|[A-Za-z0-9_]+_dll_iname']
@@ -5755,7 +5882,6 @@ m4_if([$1], [CXX], [
   _LT_TAGVAR(hardcode_direct, $1)=no
   _LT_TAGVAR(hardcode_direct_absolute, $1)=no
   _LT_TAGVAR(hardcode_libdir_flag_spec, $1)=
-  _LT_TAGVAR(hardcode_libdir_flag_spec_ld, $1)=
   _LT_TAGVAR(hardcode_libdir_separator, $1)=
   _LT_TAGVAR(hardcode_minus_L, $1)=no
   _LT_TAGVAR(hardcode_shlibpath_var, $1)=unsupported
@@ -6006,8 +6132,7 @@ _LT_EOF
 	xlf* | bgf* | bgxlf* | mpixlf*)
 	  # IBM XL Fortran 10.1 on PPC cannot create shared libs itself
 	  _LT_TAGVAR(whole_archive_flag_spec, $1)='--whole-archive$convenience --no-whole-archive'
-	  _LT_TAGVAR(hardcode_libdir_flag_spec, $1)=
-	  _LT_TAGVAR(hardcode_libdir_flag_spec_ld, $1)='-rpath $libdir'
+	  _LT_TAGVAR(hardcode_libdir_flag_spec, $1)='${wl}-rpath ${wl}$libdir'
 	  _LT_TAGVAR(archive_cmds, $1)='$LD -shared $libobjs $deplibs $linker_flags -soname $soname -o $lib'
 	  if test "x$supports_anon_versioning" = xyes; then
 	    _LT_TAGVAR(archive_expsym_cmds, $1)='echo "{ global:" > $output_objdir/$libname.ver~
@@ -6302,6 +6427,7 @@ _LT_EOF
 	# The linker will not automatically build a static lib if we build a DLL.
 	# _LT_TAGVAR(old_archive_from_new_cmds, $1)='true'
 	_LT_TAGVAR(enable_shared_with_static_runtimes, $1)=yes
+	_LT_TAGVAR(exclude_expsyms, $1)='_NULL_IMPORT_DESCRIPTOR|_IMPORT_DESCRIPTOR_.*'
 	_LT_TAGVAR(export_symbols_cmds, $1)='$NM $libobjs $convenience | $global_symbol_pipe | $SED -e '\''/^[[BCDGRS]][[ ]]/s/.*[[ ]]\([[^ ]]*\)/\1,DATA/'\'' | $SED -e '\''/^[[AITW]][[ ]]/s/.*[[ ]]//'\'' | sort | uniq > $export_symbols'
 	# Don't use ranlib
 	_LT_TAGVAR(old_postinstall_cmds, $1)='chmod 644 $oldlib'
@@ -6348,10 +6474,6 @@ _LT_EOF
       _LT_TAGVAR(hardcode_shlibpath_var, $1)=no
       ;;
 
-    freebsd1*)
-      _LT_TAGVAR(ld_shlibs, $1)=no
-      ;;
-
     # FreeBSD 2.2.[012] allows us to include c++rt0.o to get C++ constructor
     # support.  Future versions do this automatically, but an explicit c++rt0.o
     # does not break anything, and helps significantly (at the cost of a little
@@ -6364,7 +6486,7 @@ _LT_EOF
       ;;
 
     # Unfortunately, older versions of FreeBSD 2 do not have this feature.
-    freebsd2*)
+    freebsd2.*)
       _LT_TAGVAR(archive_cmds, $1)='$LD -Bshareable -o $lib $libobjs $deplibs $linker_flags'
       _LT_TAGVAR(hardcode_direct, $1)=yes
       _LT_TAGVAR(hardcode_minus_L, $1)=yes
@@ -6403,7 +6525,6 @@ _LT_EOF
       fi
       if test "$with_gnu_ld" = no; then
 	_LT_TAGVAR(hardcode_libdir_flag_spec, $1)='${wl}+b ${wl}$libdir'
-	_LT_TAGVAR(hardcode_libdir_flag_spec_ld, $1)='+b $libdir'
 	_LT_TAGVAR(hardcode_libdir_separator, $1)=:
 	_LT_TAGVAR(hardcode_direct, $1)=yes
 	_LT_TAGVAR(hardcode_direct_absolute, $1)=yes
@@ -6845,9 +6966,6 @@ _LT_TAGDECL([], [no_undefined_flag], [1],
 _LT_TAGDECL([], [hardcode_libdir_flag_spec], [1],
     [Flag to hardcode $libdir into a binary during linking.
     This must work even if $libdir does not exist])
-_LT_TAGDECL([], [hardcode_libdir_flag_spec_ld], [1],
-    [[If ld is used when linking, flag to hardcode $libdir into a binary
-    during linking.  This must work even if $libdir does not exist]])
 _LT_TAGDECL([], [hardcode_libdir_separator], [1],
     [Whether we need a single "-rpath" flag with a separated argument])
 _LT_TAGDECL([], [hardcode_direct], [0],
@@ -7001,7 +7119,6 @@ _LT_TAGVAR(export_dynamic_flag_spec, $1)=
 _LT_TAGVAR(hardcode_direct, $1)=no
 _LT_TAGVAR(hardcode_direct_absolute, $1)=no
 _LT_TAGVAR(hardcode_libdir_flag_spec, $1)=
-_LT_TAGVAR(hardcode_libdir_flag_spec_ld, $1)=
 _LT_TAGVAR(hardcode_libdir_separator, $1)=
 _LT_TAGVAR(hardcode_minus_L, $1)=no
 _LT_TAGVAR(hardcode_shlibpath_var, $1)=unsupported
@@ -7371,7 +7488,7 @@ if test "$_lt_caught_CXX_error" != yes; then
         esac
         ;;
 
-      freebsd[[12]]*)
+      freebsd2.*)
         # C++ shared libraries reported to be fairly broken before
 	# switch to ELF
         _LT_TAGVAR(ld_shlibs, $1)=no
@@ -8132,12 +8249,18 @@ public class foo {
   }
 };
 _LT_EOF
+], [$1], [GO], [cat > conftest.$ac_ext <<_LT_EOF
+package foo
+func foo() {
+}
+_LT_EOF
 ])
 
 _lt_libdeps_save_CFLAGS=$CFLAGS
 case "$CC $CFLAGS " in #(
 *\ -flto*\ *) CFLAGS="$CFLAGS -fno-lto" ;;
 *\ -fwhopr*\ *) CFLAGS="$CFLAGS -fno-whopr" ;;
+*\ -fuse-linker-plugin*\ *) CFLAGS="$CFLAGS -fno-use-linker-plugin" ;;
 esac
 
 dnl Parse the compiler output and extract the necessary
@@ -8334,7 +8457,6 @@ _LT_TAGVAR(export_dynamic_flag_spec, $1)=
 _LT_TAGVAR(hardcode_direct, $1)=no
 _LT_TAGVAR(hardcode_direct_absolute, $1)=no
 _LT_TAGVAR(hardcode_libdir_flag_spec, $1)=
-_LT_TAGVAR(hardcode_libdir_flag_spec_ld, $1)=
 _LT_TAGVAR(hardcode_libdir_separator, $1)=
 _LT_TAGVAR(hardcode_minus_L, $1)=no
 _LT_TAGVAR(hardcode_automatic, $1)=no
@@ -8467,7 +8589,6 @@ _LT_TAGVAR(export_dynamic_flag_spec, $1)=
 _LT_TAGVAR(hardcode_direct, $1)=no
 _LT_TAGVAR(hardcode_direct_absolute, $1)=no
 _LT_TAGVAR(hardcode_libdir_flag_spec, $1)=
-_LT_TAGVAR(hardcode_libdir_flag_spec_ld, $1)=
 _LT_TAGVAR(hardcode_libdir_separator, $1)=
 _LT_TAGVAR(hardcode_minus_L, $1)=no
 _LT_TAGVAR(hardcode_automatic, $1)=no
@@ -8650,6 +8771,73 @@ CFLAGS=$lt_save_CFLAGS
 ])# _LT_LANG_GCJ_CONFIG
 
 
+# _LT_LANG_GO_CONFIG([TAG])
+# --------------------------
+# Ensure that the configuration variables for the GNU Go compiler
+# are suitably defined.  These variables are subsequently used by _LT_CONFIG
+# to write the compiler configuration to `libtool'.
+m4_defun([_LT_LANG_GO_CONFIG],
+[AC_REQUIRE([LT_PROG_GO])dnl
+AC_LANG_SAVE
+
+# Source file extension for Go test sources.
+ac_ext=go
+
+# Object file extension for compiled Go test sources.
+objext=o
+_LT_TAGVAR(objext, $1)=$objext
+
+# Code to be used in simple compile tests
+lt_simple_compile_test_code="package main; func main() { }"
+
+# Code to be used in simple link tests
+lt_simple_link_test_code='package main; func main() { }'
+
+# ltmain only uses $CC for tagged configurations so make sure $CC is set.
+_LT_TAG_COMPILER
+
+# save warnings/boilerplate of simple test code
+_LT_COMPILER_BOILERPLATE
+_LT_LINKER_BOILERPLATE
+
+# Allow CC to be a program name with arguments.
+lt_save_CC=$CC
+lt_save_CFLAGS=$CFLAGS
+lt_save_GCC=$GCC
+GCC=yes
+CC=${GOC-"gccgo"}
+CFLAGS=$GOFLAGS
+compiler=$CC
+_LT_TAGVAR(compiler, $1)=$CC
+_LT_TAGVAR(LD, $1)="$LD"
+_LT_CC_BASENAME([$compiler])
+
+# Go did not exist at the time GCC didn't implicitly link libc in.
+_LT_TAGVAR(archive_cmds_need_lc, $1)=no
+
+_LT_TAGVAR(old_archive_cmds, $1)=$old_archive_cmds
+_LT_TAGVAR(reload_flag, $1)=$reload_flag
+_LT_TAGVAR(reload_cmds, $1)=$reload_cmds
+
+if test -n "$compiler"; then
+  _LT_COMPILER_NO_RTTI($1)
+  _LT_COMPILER_PIC($1)
+  _LT_COMPILER_C_O($1)
+  _LT_COMPILER_FILE_LOCKS($1)
+  _LT_LINKER_SHLIBS($1)
+  _LT_LINKER_HARDCODE_LIBPATH($1)
+
+  _LT_CONFIG($1)
+fi
+
+AC_LANG_RESTORE
+
+GCC=$lt_save_GCC
+CC=$lt_save_CC
+CFLAGS=$lt_save_CFLAGS
+])# _LT_LANG_GO_CONFIG
+
+
 # _LT_LANG_RC_CONFIG([TAG])
 # -------------------------
 # Ensure that the configuration variables for the Windows resource compiler
@@ -8717,6 +8905,13 @@ AC_DEFUN([LT_PROG_GCJ],
 AU_ALIAS([LT_AC_PROG_GCJ], [LT_PROG_GCJ])
 dnl aclocal-1.4 backwards compatibility:
 dnl AC_DEFUN([LT_AC_PROG_GCJ], [])
+
+
+# LT_PROG_GO
+# ----------
+AC_DEFUN([LT_PROG_GO],
+[AC_CHECK_TOOL(GOC, gccgo,)
+])
 
 
 # LT_PROG_RC
@@ -9383,9 +9578,24 @@ dnl AC_DEFUN([AM_DISABLE_FAST_INSTALL], [])
 # MODE is either `yes' or `no'.  If omitted, it defaults to `both'.
 m4_define([_LT_WITH_PIC],
 [AC_ARG_WITH([pic],
-    [AS_HELP_STRING([--with-pic],
+    [AS_HELP_STRING([--with-pic@<:@=PKGS@:>@],
 	[try to use only PIC/non-PIC objects @<:@default=use both@:>@])],
-    [pic_mode="$withval"],
+    [lt_p=${PACKAGE-default}
+    case $withval in
+    yes|no) pic_mode=$withval ;;
+    *)
+      pic_mode=default
+      # Look at the argument we got.  We use all the common list separators.
+      lt_save_ifs="$IFS"; IFS="${IFS}$PATH_SEPARATOR,"
+      for lt_pkg in $withval; do
+	IFS="$lt_save_ifs"
+	if test "X$lt_pkg" = "X$lt_p"; then
+	  pic_mode=yes
+	fi
+      done
+      IFS="$lt_save_ifs"
+      ;;
+    esac],
     [pic_mode=default])
 
 test -z "$pic_mode" && pic_mode=m4_default([$1], [default])
@@ -9557,15 +9767,15 @@ m4_define([lt_dict_filter],
 
 # @configure_input@
 
-# serial 3293 ltversion.m4
+# serial 3337 ltversion.m4
 # This file is part of GNU Libtool
 
-m4_define([LT_PACKAGE_VERSION], [2.4])
-m4_define([LT_PACKAGE_REVISION], [1.3293])
+m4_define([LT_PACKAGE_VERSION], [2.4.2])
+m4_define([LT_PACKAGE_REVISION], [1.3337])
 
 AC_DEFUN([LTVERSION_VERSION],
-[macro_version='2.4'
-macro_revision='1.3293'
+[macro_version='2.4.2'
+macro_revision='1.3337'
 _LT_DECL(, macro_version, 0, [Which release of libtool.m4 was used?])
 _LT_DECL(, macro_revision, 0)
 ])
