@@ -1,3 +1,11 @@
+mutter (3.4.0-0ubuntu1) precise-proposed; urgency=low
+
+  * New upstream release.
+    - Fixes crashes with full-screen apps (LP: #963526)
+    - Fixes some memory leaks
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Mon, 26 Mar 2012 21:04:12 -0400
+
 mutter (3.3.92-0ubuntu1) precise; urgency=low
 
   * New upstream release.
