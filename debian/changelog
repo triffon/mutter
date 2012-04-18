@@ -1,3 +1,22 @@
+mutter (3.4.1-0ubuntu1) precise-proposed; urgency=low
+
+  * New upstream release:
+    - API change: the meta_display_add_keybinding() function added in 3.4
+      wasn't usable from a GNOME Shell extension, so has been changed to take
+      a GSettings object rather than the name of a schema
+    - Fix a crash in the default plugin (not used in GNOME)
+    - Make the <Super> key work when set as the mouse button modifier
+    - Don't try to automaximize non-maximizable windows, fixes misaligned
+      wallpaper (LP: #964796)
+  * mutter-common.gconf-defaults:
+    - Restore Ctrl+Alt+T shortcut for opening the terminal in GNOME
+      Shell (LP: #952223)
+  * mutter-common.gsettings-overrides:
+    - Add Ctrl+Super+Left/Right shortcut for semi-maximizing windows
+      (LP: #982719, LP: #969235)
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Tue, 17 Apr 2012 21:05:15 -0400
+
 mutter (3.4.0-0ubuntu1) precise-proposed; urgency=low
 
   * New upstream release.
