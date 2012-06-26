@@ -1,3 +1,18 @@
+mutter (3.5.3-0ubuntu1) quantal-proposed; urgency=low
+
+  * Merge with Debian. Remaining changes:
+    - New upstream release.
+    - debian/watch: Watch for unstable releases.
+    - mutter-common.gconf-defaults:
+      + Restore Ctrl+Alt+T shortcut for opening the terminal in GNOME
+        Shell
+    - mutter-common.gsettings-overrides:
+      + Add Ctrl+Super+Left/Right shortcut for semi-maximizing windows
+    - debian/patches/04_ignore_shadow_and_padding.patch: Silently ignore
+      padding and shadow tags
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Mon, 25 Jun 2012 21:21:16 -0400
+
 mutter (3.4.1-4) unstable; urgency=low
 
   * Clean up /etc/sgml/mutter-common.cat and /etc/sgml/mutter-common.cat.old

@@ -90,7 +90,9 @@ typedef enum
   STATE_WINDOW,
   /* things we don't use any more but we can still parse: */
   STATE_MENU_ICON,
-  STATE_FALLBACK
+  STATE_FALLBACK,
+  /* an ubuntu specific ignore-this-element state */
+  UBUNTU_STATE_IGNORE  
 } ParseState;
 
 typedef struct
@@ -1306,7 +1308,19 @@ parse_toplevel_element (GMarkupParseContext  *context,
        */
       push_state (info, STATE_FALLBACK);
     }
-   else
+  else if (ELEMENT_IS ("shadow"))
+    {
+       /* ubuntu specific, workaround for light-themes: silently ignore shadow tag.
+        */
+      push_state (info, UBUNTU_STATE_IGNORE);
+    }
+  else if (ELEMENT_IS ("padding"))
+    {
+       /* ubuntu specific, workaround for light-themes: silently ignore padding tag.
+        */
+      push_state (info, UBUNTU_STATE_IGNORE);
+    }
+  else
     {
       set_error (error, context,
                  G_MARKUP_ERROR, G_MARKUP_ERROR_PARSE,
@@ -3027,6 +3041,18 @@ parse_style_element (GMarkupParseContext  *context,
       
       push_state (info, STATE_BUTTON);
     }
+  else if (ELEMENT_IS ("shadow"))
+    {
+       /* ubuntu specific, workaround for light-themes: silently ignore shadow tag.
+        */
+      push_state (info, UBUNTU_STATE_IGNORE);
+    }
+  else if (ELEMENT_IS ("padding"))
+    {
+       /* ubuntu specific, workaround for light-themes: silently ignore padding tag.
+        */
+      push_state (info, UBUNTU_STATE_IGNORE);
+    }
   else
     {
       set_error (error, context,
@@ -3671,6 +3697,8 @@ start_element_handler (GMarkupParseContext *context,
                  _("Element <%s> is not allowed inside a <%s> element"),
                  element_name, "fallback");
       break;
+    case UBUNTU_STATE_IGNORE:
+      break;
     }
 }
 
@@ -3960,6 +3988,9 @@ end_element_handler (GMarkupParseContext *context,
       pop_state (info);
       g_assert (peek_state (info) == STATE_THEME);
       break;
+    case UBUNTU_STATE_IGNORE:
+      pop_state (info);
+      break;
     }
 
   pop_required_version (info);
@@ -4165,6 +4196,9 @@ text_handler (GMarkupParseContext *context,
     case STATE_FALLBACK:
       NO_TEXT ("fallback");
       break;
+    case UBUNTU_STATE_IGNORE:
+      NO_TEXT ("ignored_element");
+      break;
     }
 }
 
@@ -4281,29 +4315,15 @@ meta_theme_load (const char *theme_name,
   int i;
 
   retval = NULL;
-
-  if (meta_is_debugging ())
-    {
-      /* Try in themes in our source tree */
-      /* We try all supported major versions from current to oldest */
-      for (major_version = THEME_MAJOR_VERSION; (major_version > 0); major_version--)
-        {
-          theme_dir = g_build_filename ("./themes", theme_name, NULL);
-          retval = load_theme (theme_dir, theme_name, major_version, &error);
-          g_free (theme_dir);
-          if (!keep_trying (&error))
-            goto out;
-        }
-    }
   
   /* We try all supported major versions from current to oldest */
   for (major_version = THEME_MAJOR_VERSION; (major_version > 0); major_version--)
     {
-      /* We try first in home dir, XDG_DATA_DIRS, then system dir for themes */
+      /* We try first in XDG_USER_DATA_DIR, XDG_DATA_DIRS, then system dir for themes */
 
-      /* Try home dir for themes */
-      theme_dir = g_build_filename (g_get_home_dir (),
-                                    ".themes",
+      /* Try XDG_USER_DATA_DIR first */
+      theme_dir = g_build_filename (g_get_user_data_dir(),
+                                    "themes",
                                     theme_name,
                                     THEME_SUBDIR,
                                     NULL);

@@ -192,7 +192,7 @@ meta_workspace_new (MetaScreen *screen)
   return workspace;
 }
 
-/** Foreach function for workspace_free_struts() */
+/* Foreach function for workspace_free_struts() */
 static void
 free_this (gpointer candidate, gpointer dummy)
 {
@@ -200,9 +200,10 @@ free_this (gpointer candidate, gpointer dummy)
 }
 
 /**
- * Frees the combined struts list of a workspace.
+ * workspace_free_all_struts:
+ * @workspace: The workspace.
  *
- * \param workspace  The workspace.
+ * Frees the combined struts list of a workspace.
  */
 static void
 workspace_free_all_struts (MetaWorkspace *workspace)
@@ -216,9 +217,10 @@ workspace_free_all_struts (MetaWorkspace *workspace)
 }
 
 /**
- * Frees the struts list set with meta_workspace_set_builtin_struts
+ * workspace_free_builtin_struts:
+ * @workspace: The workspace.
  *
- * \param workspace  The workspace.
+ * Frees the struts list set with meta_workspace_set_builtin_struts
  */
 static void
 workspace_free_builtin_struts (MetaWorkspace *workspace)
@@ -997,18 +999,6 @@ ensure_work_areas_validated (MetaWorkspace *workspace)
 
   /* We're all done, YAAY!  Record that everything has been validated. */
   workspace->work_areas_invalid = FALSE;
-
-  {
-    /*
-     * Notify the compositor that the workspace geometry has changed.
-     */
-    MetaScreen     *screen = workspace->screen;
-    MetaDisplay    *display = meta_screen_get_display (screen);
-    MetaCompositor *comp = meta_display_get_compositor (display);
-
-    if (comp)
-      meta_compositor_update_workspace_geometry (comp, workspace);
-  }
 }
 
 static gboolean
@@ -1066,6 +1056,13 @@ meta_workspace_get_work_area_for_monitor (MetaWorkspace *workspace,
   *area = workspace->work_area_monitor[which_monitor];
 }
 
+/**
+ * meta_workspace_get_work_area_all_monitors:
+ * @workspace: a #MetaWorkspace
+ * @area: (out): location to store the work area
+ *
+ * Stores the work area in @area.
+ */
 void
 meta_workspace_get_work_area_all_monitors (MetaWorkspace *workspace,
                                            MetaRectangle *area)
