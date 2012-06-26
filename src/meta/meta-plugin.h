@@ -123,8 +123,6 @@ struct _MetaPluginInfo
 
 GType meta_plugin_get_type (void);
 
-gulong        meta_plugin_features            (MetaPlugin *plugin);
-gboolean      meta_plugin_disabled            (MetaPlugin *plugin);
 gboolean      meta_plugin_running             (MetaPlugin *plugin);
 gboolean      meta_plugin_debug_mode          (MetaPlugin *plugin);
 
@@ -221,9 +219,6 @@ struct _MetaPluginVersion
   }                                                                     \
 
 void
-meta_plugin_type_register (GType plugin_type);
-
-void
 meta_plugin_switch_workspace_completed (MetaPlugin *plugin);
 
 void
@@ -275,5 +270,8 @@ MetaScreen *meta_plugin_get_screen        (MetaPlugin *plugin);
 
 void
 _meta_plugin_effect_started (MetaPlugin *plugin);
+
+/* XXX: Putting this in here so it's in the public header. */
+void     meta_plugin_manager_set_plugin_type (GType gtype);
 
 #endif /* META_PLUGIN_H_ */
