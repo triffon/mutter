@@ -1,3 +1,9 @@
+mutter (3.5.4-0ubuntu1) quantal; urgency=low
+
+  * New upstream release.
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Mon, 16 Jul 2012 18:29:44 -0400
+
 mutter (3.5.3-0ubuntu1) quantal-proposed; urgency=low
 
   * Merge with Debian. Remaining changes:
