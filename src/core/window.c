@@ -198,12 +198,18 @@ prefs_changed_callback (MetaPreference pref,
 {
   MetaWindow *window = data;
 
-  if (pref != META_PREF_WORKSPACES_ONLY_ON_PRIMARY)
-    return;
-
-  meta_window_update_on_all_workspaces (window);
-
-  meta_window_queue (window, META_QUEUE_CALC_SHOWING);
+  if (pref == META_PREF_WORKSPACES_ONLY_ON_PRIMARY)
+    {
+      meta_window_update_on_all_workspaces (window);
+      meta_window_queue (window, META_QUEUE_CALC_SHOWING);
+    }
+  else if (pref == META_PREF_ATTACH_MODAL_DIALOGS &&
+           window->type == META_WINDOW_MODAL_DIALOG)
+    {
+      window->attached = meta_window_should_attach_to_parent (window);
+      recalc_window_features (window);
+      meta_window_queue (window, META_QUEUE_MOVE_RESIZE);
+    }
 }
 
 static void
@@ -3883,15 +3889,6 @@ void
 meta_window_unmaximize (MetaWindow        *window,
                         MetaMaximizeFlags  directions)
 {
-  /* Restore tiling if necessary */
-  if (window->tile_mode == META_TILE_LEFT ||
-      window->tile_mode == META_TILE_RIGHT)
-    {
-      window->maximized_horizontally = FALSE;
-      meta_window_tile (window);
-      return;
-    }
-
   meta_window_unmaximize_internal (window, directions, &window->saved_rect,
                                    NorthWestGravity);
 }
@@ -5676,6 +5673,9 @@ meta_window_change_workspace (MetaWindow    *window,
                               MetaWorkspace *workspace)
 {
   g_return_if_fail (!window->override_redirect);
+
+  if (window->always_sticky)
+    return;
 
   meta_window_change_workspace_without_transients (window, workspace);
 
@@ -8914,12 +8914,15 @@ update_resize (MetaWindow *window,
   dx = x - window->display->grab_anchor_root_x;
   dy = y - window->display->grab_anchor_root_y;
 
-  /* Attached modal dialogs are special in that horizontal
-   * size changes apply to both sides, so that the dialog
+  /* Attached modal dialogs are special in that size
+   * changes apply to both sides, so that the dialog
    * remains centered to the parent.
    */
   if (meta_window_is_attached_dialog (window))
-    dx *= 2;
+    {
+      dx *= 2;
+      dy *= 2;
+    }
 
   new_w = window->display->grab_anchor_window_pos.width;
   new_h = window->display->grab_anchor_window_pos.height;
@@ -10639,7 +10642,8 @@ meta_window_get_frame_type (MetaWindow *window)
       return META_FRAME_TYPE_LAST;
     }
   else if ((window->border_only && base_type != META_FRAME_TYPE_ATTACHED) ||
-           (window->hide_titlebar_when_maximized && META_WINDOW_MAXIMIZED (window)))
+           (window->hide_titlebar_when_maximized && META_WINDOW_MAXIMIZED (window)) ||
+           (window->hide_titlebar_when_maximized && META_WINDOW_TILED_SIDE_BY_SIDE (window)))
     {
       /* override base frame type */
       return META_FRAME_TYPE_BORDER;
