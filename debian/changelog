@@ -1,3 +1,9 @@
+mutter (3.5.5-0ubuntu1) quantal; urgency=low
+
+  * New upstream release.
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Tue, 07 Aug 2012 06:38:58 -0400
+
 mutter (3.5.4-0ubuntu1) quantal; urgency=low
 
   * New upstream release.
