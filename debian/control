@@ -7,7 +7,7 @@ Section: x11
 Priority: optional
 Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 XSBC-Original-Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
-Uploaders: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>, Jeremy Bicha <jbicha@ubuntu.com>, Michael Biebl <biebl@debian.org>, Sjoerd Simons <sjoerd@debian.org>
+Uploaders: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>, Jeremy Bicha <jbicha@ubuntu.com>, Michael Biebl <biebl@debian.org>
 Build-Depends: cdbs (>= 0.4.90),
                debhelper (>= 8),
                dh-autoreconf,
@@ -37,7 +37,6 @@ Build-Depends: cdbs (>= 0.4.90),
                libsm-dev,
                libice-dev,
                zenity,
-               gnome-doc-utils (>= 0.8),
                gnome-pkg-tools (>= 0.10)
 Standards-Version: 3.9.3
 Vcs-Svn: svn://anonscm.debian.org/svn/pkg-gnome/desktop/unstable/mutter

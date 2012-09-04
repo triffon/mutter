@@ -292,6 +292,10 @@ reload_keycodes (MetaDisplay *display)
       display->overlay_key_combo.keycode =
         keysym_to_keycode (display, display->overlay_key_combo.keysym);
     }
+  else
+    {
+      display->overlay_key_combo.keycode = 0;
+    }
   
   if (display->key_bindings)
     {
@@ -469,11 +473,7 @@ rebuild_special_bindings (MetaDisplay *display)
   MetaKeyCombo combo;
   
   meta_prefs_get_overlay_binding (&combo);
-
-  if (combo.keysym != None || combo.keycode != 0)
-    {
-      display->overlay_key_combo = combo;
-    }
+  display->overlay_key_combo = combo;
 }
 
 static void
@@ -671,7 +671,7 @@ meta_display_get_keybinding_action (MetaDisplay  *display,
    * of mutter keybindings while holding a grab, the overlay-key-only-pressed
    * tracking is left to the plugin here.
    */
-  if (keycode == display->overlay_key_combo.keycode)
+  if (keycode == (unsigned int)display->overlay_key_combo.keycode)
     return META_KEYBINDING_ACTION_OVERLAY_KEY;
 
   keysym = XKeycodeToKeysym (display->xdisplay, keycode, 0);

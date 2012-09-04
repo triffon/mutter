@@ -1,3 +1,11 @@
+mutter (3.5.91-0ubuntu1) quantal; urgency=low
+
+  * New upstream beta release on the way to 3.6.
+  * debian/control.in:
+    - Drop unnecessary gnome-doc-utils dependency
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Tue, 04 Sep 2012 14:36:50 -0400
+
 mutter (3.5.90-0ubuntu1) quantal; urgency=low
 
   * New upstream release.
