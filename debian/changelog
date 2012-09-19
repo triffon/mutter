@@ -1,3 +1,12 @@
+mutter (3.5.92-0ubuntu1) quantal; urgency=low
+
+  * New upstream RC release
+  * mutter-common.gconf-defaults, mutter-common.gsettings-override:
+    - Dropped, overrides have been moved to ubuntu-default-settings
+      and ubuntu-gnome-default-settings
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Wed, 19 Sep 2012 09:40:48 -0400
+
 mutter (3.5.91-0ubuntu1) quantal; urgency=low
 
   * New upstream beta release on the way to 3.6.
