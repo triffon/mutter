@@ -1,3 +1,9 @@
+mutter (3.6.0-0ubuntu1) quantal; urgency=low
+
+  * New upstream translations update release.
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Tue, 25 Sep 2012 07:26:30 -0400
+
 mutter (3.5.92-0ubuntu1) quantal; urgency=low
 
   * New upstream RC release
