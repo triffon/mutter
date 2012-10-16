@@ -1,3 +1,9 @@
+mutter (3.6.1-0ubuntu1) quantal-proposed; urgency=low
+
+  * New upstream bugfix release (LP: #1067154)
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Tue, 16 Oct 2012 12:20:43 -0400
+
 mutter (3.6.0-0ubuntu1) quantal; urgency=low
 
   * New upstream translations update release.
