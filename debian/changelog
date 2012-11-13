@@ -1,3 +1,18 @@
+mutter (3.6.2-0ubuntu0.1) quantal-proposed; urgency=low
+
+  [ Jeremy Bicha ]
+  * New upstream bugfix release (LP: #1078155)
+    - Only process keyboard mapping events for the core X keyboard
+  * debian/mutter-common.install:
+    - Install missing keybindings settings
+
+  [ Brandon Snider ]
+  * Added 05_ignore_num_workspaces.patch
+    - Fixes gnome-shell forgetting how many workspaces are in use
+      when gnome-shell is reloaded (LP: #1067933)
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Mon, 12 Nov 2012 22:14:55 -0500
+
 mutter (3.6.1-0ubuntu1) quantal-proposed; urgency=low
 
   * New upstream bugfix release (LP: #1067154)
