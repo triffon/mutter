@@ -1,3 +1,9 @@
+mutter (3.6.3-0ubuntu1) raring; urgency=low
+
+  * New upstream release (LP: #1128804)
+
+ -- Tim Lunn <tim@feathertop.org>  Mon, 18 Feb 2013 17:44:22 +1100
+
 mutter (3.6.2-0ubuntu1) raring; urgency=low
 
   * New upstream release (LP: #1078155)
