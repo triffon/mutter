@@ -1,3 +1,11 @@
+mutter (3.6.3-0ubuntu0.1) quantal-proposed; urgency=low
+
+  * New upstream bugfix release (LP: #1128804)
+    - Fix maximized windows jumping between monitors
+    - Fix windows turning black when redirected again
+
+ -- Tim Lunn <tim@feathertop.org>  Tue, 26 Feb 2013 16:38:04 +1100
+
 mutter (3.6.2-0ubuntu0.1) quantal-proposed; urgency=low
 
   [ Jeremy Bicha ]
