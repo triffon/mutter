@@ -1,3 +1,9 @@
+mutter (3.6.3-0ubuntu2) raring; urgency=low
+
+  * No-change rebuild against libcogl12
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Tue, 26 Feb 2013 18:50:14 -0500
+
 mutter (3.6.3-0ubuntu1) raring; urgency=low
 
   * New upstream release (LP: #1128804)
