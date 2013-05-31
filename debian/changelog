@@ -1,3 +1,11 @@
+mutter (3.8.2-1ubuntu1) saucy; urgency=low
+
+  * Sync with Debian. Remaining change:
+    - debian/patches/04_ignore_shadow_and_padding.patch:
+      + Silently ignore padding and shadow tags (for light-themes)
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Fri, 31 May 2013 12:07:03 -0400
+
 mutter (3.8.2-1) experimental; urgency=low
 
   * New upstream release.
