@@ -1,3 +1,10 @@
+mutter (3.8.2-1ubuntu2) saucy; urgency=low
+
+  * Add an explicit Replaces: libmutter0a to libmutter0b, required to
+    let update-manager know that it's safe to remove the package on upgrade.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 06 Jun 2013 14:17:11 -0700
+
 mutter (3.8.2-1ubuntu1) saucy; urgency=low
 
   * Sync with Debian. Remaining change:
