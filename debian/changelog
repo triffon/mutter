@@ -1,3 +1,10 @@
+mutter (3.8.3-1ubuntu2) saucy; urgency=low
+
+  * No-change rebuild against X 1.14 for pressure-sensitive message
+    tray reveal in GNOME Shell
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Mon, 08 Jul 2013 09:54:03 -0400
+
 mutter (3.8.3-1ubuntu1) saucy; urgency=low
 
   * Sync with Debian. Remaining changes:
