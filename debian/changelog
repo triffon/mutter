@@ -1,3 +1,9 @@
+mutter (3.8.4-0ubuntu1) saucy; urgency=low
+
+  * New upstream release.
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Wed, 31 Jul 2013 20:13:05 -0400
+
 mutter (3.8.3-1ubuntu2) saucy; urgency=low
 
   * No-change rebuild against X 1.14 for pressure-sensitive message
