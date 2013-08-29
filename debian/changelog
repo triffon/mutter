@@ -1,3 +1,10 @@
+mutter (3.8.4-0ubuntu2) saucy; urgency=low
+
+  * debian/patches/git-background-dont-save-pixbuf.patch: Add git patch
+    to avoid leaking background pixbuf's (LP: #1217649) 
+
+ -- Tim Lunn <tim@feathertop.org>  Thu, 29 Aug 2013 13:37:30 +1000
+
 mutter (3.8.4-0ubuntu1) saucy; urgency=low
 
   * New upstream release.
