@@ -1,0 +1,35 @@
+From 6781709a7538a3c2a9a5f1df7c60794084a811b6 Mon Sep 17 00:00:00 2001
+From: Tim Lunn <tim@feathertop.org>
+Date: Mon, 26 Aug 2013 01:39:38 +0000
+Subject: background: don't save pixbuf in user data
+
+https://bugzilla.gnome.org/show_bug.cgi?id=706777
+---
+diff --git a/src/compositor/meta-background.c b/src/compositor/meta-background.c
+index 8628484..7534a08 100644
+--- a/src/compositor/meta-background.c
++++ b/src/compositor/meta-background.c
+@@ -1031,7 +1031,6 @@ meta_background_load_file_finish (MetaBackground  *self,
+                                   GAsyncResult    *result,
+                                   GError         **error)
+ {
+-  static CoglUserDataKey key;
+   GTask *task;
+   LoadFileTaskData *task_data;
+   CoglTexture *texture;
+@@ -1077,12 +1076,6 @@ meta_background_load_file_finish (MetaBackground  *self,
+       goto out;
+     }
+ 
+-  cogl_object_set_user_data (COGL_OBJECT (texture),
+-                             &key,
+-                             g_object_ref (pixbuf),
+-                             (CoglUserDataDestroyCallback)
+-                             g_object_unref);
+-
+   ensure_pipeline (self);
+   unset_texture (self);
+   set_style (self, task_data->style);
+--
+cgit v0.9.2
+
