@@ -1,0 +1,26 @@
+From 66847e0c7d87044f156dc71f7b7bc046e84b5ea5 Mon Sep 17 00:00:00 2001
+From: Rico Tzschichholz <ricotz@ubuntu.com>
+Date: Tue, 3 Sep 2013 08:35:38 +0200
+Subject: [PATCH 5/8] Revert "configure: Require Cogl 1.15.6"
+
+This reverts commit 54d18c0196a9cb4f88e1ff53610e51e00954838a.
+---
+ configure.ac | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configure.ac b/configure.ac
+index 828322f..74a13e4 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -75,7 +75,7 @@ MUTTER_PC_MODULES="
+    gsettings-desktop-schemas >= 3.7.3
+    xcomposite >= 0.2 xfixes xrender xdamage xi >= 1.6.0
+    $CLUTTER_PACKAGE >= 1.14.3
+-   cogl-1.0 >= 1.15.6
++   cogl-1.0 >= 1.13.3
+    upower-glib > 0.9.11
+    gnome-desktop-3.0
+ "
+-- 
+1.8.3.2
+

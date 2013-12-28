@@ -816,6 +816,22 @@ meta_monitor_config_match_current (MetaMonitorConfig  *self,
   return ok;
 }
 
+gboolean
+meta_monitor_manager_has_hotplug_mode_update (MetaMonitorManager *manager)
+{
+  MetaOutput *outputs;
+  unsigned n_outputs;
+  unsigned int i;
+
+  outputs = meta_monitor_manager_get_outputs (manager, &n_outputs);
+
+  for (i = 0; i < n_outputs; i++)
+    if (outputs[i].hotplug_mode_update)
+      return TRUE;
+
+  return FALSE;
+}
+
 static MetaConfiguration *
 meta_monitor_config_get_stored (MetaMonitorConfig *self,
 				MetaOutput        *outputs,
@@ -823,6 +839,9 @@ meta_monitor_config_get_stored (MetaMonitorConfig *self,
 {
   MetaConfiguration key;
   MetaConfiguration *stored;
+
+  if (n_outputs == 0)
+    return NULL;
 
   make_config_key (&key, outputs, n_outputs, -1);
   stored = g_hash_table_lookup (self->configs, &key);
@@ -1230,6 +1249,12 @@ meta_monitor_config_make_default (MetaMonitorConfig  *self,
 
   outputs = meta_monitor_manager_get_outputs (manager, &n_outputs);
   meta_monitor_manager_get_screen_limits (manager, &max_width, &max_height);
+
+  if (n_outputs == 0)
+    {
+      meta_verbose ("No output connected, not applying configuration\n");
+      return;
+    }
 
   default_config = make_default_config (self, outputs, n_outputs, max_width, max_height);
 

@@ -925,8 +925,6 @@ meta_display_open (void)
 
   enable_compositor (the_display);
    
-  meta_display_grab (the_display);
-  
   /* Now manage all existing windows */
   tmp = the_display->screens;
   while (tmp != NULL)
@@ -977,8 +975,6 @@ meta_display_open (void)
   }
 
   meta_idle_monitor_init_dbus ();
-
-  meta_display_ungrab (the_display);
 
   /* Done opening new display */
   the_display->display_opening = FALSE;
@@ -1224,7 +1220,18 @@ meta_display_screen_for_x_screen (MetaDisplay *display,
   return NULL;
 }
 
-/* Grab/ungrab routines taken from fvwm */
+/* Grab/ungrab routines taken from fvwm.
+ * Calling this function will cause X to ignore all other clients until
+ * you ungrab. This may not be quite as bad as it sounds, yet there is
+ * agreement that avoiding server grabs except when they are clearly needed
+ * is a good thing.
+ *
+ * If you do use such grabs, please clearly explain the necessity for their
+ * usage in a comment. Try to keep their scope extremely limited. In
+ * particular, try to avoid emitting any signals or notifications while
+ * a grab is active (if the signal receiver tries to block on an X request
+ * from another client at this point, you will have a deadlock).
+ */
 void
 meta_display_grab (MetaDisplay *display)
 {
@@ -1890,9 +1897,11 @@ static void
 update_focus_window (MetaDisplay *display,
                      MetaWindow  *window,
                      Window       xwindow,
-                     gulong       serial)
+                     gulong       serial,
+                     gboolean     focused_by_us)
 {
   display->focus_serial = serial;
+  display->focused_by_us = focused_by_us;
 
   if (display->focus_xwindow == xwindow)
     return;
@@ -2003,7 +2012,8 @@ request_xserver_input_focus_change (MetaDisplay *display,
   update_focus_window (display,
                        meta_window,
                        xwindow,
-                       serial);
+                       serial,
+                       TRUE);
 
   meta_error_trap_pop (display);
 
@@ -2117,12 +2127,20 @@ handle_window_focus_event (MetaDisplay  *display,
   else
     g_return_if_reached ();
 
-  if (display->server_focus_serial > display->focus_serial)
+  /* If display->focused_by_us, then the focus_serial will be used only
+   * for a focus change we made and have already accounted for.
+   * (See request_xserver_input_focus_change().) Otherwise, we can get
+   * multiple focus events with the same serial.
+   */
+  if (display->server_focus_serial > display->focus_serial ||
+      (!display->focused_by_us &&
+       display->server_focus_serial == display->focus_serial))
     {
       update_focus_window (display,
                            focus_window,
                            focus_window ? focus_window->xwindow : None,
-                           display->server_focus_serial);
+                           display->server_focus_serial,
+                           FALSE);
     }
 }
 
@@ -2179,7 +2197,8 @@ event_callback (XEvent   *event,
   display->current_time = event_get_time (display, event);
   display->monitor_cache_invalidated = TRUE;
 
-  if (event->xany.serial > display->focus_serial &&
+  if (display->focused_by_us &&
+      event->xany.serial > display->focus_serial &&
       display->focus_window &&
       display->focus_window->xwindow != display->server_focus_window)
     {
@@ -2188,7 +2207,8 @@ event_callback (XEvent   *event,
       update_focus_window (display,
                            meta_display_lookup_x_window (display, display->server_focus_window),
                            display->server_focus_window,
-                           display->server_focus_serial);
+                           display->server_focus_serial,
+                           FALSE);
     }
 
   screen = meta_display_screen_for_root (display, event->xany.window);
@@ -2304,7 +2324,7 @@ event_callback (XEvent   *event,
       XIEnterEvent *enter_event = (XIEnterEvent *) input_event;
 
       if (window && !window->override_redirect &&
-          ((input_event->type == XI_KeyPress) || (input_event->type == XI_ButtonPress)))
+          ((input_event->evtype == XI_KeyPress) || (input_event->evtype == XI_ButtonPress)))
         {
           if (CurrentTime == display->current_time)
             {
@@ -2774,14 +2794,14 @@ event_callback (XEvent   *event,
               && meta_display_screen_for_root (display, event->xmap.event))
             {
               window = meta_window_new (display, event->xmap.window,
-                                        FALSE);
+                                        FALSE, META_COMP_EFFECT_CREATE);
             }
           break;
         case MapRequest:
           if (window == NULL)
             {
               window = meta_window_new (display, event->xmaprequest.window,
-                                        FALSE);
+                                        FALSE, META_COMP_EFFECT_CREATE);
             }
           /* if frame was receiver it's some malicious send event or something */
           else if (!frame_was_receiver && window)        
@@ -5808,25 +5828,6 @@ meta_display_request_take_focus (MetaDisplay *display,
   meta_topic (META_DEBUG_FOCUS, "WM_TAKE_FOCUS(%s, %u)\n",
               window->desc, timestamp);
 
-  if (window != display->focus_window)
-    {
-      /* The "Globally Active Input" window case, where the window
-       * doesn't want us to call XSetInputFocus on it, but does
-       * want us to send a WM_TAKE_FOCUS.
-       *
-       * We can't just set display->focus_window to @window, since we
-       * we don't know when (or even if) the window will actually take
-       * focus, so we could end up being wrong for arbitrarily long.
-       * But we also can't leave it set to the current window, or else
-       * bug #597352 would come back. So we focus the no_focus_window
-       * now (and set display->focus_window to that), send the
-       * WM_TAKE_FOCUS, and then just forget about @window
-       * until/unless we get a FocusIn.
-       */
-      meta_display_focus_the_no_focus_window (display,
-                                              window->screen,
-                                              timestamp);
-    }
   meta_window_send_icccm_message (window,
                                   display->atom_WM_TAKE_FOCUS,
                                   timestamp);
