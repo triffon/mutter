@@ -1,0 +1,28 @@
+From b34c79904c1903c5ebf83d3537ef5397d5a71856 Mon Sep 17 00:00:00 2001
+From: Tim Lunn <tim@feathertop.org>
+Date: Wed, 18 Sep 2013 15:49:24 +1000
+Subject: [PATCH] Revert "window-actor: Use more conservative paint volume"
+
+This reverts commit f96dc97c4f421c38384cd25775f8478ffd309191.
+---
+ src/compositor/meta-window-actor.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/src/compositor/meta-window-actor.c b/src/compositor/meta-window-actor.c
+index 63c12c0..8c635d5 100644
+--- a/src/compositor/meta-window-actor.c
++++ b/src/compositor/meta-window-actor.c
+@@ -734,9 +734,6 @@ meta_window_actor_get_paint_volume (ClutterActor       *actor,
+       gdk_rectangle_union (&bounds, &shadow_bounds, &bounds);
+     }
+ 
+-  if (priv->unobscured_region)
+-    cairo_region_intersect_rectangle (priv->unobscured_region, &bounds);
+-
+   origin.x = bounds.x;
+   origin.y = bounds.y;
+   origin.z = 0.0f;
+-- 
+1.8.3.2
+
+

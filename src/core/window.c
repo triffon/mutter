@@ -659,53 +659,6 @@ maybe_leave_show_desktop_mode (MetaWindow *window)
     }
 }
 
-MetaWindow*
-meta_window_new (MetaDisplay *display,
-                 Window       xwindow,
-                 gboolean     must_be_viewable)
-{
-  XWindowAttributes attrs;
-  MetaWindow *window;
-
-  meta_display_grab (display);
-  meta_error_trap_push (display); /* Push a trap over all of window
-                                   * creation, to reduce XSync() calls
-                                   */
-
-  meta_error_trap_push_with_return (display);
-
-  if (XGetWindowAttributes (display->xdisplay,xwindow, &attrs))
-   {
-      if(meta_error_trap_pop_with_return (display) != Success)
-       {
-          meta_verbose ("Failed to get attributes for window 0x%lx\n",
-                        xwindow);
-          meta_error_trap_pop (display);
-          meta_display_ungrab (display);
-          return NULL;
-       }
-      window = meta_window_new_with_attrs (display, xwindow,
-                                           must_be_viewable,
-                                           META_COMP_EFFECT_CREATE,
-                                           &attrs);
-   }
-  else
-   {
-         meta_error_trap_pop_with_return (display);
-         meta_verbose ("Failed to get attributes for window 0x%lx\n",
-                        xwindow);
-         meta_error_trap_pop (display);
-         meta_display_ungrab (display);
-         return NULL;
-   }
-
-
-  meta_error_trap_pop (display);
-  meta_display_ungrab (display);
-
-  return window;
-}
-
 /* The MUTTER_WM_CLASS_FILTER environment variable is designed for
  * performance and regression testing environments where we want to do
  * tests with only a limited set of windows and ignore all other windows
@@ -816,12 +769,12 @@ meta_window_should_attach_to_parent (MetaWindow *window)
 }
 
 MetaWindow*
-meta_window_new_with_attrs (MetaDisplay       *display,
-                            Window             xwindow,
-                            gboolean           must_be_viewable,
-                            MetaCompEffect     effect,
-                            XWindowAttributes *attrs)
+meta_window_new (MetaDisplay   *display,
+                 Window         xwindow,
+                 gboolean       must_be_viewable,
+                 MetaCompEffect effect)
 {
+  XWindowAttributes	attrs;
   MetaWindow *window;
   GSList *tmp;
   MetaWorkspace *space;
@@ -829,8 +782,6 @@ meta_window_new_with_attrs (MetaDisplay       *display,
   gulong event_mask;
   MetaMoveResizeFlags flags;
   MetaScreen *screen;
-
-  g_assert (attrs != NULL);
 
   meta_verbose ("Attempting to manage 0x%lx\n", xwindow);
 
@@ -841,12 +792,28 @@ meta_window_new_with_attrs (MetaDisplay       *display,
       return NULL;
     }
 
+  meta_error_trap_push (display); /* Push a trap over all of window
+                                   * creation, to reduce XSync() calls
+                                   */
+  /*
+   * This function executes without any server grabs held. This means that
+   * the window could have already gone away, or could go away at any point,
+   * so we must be careful with X error handling.
+   */
+
+  if (!XGetWindowAttributes (display->xdisplay, xwindow, &attrs))
+    {
+      meta_verbose ("Failed to get attributes for window 0x%lx\n",
+                    xwindow);
+      goto error;
+    }
+
   screen = NULL;
   for (tmp = display->screens; tmp != NULL; tmp = tmp->next)
     {
       MetaScreen *scr = tmp->data;
 
-      if (scr->xroot == attrs->root)
+      if (scr->xroot == attrs.root)
         {
           screen = tmp->data;
           break;
@@ -856,14 +823,14 @@ meta_window_new_with_attrs (MetaDisplay       *display,
   g_assert (screen);
 
   /* A black list of override redirect windows that we don't need to manage: */
-  if (attrs->override_redirect &&
+  if (attrs.override_redirect &&
       (xwindow == screen->no_focus_window ||
        xwindow == screen->flash_window ||
        xwindow == screen->wm_sn_selection_window ||
-       attrs->class == InputOnly ||
+       attrs.class == InputOnly ||
        /* any windows created via meta_create_offscreen_window: */
-       (attrs->x == -100 && attrs->y == -100
-	&& attrs->width == 1 && attrs->height == 1) ||
+       (attrs.x == -100 && attrs.y == -100
+	&& attrs.width == 1 && attrs.height == 1) ||
        xwindow == screen->wm_cm_selection_window ||
        xwindow == screen->guard_window ||
        (display->compositor &&
@@ -873,34 +840,28 @@ meta_window_new_with_attrs (MetaDisplay       *display,
       )
      ) {
     meta_verbose ("Not managing our own windows\n");
-    return NULL;
+    goto error;
   }
 
-  if (maybe_filter_window (display, xwindow, must_be_viewable, attrs))
+  if (maybe_filter_window (display, xwindow, must_be_viewable, &attrs))
     {
       meta_verbose ("Not managing filtered window\n");
-      return NULL;
+      goto error;
     }
 
-  /* Grab server */
-  meta_display_grab (display);
-  meta_error_trap_push (display); /* Push a trap over all of window
-                                   * creation, to reduce XSync() calls
-                                   */
-
-  meta_verbose ("must_be_viewable = %d attrs->map_state = %d (%s)\n",
+  meta_verbose ("must_be_viewable = %d attrs.map_state = %d (%s)\n",
                 must_be_viewable,
-                attrs->map_state,
-                (attrs->map_state == IsUnmapped) ?
+                attrs.map_state,
+                (attrs.map_state == IsUnmapped) ?
                 "IsUnmapped" :
-                (attrs->map_state == IsViewable) ?
+                (attrs.map_state == IsViewable) ?
                 "IsViewable" :
-                (attrs->map_state == IsUnviewable) ?
+                (attrs.map_state == IsUnviewable) ?
                 "IsUnviewable" :
                 "(unknown)");
 
   existing_wm_state = WithdrawnState;
-  if (must_be_viewable && attrs->map_state != IsViewable)
+  if (must_be_viewable && attrs.map_state != IsViewable)
     {
       /* Only manage if WM_STATE is IconicState or NormalState */
       gulong state;
@@ -913,9 +874,7 @@ meta_window_new_with_attrs (MetaDisplay       *display,
             (state == IconicState || state == NormalState)))
         {
           meta_verbose ("Deciding not to manage unmapped or unviewable window 0x%lx\n", xwindow);
-          meta_error_trap_pop (display);
-          meta_display_ungrab (display);
-          return NULL;
+          goto error;
         }
 
       existing_wm_state = state;
@@ -923,29 +882,26 @@ meta_window_new_with_attrs (MetaDisplay       *display,
                     wm_state_to_string (existing_wm_state));
     }
 
-  meta_error_trap_push_with_return (display);
-
   /*
    * XAddToSaveSet can only be called on windows created by a different client.
    * with Mutter we want to be able to create manageable windows from within
-   * the process (such as a dummy desktop window), so we do not want this
-   * call failing to prevent the window from being managed -- wrap it in its
-   * own error trap (we use the _with_return() version here to ensure that
-   * XSync() is done on the pop, otherwise the error will not get caught).
+   * the process (such as a dummy desktop window). As we do not want this
+   * call failing to prevent the window from being managed, we call this
+   * before creating the return-checked error trap.
    */
-  meta_error_trap_push_with_return (display);
   XAddToSaveSet (display->xdisplay, xwindow);
-  meta_error_trap_pop_with_return (display);
+
+  meta_error_trap_push_with_return (display);
 
   event_mask = PropertyChangeMask | ColormapChangeMask;
-  if (attrs->override_redirect)
+  if (attrs.override_redirect)
     event_mask |= StructureNotifyMask;
 
   /* If the window is from this client (a menu, say) we need to augment
    * the event mask, not replace it. For windows from other clients,
-   * attrs->your_event_mask will be empty at this point.
+   * attrs.your_event_mask will be empty at this point.
    */
-  XSelectInput (display->xdisplay, xwindow, attrs->your_event_mask | event_mask);
+  XSelectInput (display->xdisplay, xwindow, attrs.your_event_mask | event_mask);
 
   {
     unsigned char mask_bits[XIMaskLen (XI_LASTEVENT)] = { 0 };
@@ -967,11 +923,11 @@ meta_window_new_with_attrs (MetaDisplay       *display,
 #endif
 
   /* Get rid of any borders */
-  if (attrs->border_width != 0)
+  if (attrs.border_width != 0)
     XSetWindowBorderWidth (display->xdisplay, xwindow, 0);
 
   /* Get rid of weird gravities */
-  if (attrs->win_gravity != NorthWestGravity)
+  if (attrs.win_gravity != NorthWestGravity)
     {
       XSetWindowAttributes set_attrs;
 
@@ -987,9 +943,7 @@ meta_window_new_with_attrs (MetaDisplay       *display,
     {
       meta_verbose ("Window 0x%lx disappeared just as we tried to manage it\n",
                     xwindow);
-      meta_error_trap_pop (display);
-      meta_display_ungrab (display);
-      return NULL;
+      goto error;
     }
 
 
@@ -1018,22 +972,22 @@ meta_window_new_with_attrs (MetaDisplay       *display,
 
   window->desc = g_strdup_printf ("0x%lx", window->xwindow);
 
-  window->override_redirect = attrs->override_redirect;
+  window->override_redirect = attrs.override_redirect;
 
   /* avoid tons of stack updates */
   meta_stack_freeze (window->screen->stack);
 
-  window->rect.x = attrs->x;
-  window->rect.y = attrs->y;
-  window->rect.width = attrs->width;
-  window->rect.height = attrs->height;
+  window->rect.x = attrs.x;
+  window->rect.y = attrs.y;
+  window->rect.width = attrs.width;
+  window->rect.height = attrs.height;
 
   /* And border width, size_hints are the "request" */
-  window->border_width = attrs->border_width;
-  window->size_hints.x = attrs->x;
-  window->size_hints.y = attrs->y;
-  window->size_hints.width = attrs->width;
-  window->size_hints.height = attrs->height;
+  window->border_width = attrs.border_width;
+  window->size_hints.x = attrs.x;
+  window->size_hints.y = attrs.y;
+  window->size_hints.width = attrs.width;
+  window->size_hints.height = attrs.height;
   /* initialize the remaining size_hints as if size_hints.flags were zero */
   meta_set_normal_hints (window, NULL);
 
@@ -1041,9 +995,9 @@ meta_window_new_with_attrs (MetaDisplay       *display,
   window->saved_rect = window->rect;
   window->user_rect = window->rect;
 
-  window->depth = attrs->depth;
-  window->xvisual = attrs->visual;
-  window->colormap = attrs->colormap;
+  window->depth = attrs.depth;
+  window->xvisual = attrs.visual;
+  window->colormap = attrs.colormap;
 
   window->title = NULL;
   window->icon_name = NULL;
@@ -1078,7 +1032,7 @@ meta_window_new_with_attrs (MetaDisplay       *display,
   window->minimized = FALSE;
   window->tab_unminimized = FALSE;
   window->iconic = FALSE;
-  window->mapped = attrs->map_state != IsUnmapped;
+  window->mapped = attrs.map_state != IsUnmapped;
   window->hidden = FALSE;
   window->visible_to_compositor = FALSE;
   window->pending_compositor_effect = effect;
@@ -1483,7 +1437,6 @@ meta_window_new_with_attrs (MetaDisplay       *display,
     unminimize_window_and_all_transient_parents (window);
 
   meta_error_trap_pop (display); /* pop the XSync()-reducing trap */
-  meta_display_ungrab (display);
 
   window->constructing = FALSE;
 
@@ -1496,6 +1449,10 @@ meta_window_new_with_attrs (MetaDisplay       *display,
     g_signal_emit_by_name (window->display, "window-marked-urgent", window);
 
   return window;
+
+error:
+  meta_error_trap_pop (display);
+  return NULL;
 }
 
 /* This function should only be called from the end of meta_window_new_with_attrs () */
@@ -2292,7 +2249,6 @@ idle_calc_showing (gpointer data)
   GSList *should_hide;
   GSList *unplaced;
   GSList *displays;
-  MetaWindow *first_window;
   guint queue_index = GPOINTER_TO_INT (data);
 
   g_return_val_if_fail (queue_pending[queue_index] != NULL, FALSE);
@@ -2344,10 +2300,6 @@ idle_calc_showing (gpointer data)
   /* top to bottom */
   should_show = g_slist_sort (should_show, stackcmp);
   should_show = g_slist_reverse (should_show);
-
-  first_window = copy->data;
-
-  meta_display_grab (first_window->display);
 
   tmp = unplaced;
   while (tmp != NULL)
@@ -2420,8 +2372,6 @@ idle_calc_showing (gpointer data)
           tmp = tmp->next;
         }
     }
-
-  meta_display_ungrab (first_window->display);
 
   g_slist_free (copy);
 
@@ -5890,7 +5840,8 @@ meta_window_focus (MetaWindow  *window,
               window->desc, window->input, window->take_focus);
 
   if (window->display->grab_window &&
-      window->display->grab_window->all_keys_grabbed)
+      window->display->grab_window->all_keys_grabbed &&
+      !window->display->grab_window->unmanaging)
     {
       meta_topic (META_DEBUG_FOCUS,
                   "Current focus window %s has global keygrab, not focusing window %s after all\n",
@@ -5960,6 +5911,25 @@ meta_window_focus (MetaWindow  *window,
           meta_topic (META_DEBUG_FOCUS,
                       "Sending WM_TAKE_FOCUS to %s since take_focus = true\n",
                       window->desc);
+
+          if (!window->input)
+            {
+              /* The "Globally Active Input" window case, where the window
+               * doesn't want us to call XSetInputFocus on it, but does
+               * want us to send a WM_TAKE_FOCUS.
+               *
+               * Normally, we want to just leave the focus undisturbed until
+               * the window respnds to WM_TAKE_FOCUS, but if we're unmanaging
+               * the current focus window we *need* to move the focus away, so
+               * we focus the no_focus_window now (and set
+               * display->focus_window to that) before sending WM_TAKE_FOCUS.
+               */
+              if (window->display->focus_window != NULL &&
+                  window->display->focus_window->unmanaging)
+                meta_display_focus_the_no_focus_window (window->display,
+                                                        window->screen,
+                                                        timestamp);
+            }
 
           meta_display_request_take_focus (window->display,
                                            window,
@@ -9711,7 +9681,8 @@ meta_window_handle_mouse_grab_op_event (MetaWindow *window,
   switch (xev->evtype)
     {
     case XI_ButtonRelease:
-      if (xev->detail == 1)
+      if (xev->detail == 1 ||
+          xev->detail == meta_prefs_get_mouse_button_resize ())
         {
           meta_display_check_threshold_reached (window->display,
                                                 xev->root_x,

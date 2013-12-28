@@ -877,83 +877,31 @@ meta_screen_free (MetaScreen *screen,
   meta_display_ungrab (display);
 }
 
-typedef struct
-{
-  Window		xwindow;
-  XWindowAttributes	attrs;
-} WindowInfo;
-
-static GList *
-list_windows (MetaScreen *screen)
-{
-  Window ignored1, ignored2;
-  Window *children;
-  guint n_children, i;
-  GList *result;
-
-  XQueryTree (screen->display->xdisplay,
-              screen->xroot,
-              &ignored1, &ignored2, &children, &n_children);
-
-  result = NULL;
-  for (i = 0; i < n_children; ++i)
-    {
-      WindowInfo *info = g_new0 (WindowInfo, 1);
-
-      meta_error_trap_push_with_return (screen->display);
-      
-      XGetWindowAttributes (screen->display->xdisplay,
-                            children[i], &info->attrs);
-
-      if (meta_error_trap_pop_with_return (screen->display))
-	{
-          meta_verbose ("Failed to get attributes for window 0x%lx\n",
-                        children[i]);
-	  g_free (info);
-        }
-      else
-        {
-	  info->xwindow = children[i];
-	}
-
-      result = g_list_prepend (result, info);
-    }
-
-  if (children)
-    XFree (children);
-
-  return g_list_reverse (result);
-}
-
 void
 meta_screen_manage_all_windows (MetaScreen *screen)
 {
-  GList *windows;
-  GList *list;
-
-  meta_display_grab (screen->display);
+  Window *_children;
+  Window *children;
+  int n_children, i;
 
   if (screen->guard_window == None)
     screen->guard_window = create_guard_window (screen->display->xdisplay,
                                                 screen);
 
-  windows = list_windows (screen);
-
   meta_stack_freeze (screen->stack);
-  for (list = windows; list != NULL; list = list->next)
+  meta_stack_tracker_get_stack (screen->stack_tracker, &_children, &n_children);
+
+  /* Copy the stack as it will be modified as part of the loop */
+  children = g_memdup (_children, sizeof (Window) * n_children);
+
+  for (i = 0; i < n_children; ++i)
     {
-      WindowInfo *info = list->data;
-
-      meta_window_new_with_attrs (screen->display, info->xwindow, TRUE,
-                                  META_COMP_EFFECT_NONE,
-                                  &info->attrs);
+      meta_window_new (screen->display, children[i], TRUE,
+                       META_COMP_EFFECT_NONE);
     }
+
+  g_free (children);
   meta_stack_thaw (screen->stack);
-
-  g_list_foreach (windows, (GFunc)g_free, NULL);
-  g_list_free (windows);
-
-  meta_display_ungrab (screen->display);
 }
 
 /**
