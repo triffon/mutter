@@ -1,0 +1,33 @@
+From 71f574bc526edbd8b23172bfc0f1b336b3f8b7cd Mon Sep 17 00:00:00 2001
+From: "Jasper St. Pierre" <jstpierre@mecheye.net>
+Date: Wed, 9 Oct 2013 16:25:24 -0400
+Subject: [PATCH] prefs: Fix introspection issues
+
+---
+ src/meta/prefs.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/meta/prefs.h b/src/meta/prefs.h
+index 969ff40..e772e75 100644
+--- a/src/meta/prefs.h
++++ b/src/meta/prefs.h
+@@ -422,13 +422,13 @@ typedef struct
+    */
+   GSList *bindings;
+ 
+-  /** for keybindings that can have shift or not like Alt+Tab */
++  /* for keybindings that can have shift or not like Alt+Tab */
+   gboolean      add_shift:1;
+ 
+-  /** for keybindings that apply only to a window */
++  /* for keybindings that apply only to a window */
+   gboolean      per_window:1;
+ 
+-  /** for keybindings not added with meta_display_add_keybinding() */
++  /* for keybindings not added with meta_display_add_keybinding() */
+   gboolean      builtin:1;
+ } MetaKeyPref;
+ 
+-- 
+1.8.5.2
+

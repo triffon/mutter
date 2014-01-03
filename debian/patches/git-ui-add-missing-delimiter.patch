@@ -1,0 +1,43 @@
+From f5e75de3306bf773baffd8bff4e97bfe9bf57fbc Mon Sep 17 00:00:00 2001
+From: Dieter Verfaillie <dieterv@optionexplicit.be>
+Date: Fri, 3 May 2013 23:31:12 +0200
+Subject: [PATCH] ui: add missing delimiter in GTK-Doc comment block
+
+g-ir-scanner will emit more warnings regarding broken GTK-Doc
+syntax in the near future, which due to --warn-error being used
+would break the build:
+
+'''
+ui/theme.c:1883: Warning: Meta: missing ":" at column 20:
+ * @tokens_p: (out) The resulting tokens
+                   ^
+g-ir-scanner: compile: gcc -Wall -Wno-deprecated-declarations ...
+g-ir-scanner: link: /bin/sh ../libtool --mode=link --tag=CC gcc ...
+libtool: link: gcc -o /home/dieterv/gnome.org/checkout/mutter/...
+<unknown>:: Fatal: Meta: warnings configured as fatal
+<unknown>:: Fatal: Meta: warnings configured as fatal
+
+make[4]: *** [Meta-3.0.gir] Error 1
+'''
+
+https://bugzilla.gnome.org/show_bug.cgi?id=699636
+---
+ src/ui/theme.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/ui/theme.c b/src/ui/theme.c
+index 357a8bb..c841a0c 100644
+--- a/src/ui/theme.c
++++ b/src/ui/theme.c
+@@ -1880,7 +1880,7 @@ debug_print_tokens (PosToken *tokens,
+ /**
+  * pos_tokenize:
+  * @expr: The expression
+- * @tokens_p: (out) The resulting tokens
++ * @tokens_p: (out): The resulting tokens
+  * @n_tokens_p: (out): The number of resulting tokens
+  * @err: (out):  set to the problem if there was a problem
+  
+-- 
+1.8.5.2
+
