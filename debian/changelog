@@ -1,3 +1,11 @@
+mutter (3.8.4-0ubuntu3) trusty; urgency=medium
+
+  * git-ui-add-missing-delimiter.patch,
+    git-prefs-fix-introspection-issues.patch: Add git patch to fix build
+    with current gobject-introspection.
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Fri, 03 Jan 2014 15:06:05 +0000
+
 mutter (3.8.4-0ubuntu2) saucy; urgency=low
 
   * debian/patches/git-background-dont-save-pixbuf.patch: Add git patch
