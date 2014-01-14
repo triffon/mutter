@@ -1,3 +1,9 @@
+mutter (3.8.4-0ubuntu4) trusty; urgency=medium
+
+  * No-change rebuild for new cogl
+
+ -- Iain Lane <iain@orangesquash.org.uk>  Tue, 14 Jan 2014 20:15:33 +0000
+
 mutter (3.8.4-0ubuntu3) trusty; urgency=medium
 
   * git-ui-add-missing-delimiter.patch,
