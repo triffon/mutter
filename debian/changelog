@@ -1,3 +1,10 @@
+mutter (3.10.3-0ubuntu2) trusty; urgency=medium
+
+  * Add Replaces for previous libmutter sonames, so that the library
+    upgrades properly.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Wed, 22 Jan 2014 14:12:56 -0800
+
 mutter (3.10.3-0ubuntu1) trusty; urgency=medium
 
   * New upstream release (LP: #1269916)
