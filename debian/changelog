@@ -1,3 +1,12 @@
+mutter (3.10.3-0ubuntu3) trusty; urgency=medium
+
+  * debian/patches:
+    - remove unused git patches
+    - git_fix_xrandr_backlight.patch, fix backlight not working on various
+      GPU's (LP: #947919)
+
+ -- Tim Lunn <tim@feathertop.org>  Thu, 06 Feb 2014 20:01:34 +1100
+
 mutter (3.10.3-0ubuntu2) trusty; urgency=medium
 
   * Add Replaces for previous libmutter sonames, so that the library
