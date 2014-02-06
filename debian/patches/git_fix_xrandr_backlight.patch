@@ -1,0 +1,62 @@
+From c2dadecab89ec4e261d6983d31aaabd81d0ca0a5 Mon Sep 17 00:00:00 2001
+From: Robert Ancell <robert.ancell@canonical.com>
+Date: Tue, 04 Feb 2014 12:36:11 +0000
+Subject: xrandr: Use specified output property name for backlight control
+
+Backlight controls are set using the "BACKLIGHT" XRANDR output property.
+This should be "Backlight" according to the XRANDR spec [1].
+
+Some drivers (Intel) export both properties and some only the specified property (nvidia).
+Users of drivers that only export the specified property cannot change their backlight using XRANDR.
+
+[1] http://cgit.freedesktop.org/xorg/proto/randrproto/tree/randrproto.txt section 9.1
+
+https://bugzilla.gnome.org/show_bug.cgi?id=723606
+---
+diff --git a/src/core/monitor-xrandr.c b/src/core/monitor-xrandr.c
+index d8ee2a2..1265e20 100644
+--- a/src/core/monitor-xrandr.c
++++ b/src/core/monitor-xrandr.c
+@@ -187,7 +187,7 @@ output_get_backlight_xrandr (MetaMonitorManagerXrandr *manager_xrandr,
+ 
+   XRRGetOutputProperty (manager_xrandr->xdisplay,
+                         (XID)output->output_id,
+-                        display->atom_BACKLIGHT,
++                        display->atom_Backlight,
+                         0, G_MAXLONG, False, False, XA_INTEGER,
+                         &actual_type, &actual_format,
+                         &nitems, &bytes_after, &buffer);
+@@ -212,7 +212,7 @@ output_get_backlight_limits_xrandr (MetaMonitorManagerXrandr *manager_xrandr,
+   meta_error_trap_push (display);
+   info = XRRQueryOutputProperty (manager_xrandr->xdisplay,
+                                  (XID)output->output_id,
+-                                 display->atom_BACKLIGHT);
++                                 display->atom_Backlight);
+   meta_error_trap_pop (display);
+ 
+   if (info == NULL)
+@@ -945,7 +945,7 @@ meta_monitor_manager_xrandr_change_backlight (MetaMonitorManager *manager,
+   meta_error_trap_push (display);
+   XRRChangeOutputProperty (manager_xrandr->xdisplay,
+                            (XID)output->output_id,
+-                           display->atom_BACKLIGHT,
++                           display->atom_Backlight,
+                            XA_INTEGER, 32, PropModeReplace,
+                            (unsigned char *) &hw_value, 1);
+   meta_error_trap_pop (display);
+diff --git a/src/meta/atomnames.h b/src/meta/atomnames.h
+index 8b7346a..5696523 100644
+--- a/src/meta/atomnames.h
++++ b/src/meta/atomnames.h
+@@ -80,7 +80,7 @@ item(MULTIPLE)
+ item(TIMESTAMP)
+ item(VERSION)
+ item(ATOM_PAIR)
+-item(BACKLIGHT)
++item(Backlight)
+ item(hotplug_mode_update)
+ 
+ /* Oddities: These are used, and we need atoms for them,
+--
+cgit v0.9.2
+
