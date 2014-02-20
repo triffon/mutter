@@ -734,8 +734,12 @@ meta_window_actor_get_paint_volume (ClutterActor       *actor,
       gdk_rectangle_union (&bounds, &shadow_bounds, &bounds);
     }
 
-  if (priv->unobscured_region)
-    cairo_region_intersect_rectangle (priv->unobscured_region, &bounds);
+  if (priv->unobscured_region && !clutter_actor_has_mapped_clones (actor))
+    {
+      cairo_rectangle_int_t unobscured_bounds;
+      cairo_region_get_extents (priv->unobscured_region, &unobscured_bounds);
+      gdk_rectangle_intersect (&bounds, &unobscured_bounds, &bounds);
+    }
 
   origin.x = bounds.x;
   origin.y = bounds.y;
@@ -1394,6 +1398,12 @@ meta_window_actor_destroy (MetaWindowActor *self)
   window = priv->window;
   window_type = meta_window_get_window_type (window);
   meta_window_set_compositor_private (window, NULL);
+
+  if (priv->send_frame_messages_timer != 0)
+    {
+      g_source_remove (priv->send_frame_messages_timer);
+      priv->send_frame_messages_timer = 0;
+    }
 
   /*
    * We remove the window from internal lookup hashes and thus any other
