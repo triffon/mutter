@@ -1,3 +1,11 @@
+mutter (3.10.4-0ubuntu1) trusty; urgency=medium
+
+  * New upstream release
+  * debian/patches/git_fix_xrandr_backlight.patch: Dropped, included
+    in the new version
+
+ -- Tim Lunn <tim@feathertop.org>  Thu, 20 Feb 2014 17:16:01 +1100
+
 mutter (3.10.3-0ubuntu3) trusty; urgency=medium
 
   * debian/patches:
