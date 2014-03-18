@@ -1,3 +1,9 @@
+mutter (3.10.4-0ubuntu2) trusty; urgency=medium
+
+  * debian/patches/git_ignore_error_when_settings_primary.patch (LP: #1288572) 
+
+ -- Tim Lunn <tim@feathertop.org>  Wed, 19 Mar 2014 08:16:08 +1100
+
 mutter (3.10.4-0ubuntu1) trusty; urgency=medium
 
   * New upstream release
