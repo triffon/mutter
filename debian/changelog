@@ -1,3 +1,17 @@
+mutter (3.12.1+really+3.8.4-1) unstable; urgency=medium
+
+  [ Emilio Pozuelo Monfort ]
+  * debian/control.in:
+    + Bump libcogl-dev build-dependency, required by the previous patch.
+
+  [ Sjoerd Simons ]
+  * Uglify the version number to override a mutter version that shouldn't have
+    gone to unstable yet
+  * debian/patches/fix-build-with-g-i.patch:
+    Added. Fix mutter buid with recent gobject-introspection
+
+ -- Sjoerd Simons <sjoerd@debian.org>  Sat, 26 Apr 2014 19:34:12 +0200
+
 mutter (3.8.4-3) unstable; urgency=medium
 
   * debian/patches/0001-Update-for-Cogl-API-breaks.patch:
