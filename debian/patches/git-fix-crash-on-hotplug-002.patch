@@ -1,0 +1,72 @@
+From fbd7408f0ef429893ddf4d81edd63ce383d1287a Mon Sep 17 00:00:00 2001
+From: Giovanni Campagna <gcampagna@src.gnome.org>
+Date: Tue, 6 May 2014 19:59:16 +0200
+Subject: [PATCH] MetaMonitorConfig: don't always restore the previous config
+ when opening the laptop lid
+
+Only do it if the current configuration was actually created
+as the result of closing the laptop lid.
+
+https://bugzilla.gnome.org/show_bug.cgi?id=725637
+---
+ src/core/monitor-config.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/src/core/monitor-config.c b/src/core/monitor-config.c
+index 035dcee..8b56b0a 100644
+--- a/src/core/monitor-config.c
++++ b/src/core/monitor-config.c
+@@ -78,6 +78,7 @@ struct _MetaMonitorConfig {
+   GHashTable *configs;
+   MetaConfiguration *current;
+   gboolean current_is_stored;
++  gboolean current_is_for_laptop_lid;
+   MetaConfiguration *previous;
+ 
+   GFile *file;
+@@ -906,6 +907,10 @@ apply_configuration (MetaMonitorConfig  *self,
+ 
+   self->current = config;
+   self->current_is_stored = stored;
++  /* If true, we'll be overridden at the end of this call
++     inside turn_off_laptop_display()
++  */
++  self->current_is_for_laptop_lid = FALSE;
+ 
+   if (self->current == self->previous)
+     self->previous = NULL;
+@@ -1022,8 +1027,14 @@ meta_monitor_config_apply_stored (MetaMonitorConfig  *self,
+       if (self->lid_is_closed &&
+           stored->n_outputs > 1 &&
+           laptop_display_is_on (stored))
+-        return apply_configuration (self, make_laptop_lid_config (stored),
++        {
++          gboolean ok;
++
++          ok = apply_configuration (self, make_laptop_lid_config (stored),
+                                     manager, FALSE);
++          self->current_is_for_laptop_lid = TRUE;
++          return ok;
++        }
+       else
+         return apply_configuration (self, stored, manager, TRUE);
+     }
+@@ -1370,6 +1381,7 @@ turn_off_laptop_display (MetaMonitorConfig  *self,
+ 
+   new = make_laptop_lid_config (self->current);
+   apply_configuration (self, new, manager, FALSE);
++  self->current_is_for_laptop_lid = TRUE;
+ }
+ 
+ static void
+@@ -1389,7 +1401,7 @@ power_client_changed_cb (UpClient   *client,
+ 
+       if (is_closed)
+         turn_off_laptop_display (self, manager);
+-      else
++      else if (self->current_is_for_laptop_lid)
+         meta_monitor_config_restore_previous (self, manager);
+     }
+ }
+-- 
+1.9.0
