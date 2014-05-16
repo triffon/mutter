@@ -1,3 +1,10 @@
+mutter (3.10.4-0ubuntu4) utopic; urgency=medium
+
+  * debian/patches/git-fix-crash-on-hotplug-*.patch:
+    - Backport crasher fix from upstream git (LP: #1319897, BGO#725637)
+
+ -- Marius Gedminas <marius@gedmin.as>  Fri, 16 May 2014 18:08:32 +0300
+
 mutter (3.10.4-0ubuntu3) utopic; urgency=high
 
   * debian/patches/0001-Update-for-Cogl-API-breaks.patch: cherry pick
