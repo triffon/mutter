@@ -1,3 +1,10 @@
+mutter (3.10.4-0ubuntu5) utopic; urgency=medium
+
+  * debian/patches/git-dont-leave-focus-on-unmanage.patch: git patch
+    to fix meta_window_unmanage crash (LP: #1279919) 
+
+ -- Tim Lunn <tim@feathertop.org>  Tue, 03 Jun 2014 13:05:23 +1000
+
 mutter (3.10.4-0ubuntu4) utopic; urgency=medium
 
   * debian/patches/git-fix-crash-on-hotplug-*.patch:
