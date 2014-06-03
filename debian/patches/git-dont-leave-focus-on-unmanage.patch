@@ -1,0 +1,50 @@
+From 5b377d3326bad8f58e73ffbc2b2b06351f96f7e5 Mon Sep 17 00:00:00 2001
+From: "Owen W. Taylor" <otaylor@fishsoup.net>
+Date: Mon, 16 Dec 2013 12:20:02 -0500
+Subject: [PATCH] display: Don't leave focus on a window we are unmanaging when
+ sending WM_TAKE_FOCUS
+
+When we move focus elsewhere when unmanaging a window, we *need* to move
+the focus, so if the target is globally active, move the focus to the
+no-focus-window in anticipation that the focus will normally get moved
+to the right window when the target window responds to WM_TAKE_FOCUS.
+
+If the window doesn't respond to WM_TAKE_FOCUS, then focus will be left
+on the no-focus-window, but there's no way to distinguish whether the
+app will respond or not.
+
+https://bugzilla.gnome.org/show_bug.cgi?id=711618
+---
+ src/core/window.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+Index: mutter-3.10.4/src/core/window.c
+===================================================================
+--- mutter-3.10.4.orig/src/core/window.c
++++ mutter-3.10.4/src/core/window.c
+@@ -5955,6 +5955,25 @@ meta_window_focus (MetaWindow  *window,
+                                                         timestamp);
+             }
+ 
++          if (!window->input)
++            {
++              /* The "Globally Active Input" window case, where the window
++               * doesn't want us to call XSetInputFocus on it, but does
++               * want us to send a WM_TAKE_FOCUS.
++               *
++               * Normally, we want to just leave the focus undisturbed until
++               * the window respnds to WM_TAKE_FOCUS, but if we're unmanaging
++               * the current focus window we *need* to move the focus away, so
++               * we focus the no_focus_window now (and set
++               * display->focus_window to that) before sending WM_TAKE_FOCUS.
++               */
++              if (window->display->focus_window != NULL &&
++                  window->display->focus_window->unmanaging)
++                meta_display_focus_the_no_focus_window (window->display,
++                                                        window->screen,
++                                                        timestamp);
++            }
++
+           meta_display_request_take_focus (window->display,
+                                            window,
+                                            timestamp);

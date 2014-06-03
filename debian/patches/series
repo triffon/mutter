@@ -4,3 +4,4 @@ git_ignore_error_when_settings_primary.patch
 0001-Update-for-Cogl-API-breaks.patch
 git-fix-crash-on-hotplug-001.patch
 git-fix-crash-on-hotplug-002.patch
+git-dont-leave-focus-on-unmanage.patch
