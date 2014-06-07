@@ -18,9 +18,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
@@ -179,6 +177,7 @@ item(_NET_WM_BYPASS_COMPOSITOR)
 item(_NET_WM_OPAQUE_REGION)
 item(_NET_WM_FRAME_DRAWN)
 item(_NET_WM_FRAME_TIMINGS)
+item(_NET_WM_WINDOW_OPACITY)
 
 #if 0
 /* We apparently never use: */

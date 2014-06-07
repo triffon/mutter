@@ -1,8 +1,10 @@
-diff --git a/src/ui/theme-parser.c b/src/ui/theme-parser.c
-index 9063541..63a881f 100644
+---
+ src/ui/theme-parser.c |   38 ++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 36 insertions(+), 2 deletions(-)
+
 --- a/src/ui/theme-parser.c
 +++ b/src/ui/theme-parser.c
-@@ -90,7 +90,9 @@ typedef enum
+@@ -88,7 +88,9 @@ typedef enum
    STATE_WINDOW,
    /* things we don't use any more but we can still parse: */
    STATE_MENU_ICON,
@@ -13,7 +15,7 @@ index 9063541..63a881f 100644
  } ParseState;
  
  typedef struct
-@@ -1306,7 +1308,19 @@ parse_toplevel_element (GMarkupParseContext  *context,
+@@ -1308,7 +1310,19 @@ parse_toplevel_element (GMarkupParseCont
         */
        push_state (info, STATE_FALLBACK);
      }
@@ -34,7 +36,7 @@ index 9063541..63a881f 100644
      {
        set_error (error, context,
                   G_MARKUP_ERROR, G_MARKUP_ERROR_PARSE,
-@@ -3027,6 +3041,18 @@ parse_style_element (GMarkupParseContext  *context,
+@@ -3029,6 +3043,18 @@ parse_style_element (GMarkupParseContext
        
        push_state (info, STATE_BUTTON);
      }
@@ -53,7 +55,7 @@ index 9063541..63a881f 100644
    else
      {
        set_error (error, context,
-@@ -3671,6 +3697,8 @@ start_element_handler (GMarkupParseContext *context,
+@@ -3670,6 +3696,8 @@ start_element_handler (GMarkupParseConte
                   _("Element <%s> is not allowed inside a <%s> element"),
                   element_name, "fallback");
        break;
@@ -62,7 +64,7 @@ index 9063541..63a881f 100644
      }
  }
  
-@@ -3960,6 +3988,9 @@ end_element_handler (GMarkupParseContext *context,
+@@ -3959,6 +3987,9 @@ end_element_handler (GMarkupParseContext
        pop_state (info);
        g_assert (peek_state (info) == STATE_THEME);
        break;
@@ -72,7 +74,7 @@ index 9063541..63a881f 100644
      }
  
    pop_required_version (info);
-@@ -4165,6 +4196,9 @@ text_handler (GMarkupParseContext *context,
+@@ -4164,6 +4195,9 @@ text_handler (GMarkupParseContext *conte
      case STATE_FALLBACK:
        NO_TEXT ("fallback");
        break;

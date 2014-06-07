@@ -18,9 +18,7 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <config.h>
@@ -63,8 +61,8 @@ meta_window_ensure_frame (MetaWindow *window)
   frame->right_width = 0;
   frame->current_cursor = 0;
 
-  frame->mapped = FALSE;
   frame->is_flashing = FALSE;
+  frame->borders_cached = FALSE;
   
   meta_verbose ("Framing window %s: visual %s default, depth %d default depth %d\n",
                 window->desc,
@@ -154,6 +152,8 @@ meta_window_ensure_frame (MetaWindow *window)
 
   /* Move keybindings to frame instead of window */
   meta_window_grab_keys (window);
+
+  meta_ui_map_frame (frame->window->screen->ui, frame->xwindow);
 }
 
 void
@@ -314,9 +314,23 @@ meta_frame_calc_borders (MetaFrame        *frame,
   if (frame == NULL)
     meta_frame_borders_clear (borders);
   else
-    meta_ui_get_frame_borders (frame->window->screen->ui,
-                               frame->xwindow,
-                               borders);
+    {
+      if (!frame->borders_cached)
+        {
+          meta_ui_get_frame_borders (frame->window->screen->ui,
+                                     frame->xwindow,
+                                     &frame->cached_borders);
+          frame->borders_cached = TRUE;
+        }
+
+      *borders = frame->cached_borders;
+    }
+}
+
+void
+meta_frame_clear_cached_borders (MetaFrame *frame)
+{
+  frame->borders_cached = FALSE;
 }
 
 gboolean

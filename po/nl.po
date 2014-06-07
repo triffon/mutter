@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: mutter\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2013-10-25 00:15+0200\n"
+"POT-Creation-Date: 2013-10-25 00:25+0200\n"
 "PO-Revision-Date: 2013-10-25 00:23+0200\n"
 "Last-Translator: Reinout van Schouwen <reinouts@gnome.org>\n"
 "Language-Team: Dutch <vertaling@vrijschrift.org>\n"
@@ -256,12 +256,12 @@ msgstr "_Wachten"
 msgid "_Force Quit"
 msgstr "Ge_forceerd afsluiten"
 
-#: ../src/core/display.c:422
+#: ../src/core/display.c:421
 #, c-format
 msgid "Missing %s extension required for compositing"
 msgstr "Benodigde extensie ‘%s’ voor ‘compositing’ ontbreekt"
 
-#: ../src/core/display.c:514
+#: ../src/core/display.c:513
 #, c-format
 msgid "Failed to open X Window System display '%s'\n"
 msgstr "Openen van X Window System display ‘%s’ mislukt\n"
@@ -389,12 +389,12 @@ msgstr ""
 msgid "Workspace %d"
 msgstr "Werkblad %d"
 
-#: ../src/core/screen.c:537
+#: ../src/core/screen.c:540
 #, c-format
 msgid "Screen %d on display '%s' is invalid\n"
 msgstr "Scherm %d op display '%s' is ongeldig\n"
 
-#: ../src/core/screen.c:553
+#: ../src/core/screen.c:556
 #, c-format
 msgid ""
 "Screen %d on display \"%s\" already has a window manager; try using the --"
@@ -403,19 +403,19 @@ msgstr ""
 "Scherm %d op display ‘%s’ heeft al een ‘window manager’; probeer de optie: --"
 "replace te gebruiken om de huidige ‘window manager’ te vervangen.\n"
 
-#: ../src/core/screen.c:580
+#: ../src/core/screen.c:583
 #, c-format
 msgid ""
 "Could not acquire window manager selection on screen %d display \"%s\"\n"
 msgstr ""
 "Kon ‘window manager’-selectie niet verkrijgen op scherm %d display ‘%s’\n"
 
-#: ../src/core/screen.c:658
+#: ../src/core/screen.c:661
 #, c-format
 msgid "Screen %d on display \"%s\" already has a window manager\n"
 msgstr "Scherm %d op display ‘%s’ heeft al een ‘window manager’\n"
 
-#: ../src/core/screen.c:850
+#: ../src/core/screen.c:853
 #, c-format
 msgid "Could not release screen %d on display \"%s\"\n"
 msgstr "Kon scherm %d op display ‘%s’ niet vrijmaken\n"
@@ -511,7 +511,7 @@ msgid "Window manager error: "
 msgstr "Fout van vensterbeheer:"
 
 #. first time through
-#: ../src/core/window.c:7515
+#: ../src/core/window.c:7510
 #, c-format
 msgid ""
 "Window %s sets SM_CLIENT_ID on itself, instead of on the WM_CLIENT_LEADER "
@@ -527,7 +527,7 @@ msgstr ""
 #. * MWM but not WM_NORMAL_HINTS are basically broken. We complain
 #. * about these apps but make them work.
 #.
-#: ../src/core/window.c:8345
+#: ../src/core/window.c:8340
 #, c-format
 msgid ""
 "Window %s sets an MWM hint indicating it isn't resizable, but sets min size "
@@ -683,9 +683,9 @@ msgid ""
 "the focus will not be changed immediately when entering a window, but only "
 "after the pointer stops moving."
 msgstr ""
-"Indien op ‘true’ ingesteld en de aandachtsmodus is ofwel ‘sloppy’ of ‘mouse’, "
-"dan zal de aandacht niet direct veranderd worden bij het binnengaan van een "
-"venster, maar slechts wanneer de muispijl stopt met bewegen."
+"Indien op ‘true’ ingesteld en de aandachtsmodus is ofwel ‘sloppy’ of "
+"‘mouse’, dan zal de aandacht niet direct veranderd worden bij het binnengaan "
+"van een venster, maar slechts wanneer de muispijl stopt met bewegen."
 
 #: ../src/org.gnome.mutter.gschema.xml.in.h:15
 msgid "Draggable border width"
@@ -697,8 +697,8 @@ msgid ""
 "not enough, invisible borders will be added to meet this value."
 msgstr ""
 "Het totaal aantal sleepbare randen. Als de zichtbare randen in het thema "
-"onvoldoende zijn, worden onzichtbare randen toegevoegd om deze waarde "
-"te bereiken."
+"onvoldoende zijn, worden onzichtbare randen toegevoegd om deze waarde te "
+"bereiken."
 
 #: ../src/org.gnome.mutter.gschema.xml.in.h:17
 msgid "Auto maximize nearly monitor sized windows"
@@ -968,8 +968,8 @@ msgid ""
 "GTK custom color specification must have color name and fallback in "
 "parentheses, e.g. gtk:custom(foo,bar); could not parse \"%s\""
 msgstr ""
-"Aangepaste GTK-kleurspecificatie moet een kleurnaam en terugvaloptie "
-"hebben tussen haakjes, dus: gtk:custom(foo,bar); kon ‘%s’ niet verwerken"
+"Aangepaste GTK-kleurspecificatie moet een kleurnaam en terugvaloptie hebben "
+"tussen haakjes, dus: gtk:custom(foo,bar); kon ‘%s’ niet verwerken"
 
 #: ../src/ui/theme.c:1219
 #, c-format
@@ -977,8 +977,8 @@ msgid ""
 "Invalid character '%c' in color_name parameter of gtk:custom, only A-Za-z0-9-"
 "_ are valid"
 msgstr ""
-"Ongeldig teken ‘%c’ in color_name-parameter van gtk:custom, alleen A-Za-z0-9-_ "
-"zijn geldig"
+"Ongeldig teken ‘%c’ in color_name-parameter van gtk:custom, alleen A-Za-z0-9-"
+"_ zijn geldig"
 
 #: ../src/ui/theme.c:1233
 #, c-format
@@ -986,8 +986,8 @@ msgid ""
 "Gtk:custom format is \"gtk:custom(color_name,fallback)\", \"%s\" does not "
 "fit the format"
 msgstr ""
-"Gtk:custom-formaat is ‘gtk:custom(color_name,fallback)’, ‘%s’ voldoet "
-"niet aan dit formaat"
+"Gtk:custom-formaat is ‘gtk:custom(color_name,fallback)’, ‘%s’ voldoet niet "
+"aan dit formaat"
 
 #: ../src/ui/theme.c:1278
 #, c-format

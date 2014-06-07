@@ -17,9 +17,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 /**
@@ -32,7 +30,7 @@
 #include "window-private.h"
 #include "boxes-private.h"
 #include "edge-resistance.h"
-#include <meta/util.h>
+#include "util-private.h"
 #include "frame.h"
 #include <meta/errors.h>
 #include "workspace-private.h"
@@ -76,12 +74,10 @@ static void     update_net_frame_extents  (MetaWindow     *window);
 static void     recalc_window_type        (MetaWindow     *window);
 static void     recalc_window_features    (MetaWindow     *window);
 static void     invalidate_work_areas     (MetaWindow     *window);
-static void     recalc_window_type        (MetaWindow     *window);
 static void     set_wm_state_on_xwindow   (MetaDisplay    *display,
                                            Window          xwindow,
                                            int             state);
-static void     set_wm_state              (MetaWindow     *window,
-                                           int             state);
+static void     set_wm_state              (MetaWindow     *window);
 static void     set_net_wm_state          (MetaWindow     *window);
 static void     meta_window_set_above     (MetaWindow     *window,
                                            gboolean        new_value);
@@ -195,6 +191,8 @@ enum
   FOCUS,
   RAISED,
   UNMANAGED,
+  SIZE_CHANGED,
+  POSITION_CHANGED,
 
   LAST_SIGNAL
 };
@@ -599,6 +597,40 @@ meta_window_class_init (MetaWindowClass *klass)
                   G_STRUCT_OFFSET (MetaWindowClass, unmanaged),
                   NULL, NULL, NULL,
                   G_TYPE_NONE, 0);
+
+  /**
+   * MetaWindow::position-changed:
+   * @window: a #MetaWindow
+   *
+   * This is emitted when the position of a window might
+   * have changed. Specifically, this is emitted when the
+   * position of the toplevel window has changed, or when
+   * the position of the client window has changed.
+   */
+  window_signals[POSITION_CHANGED] =
+    g_signal_new ("position-changed",
+                  G_TYPE_FROM_CLASS (object_class),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL, NULL,
+                  G_TYPE_NONE, 0);
+
+  /**
+   * MetaWindow::size-changed:
+   * @window: a #MetaWindow
+   *
+   * This is emitted when the position of a window might
+   * have changed. Specifically, this is emitted when the
+   * size of the toplevel window has changed, or when the
+   * size of the client window has changed.
+   */
+  window_signals[SIZE_CHANGED] =
+    g_signal_new ("size-changed",
+                  G_TYPE_FROM_CLASS (object_class),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL, NULL,
+                  G_TYPE_NONE, 0);
 }
 
 static void
@@ -778,6 +810,35 @@ meta_window_should_attach_to_parent (MetaWindow *window)
     default:
       return FALSE;
     }
+}
+
+static gboolean
+client_window_should_be_mapped (MetaWindow *window)
+{
+  return !window->shaded;
+}
+
+static void
+sync_client_window_mapped (MetaWindow *window)
+{
+  gboolean should_be_mapped = client_window_should_be_mapped (window);
+
+  if (window->mapped == should_be_mapped)
+    return;
+
+  window->mapped = should_be_mapped;
+
+  meta_error_trap_push (window->display);
+  if (should_be_mapped)
+    {
+      XMapWindow (window->display->xdisplay, window->xwindow);
+    }
+  else
+    {
+      XUnmapWindow (window->display->xdisplay, window->xwindow);
+      window->unmaps_pending ++;
+    }
+  meta_error_trap_pop (window->display);
 }
 
 MetaWindow*
@@ -1160,11 +1221,14 @@ meta_window_new (MetaDisplay   *display,
   meta_display_register_x_window (display, &window->xwindow, window);
 
   meta_window_update_shape_region_x11 (window);
+  meta_window_update_input_region_x11 (window);
 
   /* Assign this #MetaWindow a sequence number which can be used
    * for sorting.
    */
   window->stable_sequence = ++display->window_sequence_counter;
+
+  window->opacity = 0xFF;
 
   /* assign the window to its group, or create a new group if needed
    */
@@ -1367,9 +1431,6 @@ meta_window_new (MetaDisplay   *display,
   if (!window->override_redirect)
     meta_stack_add (window->screen->stack,
                     window);
-  else if (window->screen->tile_preview != NULL &&
-           meta_tile_preview_get_xwindow (window->screen->tile_preview, NULL) == xwindow)
-    window->layer = META_LAYER_NORMAL;
   else
     window->layer = META_LAYER_OVERRIDE_REDIRECT; /* otherwise set by MetaStack */
 
@@ -1406,7 +1467,7 @@ meta_window_new (MetaDisplay   *display,
       /* FIXME we have a tendency to set this then immediately
        * change it again.
        */
-      set_wm_state (window, window->iconic ? IconicState : NormalState);
+      set_wm_state (window);
       set_net_wm_state (window);
     }
 
@@ -1425,6 +1486,8 @@ meta_window_new (MetaDisplay   *display,
 
   /* disable show desktop mode unless we're a desktop component */
   maybe_leave_show_desktop_mode (window);
+
+  sync_client_window_mapped (window);
 
   meta_window_queue (window, META_QUEUE_CALC_SHOWING);
   /* See bug 303284; a transient of the given window can already exist, in which
@@ -1499,9 +1562,7 @@ meta_window_apply_session_info (MetaWindow *window,
 
       if (window->has_maximize_func && info->maximized)
         {
-          meta_window_maximize (window,
-                                META_MAXIMIZE_HORIZONTAL |
-                                META_MAXIMIZE_VERTICAL);
+          meta_window_maximize (window, META_MAXIMIZE_BOTH);
 
           if (info->saved_rect_set)
             {
@@ -1807,7 +1868,7 @@ meta_window_unmanage (MetaWindow  *window,
       XDeleteProperty (window->display->xdisplay,
                        window->xwindow,
                        window->display->atom__NET_WM_FULLSCREEN_MONITORS);
-      set_wm_state (window, WithdrawnState);
+      set_wm_state (window);
       meta_error_trap_pop (window->display);
     }
   else
@@ -1818,7 +1879,7 @@ meta_window_unmanage (MetaWindow  *window,
       if (!window->minimized)
         {
           meta_error_trap_push (window->display);
-          set_wm_state (window, NormalState);
+          set_wm_state (window);
           meta_error_trap_pop (window->display);
         }
 
@@ -1838,6 +1899,8 @@ meta_window_unmanage (MetaWindow  *window,
   meta_window_ungrab_keys (window);
   meta_display_ungrab_window_buttons (window->display, window->xwindow);
   meta_display_ungrab_focus_window_button (window->display, window);
+  if (window->display->autoraise_window == window)
+    meta_display_remove_autoraise_callback (window->display);
 
   meta_display_unregister_x_window (window->display, window->xwindow);
 
@@ -1966,11 +2029,16 @@ set_wm_state_on_xwindow (MetaDisplay *display,
 }
 
 static void
-set_wm_state (MetaWindow *window,
-              int         state)
+set_wm_state (MetaWindow *window)
 {
-  meta_verbose ("Setting wm state %s on %s\n",
-                wm_state_to_string (state), window->desc);
+  int state;
+
+  if (window->withdrawn)
+    state = WithdrawnState;
+  else if (window->iconic)
+    state = IconicState;
+  else
+    state = NormalState;
 
   set_wm_state_on_xwindow (window->display, window->xwindow, state);
 }
@@ -2222,6 +2290,8 @@ implement_showing (MetaWindow *window,
   /* Actually show/hide the window */
   meta_verbose ("Implement showing = %d for window %s\n",
                 showing, window->desc);
+
+  sync_client_window_mapped (window);
 
   if (!showing)
     {
@@ -2765,8 +2835,8 @@ static gboolean
 windows_overlap (const MetaWindow *w1, const MetaWindow *w2)
 {
   MetaRectangle w1rect, w2rect;
-  meta_window_get_outer_rect (w1, &w1rect);
-  meta_window_get_outer_rect (w2, &w2rect);
+  meta_window_get_frame_rect (w1, &w1rect);
+  meta_window_get_frame_rect (w2, &w2rect);
   return meta_rectangle_overlap (&w1rect, &w2rect);
 }
 
@@ -2811,94 +2881,6 @@ window_would_be_covered (const MetaWindow *newbie)
   return FALSE; /* none found */
 }
 
-static gboolean
-map_frame (MetaWindow *window)
-{
-  if (window->frame && !window->frame->mapped)
-    {
-      meta_topic (META_DEBUG_WINDOW_STATE,
-                  "Frame actually needs map\n");
-      window->frame->mapped = TRUE;
-      meta_ui_map_frame (window->screen->ui, window->frame->xwindow);
-      return TRUE;
-    }
-  else
-    return FALSE;
-}
-
-static gboolean
-map_client_window (MetaWindow *window)
-{
-  if (!window->mapped)
-    {
-      meta_topic (META_DEBUG_WINDOW_STATE,
-                  "%s actually needs map\n", window->desc);
-      window->mapped = TRUE;
-      meta_error_trap_push (window->display);
-      XMapWindow (window->display->xdisplay, window->xwindow);
-      meta_error_trap_pop (window->display);
-
-      return TRUE;
-    }
-  else
-    return FALSE;
-}
-
-static gboolean
-unmap_client_window (MetaWindow *window,
-                     const char *reason)
-{
-  if (window->mapped)
-    {
-      meta_topic (META_DEBUG_WINDOW_STATE,
-                  "%s actually needs unmap%s\n",
-                  window->desc, reason);
-      meta_topic (META_DEBUG_WINDOW_STATE,
-                  "Incrementing unmaps_pending on %s%s\n",
-                  window->desc, reason);
-      window->mapped = FALSE;
-      window->unmaps_pending += 1;
-      meta_error_trap_push (window->display);
-      XUnmapWindow (window->display->xdisplay, window->xwindow);
-      meta_error_trap_pop (window->display);
-
-      return TRUE;
-    }
-  else
-    return FALSE;
-}
-
-/**
- * meta_window_is_mapped:
- * @window: a #MetaWindow
- *
- * Determines whether the X window for the MetaWindow is mapped.
- */
-gboolean
-meta_window_is_mapped (MetaWindow  *window)
-{
-  return window->mapped;
-}
-
-/**
- * meta_window_toplevel_is_mapped:
- * @window: a #MetaWindow
- *
- * Determines whether the toplevel X window for the MetaWindow is
- * mapped. (The frame window is mapped even without the client window
- * when a window is shaded.)
- *
- * Return Value: %TRUE if the toplevel is mapped.
- */
-gboolean
-meta_window_toplevel_is_mapped (MetaWindow *window)
-{
-  /* The frame is mapped but not the client window when the window
-   * is shaded.
-   */
-  return window->mapped || (window->frame && window->frame->mapped);
-}
-
 static void
 meta_window_force_placement (MetaWindow *window)
 {
@@ -2937,15 +2919,11 @@ meta_window_show (MetaWindow *window)
   gboolean place_on_top_on_map;
   gboolean needs_stacking_adjustment;
   MetaWindow *focus_window;
-  gboolean toplevel_was_mapped;
-  gboolean toplevel_now_mapped;
   gboolean notify_demands_attention = FALSE;
 
   meta_topic (META_DEBUG_WINDOW_STATE,
               "Showing window %s, shaded: %d iconic: %d placed: %d\n",
               window->desc, window->shaded, window->iconic, window->placed);
-
-  toplevel_was_mapped = meta_window_toplevel_is_mapped (window);
 
   focus_window = window->display->focus_window;  /* May be NULL! */
   did_show = FALSE;
@@ -3073,46 +3051,18 @@ meta_window_show (MetaWindow *window)
         }
     }
 
-  /* Shaded means the frame is mapped but the window is not */
-
-  if (map_frame (window))
-    did_show = TRUE;
-
-  if (window->shaded)
+  if (window->hidden)
     {
-      unmap_client_window (window, " (shading)");
-
-      if (!window->iconic)
-        {
-          window->iconic = TRUE;
-          set_wm_state (window, IconicState);
-        }
-    }
-  else
-    {
-      if (map_client_window (window))
-        did_show = TRUE;
-
-      if (window->hidden)
-        {
-          meta_stack_freeze (window->screen->stack);
-          window->hidden = FALSE;
-          meta_stack_thaw (window->screen->stack);
-          did_show = TRUE;
-        }
-
-      if (window->iconic)
-        {
-          window->iconic = FALSE;
-          set_wm_state (window, NormalState);
-        }
+      meta_stack_freeze (window->screen->stack);
+      window->hidden = FALSE;
+      meta_stack_thaw (window->screen->stack);
+      did_show = TRUE;
     }
 
-  toplevel_now_mapped = meta_window_toplevel_is_mapped (window);
-  if (toplevel_now_mapped != toplevel_was_mapped)
+  if (window->iconic)
     {
-      if (window->display->compositor)
-        meta_compositor_window_mapped (window->display->compositor, window);
+      window->iconic = FALSE;
+      set_wm_state (window);
     }
 
   if (!window->visible_to_compositor)
@@ -3201,13 +3151,9 @@ static void
 meta_window_hide (MetaWindow *window)
 {
   gboolean did_hide;
-  gboolean toplevel_was_mapped;
-  gboolean toplevel_now_mapped;
 
   meta_topic (META_DEBUG_WINDOW_STATE,
               "Hiding window %s\n", window->desc);
-
-  toplevel_was_mapped = meta_window_toplevel_is_mapped (window);
 
   if (window->visible_to_compositor)
     {
@@ -3229,18 +3175,11 @@ meta_window_hide (MetaWindow *window)
               break;
             }
 
-          meta_compositor_hide_window (window->display->compositor,
-                                       window, effect);
+          meta_compositor_hide_window (window->display->compositor, window, effect);
         }
     }
 
   did_hide = FALSE;
-
-  /* If this is the first time that we've calculating the showing
-   * state of the window, the frame and client window might not
-   * yet be mapped, so we need to map them now */
-  map_frame (window);
-  map_client_window (window);
 
   if (!window->hidden)
     {
@@ -3254,20 +3193,7 @@ meta_window_hide (MetaWindow *window)
   if (!window->iconic)
     {
       window->iconic = TRUE;
-      set_wm_state (window, IconicState);
-    }
-
-  toplevel_now_mapped = meta_window_toplevel_is_mapped (window);
-  if (toplevel_now_mapped != toplevel_was_mapped)
-    {
-      if (window->display->compositor)
-        {
-          /* As above, we may be *mapping* live hidden windows */
-          if (toplevel_now_mapped)
-            meta_compositor_window_mapped (window->display->compositor, window);
-          else
-            meta_compositor_window_unmapped (window->display->compositor, window);
-        }
+      set_wm_state (window);
     }
 
   set_net_wm_state (window);
@@ -3567,11 +3493,11 @@ meta_window_maximize (MetaWindow        *window,
           MetaRectangle old_rect;
 	  MetaRectangle new_rect;
 
-	  meta_window_get_outer_rect (window, &old_rect);
+	  meta_window_get_frame_rect (window, &old_rect);
 
           meta_window_move_resize_now (window);
 
-	  meta_window_get_outer_rect (window, &new_rect);
+	  meta_window_get_frame_rect (window, &new_rect);
           meta_compositor_maximize_window (window->display->compositor,
                                            window,
                                            &old_rect,
@@ -3630,7 +3556,7 @@ meta_window_get_all_monitors (MetaWindow *window, gsize *length)
   int i;
 
   monitors = g_array_new (FALSE, FALSE, sizeof (int));
-  meta_window_get_outer_rect (window, &window_rect);
+  meta_window_get_frame_rect (window, &window_rect);
 
   for (i = 0; i < window->screen->n_monitor_infos; i++)
     {
@@ -3663,7 +3589,7 @@ meta_window_is_screen_sized (MetaWindow *window)
   int screen_width, screen_height;
 
   meta_screen_get_size (window->screen, &screen_width, &screen_height);
-  meta_window_get_outer_rect (window, &window_rect);
+  meta_window_get_frame_rect (window, &window_rect);
 
   if (window_rect.x == 0 && window_rect.y == 0 &&
       window_rect.width == screen_width && window_rect.height == screen_height)
@@ -3692,7 +3618,7 @@ meta_window_is_monitor_sized (MetaWindow *window)
     {
       MetaRectangle window_rect, monitor_rect;
 
-      meta_window_get_outer_rect (window, &window_rect);
+      meta_window_get_frame_rect (window, &window_rect);
       meta_screen_get_monitor_geometry (window->screen, window->monitor->number, &monitor_rect);
 
       if (meta_rectangle_equal (&window_rect, &monitor_rect))
@@ -3748,23 +3674,23 @@ meta_window_tile (MetaWindow *window)
     return;
 
   if (window->tile_mode == META_TILE_MAXIMIZED)
-    directions = META_MAXIMIZE_VERTICAL | META_MAXIMIZE_HORIZONTAL;
+    directions = META_MAXIMIZE_BOTH;
   else
     directions = META_MAXIMIZE_VERTICAL;
 
   meta_window_maximize_internal (window, directions, NULL);
-  meta_screen_tile_preview_update (window->screen, FALSE);
+  meta_screen_update_tile_preview (window->screen, FALSE);
 
   if (window->display->compositor)
     {
       MetaRectangle old_rect;
       MetaRectangle new_rect;
 
-      meta_window_get_outer_rect (window, &old_rect);
+      meta_window_get_frame_rect (window, &old_rect);
 
       meta_window_move_resize_now (window);
 
-      meta_window_get_outer_rect (window, &new_rect);
+      meta_window_get_frame_rect (window, &new_rect);
       meta_compositor_maximize_window (window->display->compositor,
                                        window,
                                        &old_rect,
@@ -3793,7 +3719,7 @@ meta_window_can_tile_side_by_side (MetaWindow *window)
 {
   int monitor;
   MetaRectangle tile_area;
-  MetaFrameBorders borders;
+  MetaRectangle client_rect;
 
   if (!meta_window_can_tile_maximized (window))
     return FALSE;
@@ -3807,13 +3733,10 @@ meta_window_can_tile_side_by_side (MetaWindow *window)
 
   tile_area.width /= 2;
 
-  meta_frame_calc_borders (window->frame, &borders);
+  meta_window_frame_rect_to_client_rect (window, &tile_area, &client_rect);
 
-  tile_area.width  -= (borders.visible.left + borders.visible.right);
-  tile_area.height -= (borders.visible.top + borders.visible.bottom);
-
-  return tile_area.width >= window->size_hints.min_width &&
-         tile_area.height >= window->size_hints.min_height;
+  return client_rect.width >= window->size_hints.min_width &&
+         client_rect.height >= window->size_hints.min_height;
 }
 
 static void
@@ -3874,8 +3797,10 @@ meta_window_unmaximize_internal (MetaWindow        *window,
     {
       MetaRectangle target_rect;
       MetaRectangle work_area;
+      MetaRectangle old_rect;
 
       meta_window_get_work_area_for_monitor (window, window->monitor->number, &work_area);
+      meta_window_get_frame_rect (window, &old_rect);
 
       meta_topic (META_DEBUG_WINDOW_OPS,
                   "Unmaximizing %s%s\n",
@@ -3888,6 +3813,12 @@ meta_window_unmaximize_internal (MetaWindow        *window,
         window->maximized_horizontally && !unmaximize_horizontally;
       window->maximized_vertically =
         window->maximized_vertically   && !unmaximize_vertically;
+
+      /* recalc_window_features() will eventually clear the cached frame
+       * extents, but we need the correct frame extents in the code below,
+       * so invalidate the old frame extents manually up front.
+       */
+      meta_window_frame_size_changed (window);
 
       /* Unmaximize to the saved_rect position in the direction(s)
        * being unmaximized.
@@ -3933,9 +3864,7 @@ meta_window_unmaximize_internal (MetaWindow        *window,
 
       if (window->display->compositor)
         {
-          MetaRectangle old_rect, new_rect;
-
-	  meta_window_get_outer_rect (window, &old_rect);
+          MetaRectangle new_rect;
 
           meta_window_move_resize_internal (window,
                                             META_IS_MOVE_ACTION | META_IS_RESIZE_ACTION,
@@ -3945,7 +3874,7 @@ meta_window_unmaximize_internal (MetaWindow        *window,
                                             target_rect.width,
                                             target_rect.height);
 
-	  meta_window_get_outer_rect (window, &new_rect);
+	  meta_window_get_frame_rect (window, &new_rect);
           meta_compositor_unmaximize_window (window->display->compositor,
 					     window,
                                              &old_rect,
@@ -4050,6 +3979,7 @@ meta_window_set_above (MetaWindow *window,
   window->wm_state_above = new_value;
   meta_window_update_layer (window);
   set_net_wm_state (window);
+  meta_window_frame_size_changed (window);
   g_object_notify (G_OBJECT (window), "above");
 }
 
@@ -4189,6 +4119,7 @@ meta_window_shade (MetaWindow  *window,
       window->shaded = TRUE;
 
       meta_window_queue(window, META_QUEUE_MOVE_RESIZE | META_QUEUE_CALC_SHOWING);
+      meta_window_frame_size_changed (window);
 
       /* After queuing the calc showing, since _focus flushes it,
        * and we need to focus the frame
@@ -4214,6 +4145,7 @@ meta_window_unshade (MetaWindow  *window,
     {
       window->shaded = FALSE;
       meta_window_queue(window, META_QUEUE_MOVE_RESIZE | META_QUEUE_CALC_SHOWING);
+      meta_window_frame_size_changed (window);
 
       /* focus the window */
       meta_topic (META_DEBUG_FOCUS,
@@ -4941,11 +4873,15 @@ meta_window_move_resize_internal (MetaWindow          *window,
   did_placement = !window->placed && window->calc_placement;
 
   meta_window_constrain (window,
-                         window->frame ? &borders : NULL,
                          flags,
                          gravity,
                          &old_rect,
                          &new_rect);
+
+  /* meta_window_constrain() might have maximized the window after placement,
+   * changing the borders.
+   */
+  meta_frame_calc_borders (window->frame, &borders);
 
   w = new_rect.width;
   h = new_rect.height;
@@ -5249,6 +5185,12 @@ meta_window_move_resize_internal (MetaWindow          *window,
   else if (is_user_action)
     save_user_window_placement (window);
 
+  if (need_move_client || need_move_frame)
+    g_signal_emit (window, window_signals[POSITION_CHANGED], 0);
+
+  if (need_resize_client || need_resize_frame)
+    g_signal_emit (window, window_signals[SIZE_CHANGED], 0);
+
   if (need_move_frame || need_resize_frame ||
       need_move_client || need_resize_client ||
       did_placement)
@@ -5370,23 +5312,10 @@ meta_window_move_frame (MetaWindow  *window,
                   int          root_x_nw,
                   int          root_y_nw)
 {
-  int x = root_x_nw;
-  int y = root_y_nw;
+  MetaRectangle rect = { root_x_nw, root_y_nw, 0, 0 };
 
-  if (window->frame)
-    {
-      MetaFrameBorders borders;
-      meta_frame_calc_borders (window->frame, &borders);
-
-      /* root_x_nw and root_y_nw correspond to where the top of
-       * the visible frame should be. Offset by the distance between
-       * the origin of the window and the origin of the enclosing
-       * window decorations.
-       */
-      x += window->frame->child_x - borders.invisible.left;
-      y += window->frame->child_y - borders.invisible.top;
-    }
-  meta_window_move (window, user_op, x, y);
+  meta_window_frame_rect_to_client_rect (window, &rect, &rect);
+  meta_window_move (window, user_op, rect.x, rect.y);
 }
 
 static void
@@ -5434,18 +5363,10 @@ meta_window_move_resize_frame (MetaWindow  *window,
                                int          w,
                                int          h)
 {
-  MetaFrameBorders borders;
+  MetaRectangle rect = { root_x_nw, root_y_nw, w, h };
+  meta_window_frame_rect_to_client_rect (window, &rect, &rect);
 
-  meta_frame_calc_borders (window->frame, &borders);
-  /* offset by the distance between the origin of the window
-   * and the origin of the enclosing window decorations ( + border)
-   */
-  root_x_nw += borders.visible.left;
-  root_y_nw += borders.visible.top;
-  w -= borders.visible.left + borders.visible.right;
-  h -= borders.visible.top + borders.visible.bottom;
-
-  meta_window_move_resize (window, user_op, root_x_nw, root_y_nw, w, h);
+  meta_window_move_resize (window, user_op, rect.x, rect.y, rect.width, rect.height);
 }
 
 /**
@@ -5476,6 +5397,9 @@ meta_window_move_to_monitor (MetaWindow  *window,
     window->tile_monitor_number = monitor;
 
   meta_window_move_between_rects (window, &old_area, &new_area);
+
+  if (window->fullscreen || window->override_redirect)
+    meta_screen_queue_check_fullscreen (window->screen);
 }
 
 void
@@ -5758,16 +5682,110 @@ meta_window_get_input_rect (const MetaWindow *window,
 }
 
 /**
- * meta_window_get_outer_rect:
+ * meta_window_client_rect_to_frame_rect:
+ * @window: a #MetaWindow
+ * @client_rect: client rectangle in root coordinates
+ * @frame_rect: (out): location to store the computed corresponding frame bounds.
+ *
+ * Converts a desired bounds of the client window - what is passed to meta_window_move_resize() -
+ * into the corresponding bounds of the window frame (excluding invisible borders
+ * and client side shadows.)
+ */
+void
+meta_window_client_rect_to_frame_rect (MetaWindow    *window,
+                                       MetaRectangle *client_rect,
+                                       MetaRectangle *frame_rect)
+{
+  if (!frame_rect)
+    return;
+
+  *frame_rect = *client_rect;
+
+  /* The support for G_MAXINT here to mean infinity is a convenience for
+   * constraints.c:get_size_limits() and not something that we provide
+   * in other locations or document.
+   */
+  if (window->frame)
+    {
+      MetaFrameBorders borders;
+      meta_frame_calc_borders (window->frame, &borders);
+
+      frame_rect->x -= borders.visible.left;
+      frame_rect->y -= borders.visible.top;
+      if (frame_rect->width != G_MAXINT)
+        frame_rect->width += borders.visible.left + borders.visible.right;
+      if (frame_rect->height != G_MAXINT)
+        frame_rect->height += borders.visible.top  + borders.visible.bottom;
+    }
+  else
+    {
+      if (window->has_custom_frame_extents)
+        {
+          const GtkBorder *extents = &window->custom_frame_extents;
+          frame_rect->x += extents->left;
+          frame_rect->y += extents->top;
+          if (frame_rect->width != G_MAXINT)
+            frame_rect->width -= extents->left + extents->right;
+          if (frame_rect->height != G_MAXINT)
+            frame_rect->height -= extents->top + extents->bottom;
+        }
+    }
+}
+
+/**
+ * meta_window_frame_rect_to_client_rect:
+ * @window: a #MetaWindow
+ * @frame_rect: desired frame bounds for the window
+ * @client_rect: (out): location to store the computed corresponding client rectangle.
+ *
+ * Converts a desired frame bounds for a window into the bounds of the client
+ * window - what is passed to meta_window_move_resize().
+ */
+void
+meta_window_frame_rect_to_client_rect (MetaWindow    *window,
+                                       MetaRectangle *frame_rect,
+                                       MetaRectangle *client_rect)
+{
+  if (!client_rect)
+    return;
+
+  *client_rect = *frame_rect;
+
+  if (window->frame)
+    {
+      MetaFrameBorders borders;
+      meta_frame_calc_borders (window->frame, &borders);
+
+      client_rect->x += borders.visible.left;
+      client_rect->y += borders.visible.top;
+      client_rect->width  -= borders.visible.left + borders.visible.right;
+      client_rect->height -= borders.visible.top  + borders.visible.bottom;
+    }
+  else
+    {
+      if (window->has_custom_frame_extents)
+        {
+          const GtkBorder *extents = &window->custom_frame_extents;
+          client_rect->x -= extents->left;
+          client_rect->y -= extents->top;
+          client_rect->width += extents->left + extents->right;
+          client_rect->height += extents->top + extents->bottom;
+        }
+    }
+}
+
+/**
+ * meta_window_get_frame_rect:
  * @window: a #MetaWindow
  * @rect: (out): pointer to an allocated #MetaRectangle
  *
- * Gets the rectangle that bounds @window that is responsive to mouse events.
- * This includes only what is visible; it doesn't include any extra reactive
- * area we add to the edges of windows.
+ * Gets the rectangle that bounds @window that is what the user thinks of
+ * as the edge of the window. This doesn't include any extra reactive
+ * area that we or the client adds to the window, or any area that the
+ * client adds to draw a client-side shadow.
  */
 void
-meta_window_get_outer_rect (const MetaWindow *window,
+meta_window_get_frame_rect (const MetaWindow *window,
                             MetaRectangle    *rect)
 {
   if (window->frame)
@@ -5794,6 +5812,56 @@ meta_window_get_outer_rect (const MetaWindow *window,
           rect->height -= extents->top + extents->bottom;
         }
     }
+}
+
+/**
+ * meta_window_get_outer_rect:
+ * @window: a #MetaWindow
+ * @rect: (out): pointer to an allocated #MetaRectangle
+ *
+ * Gets the rectangle that bounds @window that is what the user thinks of
+ * as the edge of the window. This doesn't include any extra reactive
+ * area that we or the client adds to the window, or any area that the
+ * client adds to draw a client-side shadow.
+ *
+ * Deprecated: 3.12: Use meta_window_get_frame_rect() instead.
+ */
+void
+meta_window_get_outer_rect (const MetaWindow *window,
+                            MetaRectangle    *rect)
+{
+  meta_window_get_frame_rect (window, rect);
+}
+
+/**
+ * meta_window_get_client_area_rect:
+ * @window: a #MetaWindow
+ * @rect: (out): pointer to a cairo rectangle
+ *
+ * Gets the rectangle for the boundaries of the client area, relative
+ * to the frame. If the window is shaded, the height of the rectangle
+ * is 0.
+ */
+void
+meta_window_get_client_area_rect (const MetaWindow      *window,
+                                  cairo_rectangle_int_t *rect)
+{
+  if (window->frame)
+    {
+      rect->x = window->frame->child_x;
+      rect->y = window->frame->child_y;
+    }
+  else
+    {
+      rect->x = 0;
+      rect->y = 0;
+    }
+
+  rect->width = window->rect.width;
+  if (window->shaded)
+    rect->height = 0;
+  else
+    rect->height = window->rect.height;
 }
 
 const char*
@@ -6037,6 +6105,7 @@ window_stick_impl (MetaWindow  *window)
    * toggled back off.
    */
   window->on_all_workspaces_requested = TRUE;
+  meta_window_frame_size_changed (window);
   meta_window_update_on_all_workspaces (window);
 
   meta_window_queue(window, META_QUEUE_CALC_SHOWING);
@@ -6051,6 +6120,7 @@ window_unstick_impl (MetaWindow  *window)
   /* Revert to window->workspaces */
 
   window->on_all_workspaces_requested = FALSE;
+  meta_window_frame_size_changed (window);
   meta_window_update_on_all_workspaces (window);
 
   /* We change ourselves to the active workspace, since otherwise you'd get
@@ -6557,8 +6627,7 @@ meta_window_property_notify (MetaWindow *window,
 void
 meta_window_change_workspace_by_index (MetaWindow *window,
                                        gint        space_index,
-                                       gboolean    append,
-                                       guint32     timestamp)
+                                       gboolean    append)
 {
   MetaWorkspace *workspace;
   MetaScreen    *screen;
@@ -6577,11 +6646,7 @@ meta_window_change_workspace_by_index (MetaWindow *window,
     meta_screen_get_workspace_by_index (screen, space_index);
 
   if (!workspace && append)
-    {
-      if (timestamp == CurrentTime)
-        timestamp = meta_display_get_current_time_roundtrip (window->display);
-      workspace = meta_screen_append_new_workspace (screen, FALSE, timestamp);
-    }
+    workspace = meta_screen_append_new_workspace (screen, FALSE, CurrentTime);
 
   if (workspace)
     {
@@ -6782,46 +6847,36 @@ meta_window_client_message (MetaWindow *window,
         }
 
       if (first == display->atom__NET_WM_STATE_MAXIMIZED_HORZ ||
-          second == display->atom__NET_WM_STATE_MAXIMIZED_HORZ)
+          second == display->atom__NET_WM_STATE_MAXIMIZED_HORZ ||
+          first == display->atom__NET_WM_STATE_MAXIMIZED_VERT ||
+          second == display->atom__NET_WM_STATE_MAXIMIZED_VERT)
         {
           gboolean max;
+          MetaMaximizeFlags directions = 0;
 
           max = (action == _NET_WM_STATE_ADD ||
                  (action == _NET_WM_STATE_TOGGLE &&
                   !window->maximized_horizontally));
+
+          if (first == display->atom__NET_WM_STATE_MAXIMIZED_HORZ ||
+              second == display->atom__NET_WM_STATE_MAXIMIZED_HORZ)
+            directions |= META_MAXIMIZE_HORIZONTAL;
+
+          if (first == display->atom__NET_WM_STATE_MAXIMIZED_VERT ||
+              second == display->atom__NET_WM_STATE_MAXIMIZED_VERT)
+            directions |= META_MAXIMIZE_VERTICAL;
+
           if (max && window->has_maximize_func)
             {
               if (meta_prefs_get_raise_on_click ())
                 meta_window_raise (window);
-              meta_window_maximize (window, META_MAXIMIZE_HORIZONTAL);
+              meta_window_maximize (window, directions);
             }
           else
             {
               if (meta_prefs_get_raise_on_click ())
                 meta_window_raise (window);
-              meta_window_unmaximize (window, META_MAXIMIZE_HORIZONTAL);
-            }
-        }
-
-      if (first == display->atom__NET_WM_STATE_MAXIMIZED_VERT ||
-          second == display->atom__NET_WM_STATE_MAXIMIZED_VERT)
-        {
-          gboolean max;
-
-          max = (action == _NET_WM_STATE_ADD ||
-                 (action == _NET_WM_STATE_TOGGLE &&
-                  !window->maximized_vertically));
-          if (max && window->has_maximize_func)
-            {
-              if (meta_prefs_get_raise_on_click ())
-                meta_window_raise (window);
-              meta_window_maximize (window, META_MAXIMIZE_VERTICAL);
-            }
-          else
-            {
-              if (meta_prefs_get_raise_on_click ())
-                meta_window_raise (window);
-              meta_window_unmaximize (window, META_MAXIMIZE_VERTICAL);
+              meta_window_unmaximize (window, directions);
             }
         }
 
@@ -7131,6 +7186,7 @@ static void
 meta_window_appears_focused_changed (MetaWindow *window)
 {
   set_net_wm_state (window);
+  meta_window_frame_size_changed (window);
 
   g_object_notify (G_OBJECT (window), "appears-focused");
 
@@ -7612,7 +7668,7 @@ meta_window_update_net_wm_type (MetaWindow *window)
   meta_window_recalc_window_type (window);
 }
 
-void
+static void
 meta_window_set_opaque_region (MetaWindow     *window,
                                cairo_region_t *region)
 {
@@ -7698,7 +7754,93 @@ region_create_from_x_rectangles (const XRectangle *rects,
   return cairo_region_create_rectangles (cairo_rects, n_rects);
 }
 
+static void
+meta_window_set_input_region (MetaWindow     *window,
+                              cairo_region_t *region)
+{
+  g_clear_pointer (&window->input_region, cairo_region_destroy);
+
+  if (region != NULL)
+    window->input_region = cairo_region_reference (region);
+
+  if (window->display->compositor)
+    meta_compositor_window_shape_changed (window->display->compositor, window);
+}
+
 void
+meta_window_update_input_region_x11 (MetaWindow *window)
+{
+  cairo_region_t *region = NULL;
+
+  /* Decorated windows don't have an input region, because
+     we don't shape the frame to match the client windows
+     (so the events are blocked by the frame anyway)
+  */
+  if (window->decorated)
+    {
+      if (window->input_region)
+        meta_window_set_input_region (window, NULL);
+      return;
+    }
+
+#ifdef HAVE_SHAPE
+  if (META_DISPLAY_HAS_SHAPE (window->display))
+    {
+      /* Translate the set of XShape rectangles that we
+       * get from the X server to a cairo_region. */
+      XRectangle *rects = NULL;
+      int n_rects, ordering;
+
+      meta_error_trap_push (window->display);
+      rects = XShapeGetRectangles (window->display->xdisplay,
+                                   window->xwindow,
+                                   ShapeInput,
+                                   &n_rects,
+                                   &ordering);
+      meta_error_trap_pop (window->display);
+
+      /* XXX: The x shape extension doesn't provide a way to only test if an
+       * input shape has been specified, so we have to query and throw away the
+       * rectangles. */
+      if (rects)
+        {
+          if (n_rects > 1 ||
+              (n_rects == 1 &&
+               (rects[0].x != 0 ||
+                rects[0].y != 0 ||
+                rects[0].width != window->rect.width ||
+                rects[0].height != window->rect.height)))
+            region = region_create_from_x_rectangles (rects, n_rects);
+
+          XFree (rects);
+        }
+    }
+#endif /* HAVE_SHAPE */
+
+  if (region != NULL)
+    {
+      cairo_rectangle_int_t client_area;
+
+      client_area.x = 0;
+      client_area.y = 0;
+      client_area.width = window->rect.width;
+      client_area.height = window->rect.height;
+
+      /* The shape we get back from the client may have coordinates
+       * outside of the frame. The X SHAPE Extension requires that
+       * the overall shape the client provides never exceeds the
+       * "bounding rectangle" of the window -- the shape that the
+       * window would have gotten if it was unshaped. In our case,
+       * this is simply the client area.
+       */
+      cairo_region_intersect_rectangle (region, &client_area);
+    }
+
+  meta_window_set_input_region (window, region);
+  cairo_region_destroy (region);
+}
+
+static void
 meta_window_set_shape_region (MetaWindow     *window,
                               cairo_region_t *region)
 {
@@ -7782,7 +7924,7 @@ redraw_icon (MetaWindow *window)
   /* We could probably be smart and just redraw the icon here,
    * instead of the whole frame.
    */
-  if (window->frame && (window->mapped || window->frame->mapped))
+  if (window->frame)
     meta_ui_queue_frame_draw (window->screen->ui, window->frame->xwindow);
 }
 
@@ -8218,6 +8360,13 @@ recalc_window_type (MetaWindow *window)
     }
 }
 
+void
+meta_window_frame_size_changed (MetaWindow *window)
+{
+  if (window->frame)
+    meta_frame_clear_cached_borders (window->frame);
+}
+
 static void
 set_allowed_actions_hint (MetaWindow *window)
 {
@@ -8419,18 +8568,13 @@ recalc_window_features (MetaWindow *window)
 
   if (window->has_maximize_func)
     {
-      MetaRectangle work_area;
-      MetaFrameBorders borders;
-      int min_frame_width, min_frame_height;
+      MetaRectangle work_area, client_rect;
 
       meta_window_get_work_area_current_monitor (window, &work_area);
-      meta_frame_calc_borders (window->frame, &borders);
+      meta_window_frame_rect_to_client_rect (window, &work_area, &client_rect);
 
-      min_frame_width = window->size_hints.min_width + borders.visible.left + borders.visible.right;
-      min_frame_height = window->size_hints.min_height + borders.visible.top + borders.visible.bottom;
-
-      if (min_frame_width >= work_area.width ||
-          min_frame_height >= work_area.height)
+      if (window->size_hints.min_width >= client_rect.width ||
+          window->size_hints.min_height >= client_rect.height)
         window->has_maximize_func = FALSE;
     }
 
@@ -8526,6 +8670,8 @@ recalc_window_features (MetaWindow *window)
   if (window->has_resize_func != old_has_resize_func)
     g_object_notify (G_OBJECT (window), "resizeable");
 
+  meta_window_frame_size_changed (window);
+
   /* FIXME perhaps should ensure if we don't have a shade func,
    * we aren't shaded, etc.
    */
@@ -8567,15 +8713,11 @@ menu_callback (MetaWindowMenu *menu,
           break;
 
         case META_MENU_OP_UNMAXIMIZE:
-          meta_window_unmaximize (window,
-                                  META_MAXIMIZE_HORIZONTAL |
-                                  META_MAXIMIZE_VERTICAL);
+          meta_window_unmaximize (window, META_MAXIMIZE_BOTH);
           break;
 
         case META_MENU_OP_MAXIMIZE:
-          meta_window_maximize (window,
-                                META_MAXIMIZE_HORIZONTAL |
-                                META_MAXIMIZE_VERTICAL);
+          meta_window_maximize (window, META_MAXIMIZE_BOTH);
           break;
 
         case META_MENU_OP_UNSHADE:
@@ -8802,7 +8944,7 @@ meta_window_show_menu (MetaWindow *window,
 void
 meta_window_shove_titlebar_onscreen (MetaWindow *window)
 {
-  MetaRectangle  outer_rect;
+  MetaRectangle  frame_rect;
   GList         *onscreen_region;
   int            horiz_amount, vert_amount;
   int            newx, newy;
@@ -8814,15 +8956,15 @@ meta_window_shove_titlebar_onscreen (MetaWindow *window)
     return;
 
   /* Get the basic info we need */
-  meta_window_get_outer_rect (window, &outer_rect);
+  meta_window_get_frame_rect (window, &frame_rect);
   onscreen_region = window->screen->active_workspace->screen_region;
 
   /* Extend the region (just in case the window is too big to fit on the
    * screen), then shove the window on screen, then return the region to
    * normal.
    */
-  horiz_amount = outer_rect.width;
-  vert_amount  = outer_rect.height;
+  horiz_amount = frame_rect.width;
+  vert_amount  = frame_rect.height;
   meta_rectangle_expand_region (onscreen_region,
                                 horiz_amount,
                                 horiz_amount,
@@ -8830,15 +8972,15 @@ meta_window_shove_titlebar_onscreen (MetaWindow *window)
                                 vert_amount);
   meta_rectangle_shove_into_region(onscreen_region,
                                    FIXED_DIRECTION_X,
-                                   &outer_rect);
+                                   &frame_rect);
   meta_rectangle_expand_region (onscreen_region,
                                 -horiz_amount,
                                 -horiz_amount,
                                 0,
                                 -vert_amount);
 
-  newx = outer_rect.x + window->frame->child_x;
-  newy = outer_rect.y + window->frame->child_y;
+  newx = frame_rect.x + window->frame->child_x;
+  newy = frame_rect.y + window->frame->child_y;
   meta_window_move_resize (window,
                            FALSE,
                            newx,
@@ -8855,15 +8997,15 @@ meta_window_titlebar_is_onscreen (MetaWindow *window)
   gboolean       is_onscreen;
 
   const int min_height_needed  = 8;
-  const int min_width_percent  = 0.5;
+  const float min_width_percent  = 0.5;
   const int min_width_absolute = 50;
 
   /* Titlebar can't be offscreen if there is no titlebar... */
   if (!window->frame)
-    return FALSE;
+    return TRUE;
 
   /* Get the rectangle corresponding to the titlebar */
-  meta_window_get_outer_rect (window, &titlebar_rect);
+  meta_window_get_frame_rect (window, &titlebar_rect);
   titlebar_rect.height = window->frame->child_y;
 
   /* Run through the spanning rectangles for the screen and see if one of
@@ -9092,10 +9234,7 @@ update_move (MetaWindow  *window,
       display->grab_anchor_root_x = x;
       display->grab_anchor_root_y = y;
 
-      meta_window_unmaximize (window,
-                              META_MAXIMIZE_HORIZONTAL |
-                              META_MAXIMIZE_VERTICAL);
-
+      meta_window_unmaximize (window, META_MAXIMIZE_BOTH);
       return;
     }
 
@@ -9139,9 +9278,7 @@ update_move (MetaWindow  *window,
                   window->user_rect.x = window->saved_rect.x;
                   window->user_rect.y = window->saved_rect.y;
 
-                  meta_window_unmaximize (window,
-                                          META_MAXIMIZE_HORIZONTAL |
-                                          META_MAXIMIZE_VERTICAL);
+                  meta_window_unmaximize (window, META_MAXIMIZE_BOTH);
                 }
 
               display->grab_initial_window_pos = work_area;
@@ -9149,10 +9286,7 @@ update_move (MetaWindow  *window,
               display->grab_anchor_root_y = y;
               window->shaken_loose = FALSE;
 
-              meta_window_maximize (window,
-                                    META_MAXIMIZE_HORIZONTAL |
-                                    META_MAXIMIZE_VERTICAL);
-
+              meta_window_maximize (window, META_MAXIMIZE_BOTH);
               return;
             }
         }
@@ -9162,7 +9296,7 @@ update_move (MetaWindow  *window,
    * trigger it unwittingly, e.g. when shaking loose the window or moving
    * it to another monitor.
    */
-  meta_screen_tile_preview_update (window->screen,
+  meta_screen_update_tile_preview (window->screen,
                                    window->tile_mode != META_TILE_NONE);
 
   meta_window_get_client_root_coords (window, &old);
@@ -9918,6 +10052,20 @@ meta_window_get_work_area_all_monitors (MetaWindow    *window,
               window->desc, area->x, area->y, area->width, area->height);
 }
 
+int
+meta_window_get_current_tile_monitor_number (MetaWindow *window)
+{
+  int tile_monitor_number = window->tile_monitor_number;
+
+  if (tile_monitor_number < 0)
+    {
+      meta_warning ("%s called with an invalid monitor number; using 0 instead\n", G_STRFUNC);
+      tile_monitor_number = 0;
+    }
+
+  return tile_monitor_number;
+}
+
 void
 meta_window_get_current_tile_area (MetaWindow    *window,
                                    MetaRectangle *tile_area)
@@ -9926,12 +10074,7 @@ meta_window_get_current_tile_area (MetaWindow    *window,
 
   g_return_if_fail (window->tile_mode != META_TILE_NONE);
 
-  tile_monitor_number = window->tile_monitor_number;
-  if (tile_monitor_number < 0)
-    {
-      meta_warning ("%s called with an invalid monitor number; using 0 instead\n", G_STRFUNC);
-      tile_monitor_number = 0;
-    }
+  tile_monitor_number = meta_window_get_current_tile_monitor_number (window);
 
   meta_window_get_work_area_for_monitor (window, tile_monitor_number, tile_area);
 
@@ -9971,6 +10114,24 @@ meta_window_same_client (MetaWindow *window,
 
   return ((window->xwindow & ~resource_mask) ==
           (other_window->xwindow & ~resource_mask));
+}
+
+/**
+ * meta_window_is_client_decorated:
+ *
+ * Check if if the window has decorations drawn by the client.
+ * (window->decorated refers only to whether we should add decorations)
+ */
+gboolean
+meta_window_is_client_decorated (MetaWindow *window)
+{
+  /* Currently the implementation here is hackish -
+   * has_custom_frame_extents() is set if _GTK_FRAME_EXTENTS is set
+   * to any value even 0. GTK+ always sets _GTK_FRAME_EXTENTS for
+   * client-side-decorated window, even if the value is 0 because
+   * the window is maxized and has no invisible borders or shadows.
+   */
+  return window->has_custom_frame_extents;
 }
 
 void
@@ -10165,7 +10326,7 @@ warp_grab_pointer (MetaWindow          *window,
   /* We may not have done begin_grab_op yet, i.e. may not be in a grab
    */
 
-  meta_window_get_outer_rect (window, &rect);
+  meta_window_get_frame_rect (window, &rect);
 
   switch (grab_op)
     {
@@ -10504,7 +10665,7 @@ meta_window_set_demands_attention (MetaWindow *window)
     }
   else
     {
-      meta_window_get_outer_rect (window, &candidate_rect);
+      meta_window_get_frame_rect (window, &candidate_rect);
 
       /* The stack is sorted with the top windows first. */
 
@@ -10515,7 +10676,7 @@ meta_window_set_demands_attention (MetaWindow *window)
 
           if (meta_window_located_on_workspace (other_window, window->workspace))
             {
-              meta_window_get_outer_rect (other_window, &other_rect);
+              meta_window_get_frame_rect (other_window, &other_rect);
 
               if (meta_rectangle_overlap (&candidate_rect, &other_rect))
                 {
@@ -11219,8 +11380,8 @@ meta_window_compute_tile_match (MetaWindow *window)
           bottommost = match;
         }
 
-      meta_window_get_outer_rect (bottommost, &bottommost_rect);
-      meta_window_get_outer_rect (topmost, &topmost_rect);
+      meta_window_get_frame_rect (bottommost, &bottommost_rect);
+      meta_window_get_frame_rect (topmost, &topmost_rect);
       /*
        * If there's a window stacked in between which is partially visible
        * behind the topmost tile we don't consider the tiles to match.
@@ -11234,7 +11395,7 @@ meta_window_compute_tile_match (MetaWindow *window)
               meta_window_get_workspace (above) != meta_window_get_workspace (window))
             continue;
 
-          meta_window_get_outer_rect (above, &above_rect);
+          meta_window_get_frame_rect (above, &above_rect);
 
           if (meta_rectangle_overlap (&above_rect, &bottommost_rect) &&
               meta_rectangle_overlap (&above_rect, &topmost_rect))
@@ -11245,8 +11406,66 @@ meta_window_compute_tile_match (MetaWindow *window)
     }
 }
 
+Window
+meta_window_get_toplevel_xwindow (MetaWindow *window)
+{
+  return window->frame ? window->frame->xwindow : window->xwindow;
+}
+
+void
+meta_window_set_opacity (MetaWindow *window,
+                         guint       opacity)
+{
+  window->opacity = opacity;
+
+  if (window->display->compositor)
+    meta_compositor_window_opacity_changed (window->display->compositor, window);
+}
+
+gboolean
+meta_window_can_maximize (MetaWindow *window)
+{
+  return window->has_maximize_func;
+}
+
+gboolean
+meta_window_can_minimize (MetaWindow *window)
+{
+  return window->has_minimize_func;
+}
+
+gboolean
+meta_window_can_shade (MetaWindow *window)
+{
+  return window->has_shade_func;
+}
+
 gboolean
 meta_window_can_close (MetaWindow *window)
 {
   return window->has_close_func;
+}
+
+gboolean
+meta_window_is_always_on_all_workspaces (MetaWindow *window)
+{
+  return window->always_sticky;
+}
+
+gboolean
+meta_window_is_above (MetaWindow *window)
+{
+  return window->wm_state_above;
+}
+
+gboolean
+meta_window_allows_move (MetaWindow *window)
+{
+  return META_WINDOW_ALLOWS_MOVE (window);
+}
+
+gboolean
+meta_window_allows_resize (MetaWindow *window)
+{
+  return META_WINDOW_ALLOWS_RESIZE (window);
 }
