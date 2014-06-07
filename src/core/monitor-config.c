@@ -20,9 +20,7 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 /*
@@ -878,7 +876,7 @@ apply_configuration (MetaMonitorConfig  *self,
 
   /* Stored (persistent) configurations override the previous one always.
      Also, we clear the previous configuration if the current one (which is
-     about to become previous) is stored, of if the current one has a
+     about to become previous) is stored, or if the current one has
      different outputs.
   */
   if (stored ||
@@ -1028,12 +1026,14 @@ meta_monitor_config_apply_stored (MetaMonitorConfig  *self,
           stored->n_outputs > 1 &&
           laptop_display_is_on (stored))
         {
-          gboolean ok;
-
-          ok = apply_configuration (self, make_laptop_lid_config (stored),
-                                    manager, FALSE);
-          self->current_is_for_laptop_lid = TRUE;
-          return ok;
+          if (apply_configuration (self, make_laptop_lid_config (stored),
+                                   manager, FALSE))
+            {
+              self->current_is_for_laptop_lid = TRUE;
+              return TRUE;
+            }
+          else
+            return FALSE;
         }
       else
         return apply_configuration (self, stored, manager, TRUE);
