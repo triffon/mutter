@@ -2,3 +2,4 @@
 prevent-double-lock-deadlock.patch
 04_ignore_shadow_and_padding.patch
 revert_upower_api_changes.patch
+git_switch_to_after_paint.patch
