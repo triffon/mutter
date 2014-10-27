@@ -1,3 +1,12 @@
+mutter (3.12.2-1ubuntu3) vivid; urgency=medium
+
+  * Rebuild for clutter 1.20
+  * debian/patches/git_switch_to_after_paint.patch: update for api
+    change in clutter 1.20
+  * debian/control.in: Bump deps on clutter >= 1.19.5
+
+ -- Tim Lunn <tim@feathertop.org>  Mon, 27 Oct 2014 14:12:32 +1100
+
 mutter (3.12.2-1ubuntu2) utopic; urgency=medium
 
   * No change rebuild for gnome-desktop 3.12
