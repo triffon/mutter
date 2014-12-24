@@ -5,8 +5,9 @@
 Source: mutter
 Section: x11
 Priority: optional
-Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
-Uploaders: Andreas Henriksson <andreas@fatal.se>, Josselin Mouette <joss@debian.org>, Michael Biebl <biebl@debian.org>, Sjoerd Simons <sjoerd@debian.org>
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+XSBC-Original-Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
+Uploaders: Andreas Henriksson <andreas@fatal.se>, Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>, Josselin Mouette <joss@debian.org>, Michael Biebl <biebl@debian.org>
 Build-Depends: cdbs (>= 0.4.90),
                debhelper (>= 9),
                gnome-pkg-tools (>= 0.10),
@@ -28,7 +29,7 @@ Build-Depends: cdbs (>= 0.4.90),
                libgnome-desktop-3-dev (>= 3.10),
                libinput-dev [linux-any],
                libstartup-notification0-dev (>= 0.7),
-               libsystemd-login-dev (>= 212) [linux-any],
+               libsystemd-login-dev (>= 208) [linux-any],
                libupower-glib-dev (>= 0.99.0),
                libxcb-randr0-dev,
                libxcomposite-dev (>= 1:0.2),
@@ -106,6 +107,7 @@ Depends: ${shlibs:Depends},
          gsettings-desktop-schemas (>= 3.13.1),
          mutter-common (= ${source:Version})
 Conflicts: libmutter0, libmutter0a, libmutter0b, libmutter0c, libmutter0d
+Replaces: libmutter0, libmutter0a, libmutter0b, libmutter0c, libmutter0d
 Description: window manager library from the Mutter window manager
  Mutter is a small window manager, using GTK+ and Clutter to do
  everything.
