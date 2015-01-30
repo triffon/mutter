@@ -1,3 +1,9 @@
+mutter (3.14.3-0ubuntu2) vivid; urgency=medium
+
+  * No change rebuild for libinput transition. LP: #1416274
+
+ -- Jackson Doak <noskcaj@ubuntu.com>  Fri, 30 Jan 2015 18:37:18 +1100
+
 mutter (3.14.3-0ubuntu1) vivid; urgency=medium
 
   * New upstream release
