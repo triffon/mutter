@@ -1,3 +1,9 @@
+mutter (3.14.3-0ubuntu3) vivid; urgency=medium
+
+  * control.in: Bump libinput build-dep to pick the new version.
+
+ -- Timo Aaltonen <tjaalton@ubuntu.com>  Wed, 04 Feb 2015 11:48:35 +0200
+
 mutter (3.14.3-0ubuntu2) vivid; urgency=medium
 
   * No change rebuild for libinput transition. LP: #1416274
