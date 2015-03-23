@@ -1,3 +1,9 @@
+mutter (3.14.4-0ubuntu1) vivid; urgency=medium
+
+  * New upstream bugfix release
+
+ -- Tim Lunn <tim@feathertop.org>  Tue, 24 Mar 2015 08:39:54 +1100
+
 mutter (3.14.3-0ubuntu3) vivid; urgency=medium
 
   * control.in: Bump libinput build-dep to pick the new version.
