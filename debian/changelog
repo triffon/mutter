@@ -1,3 +1,9 @@
+mutter (3.14.4-0ubuntu2) wily; urgency=medium
+
+  * No change rebuild for libinput10
+
+ -- Micah Gersten <micahg@ubuntu.com>  Thu, 28 May 2015 22:22:00 -0500
+
 mutter (3.14.4-0ubuntu1) vivid; urgency=medium
 
   * New upstream bugfix release
