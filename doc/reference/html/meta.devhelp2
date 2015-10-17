@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
-<book xmlns="http://www.devhelp.net/book" title="Mutter Reference Manual" link="index.html" author="" name="meta" version="2" language="c">
+<book xmlns="http://www.devhelp.net/book" title="Mutter Reference Manual" link="index.html" author="" name="meta" version="2" language="c" online="http://developer.gnome.org/meta/">
   <chapters>
     <sub name="Overview" link="mutter-overview.html"/>
     <sub name="Running Mutter" link="running-mutter.html"/>
@@ -818,5 +818,62 @@
     <keyword type="constant" name="META_MAXIMIZE_HORIZONTAL" link="MetaWindow.html#META-MAXIMIZE-HORIZONTAL:CAPS"/>
     <keyword type="constant" name="META_MAXIMIZE_VERTICAL" link="MetaWindow.html#META-MAXIMIZE-VERTICAL:CAPS"/>
     <keyword type="constant" name="META_MAXIMIZE_BOTH" link="MetaWindow.html#META-MAXIMIZE-BOTH:CAPS"/>
+    <keyword type="member" name="MetaButtonLayout.left-buttons" link="meta-Common.html#MetaButtonLayout.left-buttons"/>
+    <keyword type="member" name="MetaButtonLayout.left-buttons-has-spacer" link="meta-Common.html#MetaButtonLayout.left-buttons-has-spacer"/>
+    <keyword type="member" name="MetaButtonLayout.right-buttons" link="meta-Common.html#MetaButtonLayout.right-buttons"/>
+    <keyword type="member" name="MetaButtonLayout.right-buttons-has-spacer" link="meta-Common.html#MetaButtonLayout.right-buttons-has-spacer"/>
+    <keyword type="member" name="MetaFrameBorders.visible" link="meta-Common.html#MetaFrameBorders.visible"/>
+    <keyword type="member" name="MetaFrameBorders.invisible" link="meta-Common.html#MetaFrameBorders.invisible"/>
+    <keyword type="member" name="MetaFrameBorders.total" link="meta-Common.html#MetaFrameBorders.total"/>
+    <keyword type="member" name="MetaPluginClass.start" link="MetaPlugin.html#MetaPluginClass.start"/>
+    <keyword type="member" name="MetaPluginClass.minimize" link="MetaPlugin.html#MetaPluginClass.minimize"/>
+    <keyword type="member" name="MetaPluginClass.unminimize" link="MetaPlugin.html#MetaPluginClass.unminimize"/>
+    <keyword type="member" name="MetaPluginClass.maximize" link="MetaPlugin.html#MetaPluginClass.maximize"/>
+    <keyword type="member" name="MetaPluginClass.unmaximize" link="MetaPlugin.html#MetaPluginClass.unmaximize"/>
+    <keyword type="member" name="MetaPluginClass.map" link="MetaPlugin.html#MetaPluginClass.map"/>
+    <keyword type="member" name="MetaPluginClass.destroy" link="MetaPlugin.html#MetaPluginClass.destroy"/>
+    <keyword type="member" name="MetaPluginClass.switch-workspace" link="MetaPlugin.html#MetaPluginClass.switch-workspace"/>
+    <keyword type="member" name="MetaPluginClass.show-tile-preview" link="MetaPlugin.html#MetaPluginClass.show-tile-preview"/>
+    <keyword type="member" name="MetaPluginClass.hide-tile-preview" link="MetaPlugin.html#MetaPluginClass.hide-tile-preview"/>
+    <keyword type="member" name="MetaPluginClass.show-window-menu" link="MetaPlugin.html#MetaPluginClass.show-window-menu"/>
+    <keyword type="member" name="MetaPluginClass.show-window-menu-for-rect" link="MetaPlugin.html#MetaPluginClass.show-window-menu-for-rect"/>
+    <keyword type="member" name="MetaPluginClass.kill-window-effects" link="MetaPlugin.html#MetaPluginClass.kill-window-effects"/>
+    <keyword type="member" name="MetaPluginClass.kill-switch-workspace" link="MetaPlugin.html#MetaPluginClass.kill-switch-workspace"/>
+    <keyword type="member" name="MetaPluginClass.xevent-filter" link="MetaPlugin.html#MetaPluginClass.xevent-filter"/>
+    <keyword type="member" name="MetaPluginClass.keybinding-filter" link="MetaPlugin.html#MetaPluginClass.keybinding-filter"/>
+    <keyword type="member" name="MetaPluginClass.confirm-display-change" link="MetaPlugin.html#MetaPluginClass.confirm-display-change"/>
+    <keyword type="member" name="MetaPluginClass.plugin-info" link="MetaPlugin.html#MetaPluginClass.plugin-info"/>
+    <keyword type="member" name="MetaPluginInfo.name" link="MetaPlugin.html#MetaPluginInfo.name"/>
+    <keyword type="member" name="MetaPluginInfo.version" link="MetaPlugin.html#MetaPluginInfo.version"/>
+    <keyword type="member" name="MetaPluginInfo.author" link="MetaPlugin.html#MetaPluginInfo.author"/>
+    <keyword type="member" name="MetaPluginInfo.license" link="MetaPlugin.html#MetaPluginInfo.license"/>
+    <keyword type="member" name="MetaPluginInfo.description" link="MetaPlugin.html#MetaPluginInfo.description"/>
+    <keyword type="member" name="MetaPluginVersion.version-major" link="MetaPlugin.html#MetaPluginVersion.version-major"/>
+    <keyword type="member" name="MetaPluginVersion.version-minor" link="MetaPlugin.html#MetaPluginVersion.version-minor"/>
+    <keyword type="member" name="MetaPluginVersion.version-micro" link="MetaPlugin.html#MetaPluginVersion.version-micro"/>
+    <keyword type="member" name="MetaPluginVersion.version-api" link="MetaPlugin.html#MetaPluginVersion.version-api"/>
+    <keyword type="member" name="MetaBarrierEvent-struct.event-id" link="MetaBarrier.html#MetaBarrierEvent-struct.event-id"/>
+    <keyword type="member" name="MetaBarrierEvent-struct.dt" link="MetaBarrier.html#MetaBarrierEvent-struct.dt"/>
+    <keyword type="member" name="MetaBarrierEvent-struct.time" link="MetaBarrier.html#MetaBarrierEvent-struct.time"/>
+    <keyword type="member" name="MetaBarrierEvent-struct.x" link="MetaBarrier.html#MetaBarrierEvent-struct.x"/>
+    <keyword type="member" name="MetaBarrierEvent-struct.y" link="MetaBarrier.html#MetaBarrierEvent-struct.y"/>
+    <keyword type="member" name="MetaBarrierEvent-struct.dx" link="MetaBarrier.html#MetaBarrierEvent-struct.dx"/>
+    <keyword type="member" name="MetaBarrierEvent-struct.dy" link="MetaBarrier.html#MetaBarrierEvent-struct.dy"/>
+    <keyword type="member" name="MetaBarrierEvent-struct.released" link="MetaBarrier.html#MetaBarrierEvent-struct.released"/>
+    <keyword type="member" name="MetaBarrierEvent-struct.grabbed" link="MetaBarrier.html#MetaBarrierEvent-struct.grabbed"/>
+    <keyword type="member" name="MetaRectangle-struct.x" link="MetaRectangle.html#MetaRectangle-struct.x"/>
+    <keyword type="member" name="MetaRectangle-struct.y" link="MetaRectangle.html#MetaRectangle-struct.y"/>
+    <keyword type="member" name="MetaRectangle-struct.width" link="MetaRectangle.html#MetaRectangle-struct.width"/>
+    <keyword type="member" name="MetaRectangle-struct.height" link="MetaRectangle.html#MetaRectangle-struct.height"/>
+    <keyword type="member" name="MetaStrut.rect" link="MetaRectangle.html#MetaStrut.rect"/>
+    <keyword type="member" name="MetaStrut.side" link="MetaRectangle.html#MetaStrut.side"/>
+    <keyword type="member" name="MetaEdge.rect" link="MetaRectangle.html#MetaEdge.rect"/>
+    <keyword type="member" name="MetaEdge.side-type" link="MetaRectangle.html#MetaEdge.side-type"/>
+    <keyword type="member" name="MetaEdge.edge-type" link="MetaRectangle.html#MetaEdge.edge-type"/>
+    <keyword type="member" name="MetaShadowParams.radius" link="MetaShadowFactory.html#MetaShadowParams.radius"/>
+    <keyword type="member" name="MetaShadowParams.top-fade" link="MetaShadowFactory.html#MetaShadowParams.top-fade"/>
+    <keyword type="member" name="MetaShadowParams.x-offset" link="MetaShadowFactory.html#MetaShadowParams.x-offset"/>
+    <keyword type="member" name="MetaShadowParams.y-offset" link="MetaShadowFactory.html#MetaShadowParams.y-offset"/>
+    <keyword type="member" name="MetaShadowParams.opacity" link="MetaShadowFactory.html#MetaShadowParams.opacity"/>
   </functions>
 </book>
