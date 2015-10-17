@@ -63,8 +63,7 @@
 /* Define if you have support for XInput 2.3 or greater */
 #undef HAVE_XI23
 
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
 
 /* Define to 1 if your C compiler doesn't accept -c and -o together. */
