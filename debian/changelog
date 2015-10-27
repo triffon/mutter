@@ -1,3 +1,11 @@
+mutter (3.18.1-1ubuntu1) xenial; urgency=medium
+
+  * Merge from Debian unstable.  Remaining changes:
+    - Add Replaces for previous libmutter sonames, so that the library
+      upgrades properly.
+
+ -- Tim Lunn <tim@feathertop.org>  Wed, 28 Oct 2015 09:21:25 +1100
+
 mutter (3.18.1-1) unstable; urgency=medium
 
   * New upstream release.
@@ -50,6 +58,21 @@ mutter (3.17.90-1) experimental; urgency=medium
 
  -- Andreas Henriksson <andreas@fatal.se>  Sat, 29 Aug 2015 11:03:17 +0200
 
+mutter (3.16.4-0ubuntu1) wily; urgency=medium
+
+  * New upstream release
+    - Fix screen update issue with NVidia driver (BGO: #728464)
+
+ -- Tim Lunn <tim@feathertop.org>  Sun, 18 Oct 2015 08:26:36 +1100
+
+mutter (3.16.3-1ubuntu1) wily; urgency=low
+
+  * Merge from Debian unstable.  Remaining changes:
+    - Add Replaces for previous libmutter sonames, so that the library
+      upgrades properly.
+
+ -- Jackson Doak <noskcaj@ubuntu.com>  Thu, 02 Jul 2015 22:50:30 +0000
+
 mutter (3.16.3-1) unstable; urgency=medium
 
   * New upstream release.
@@ -70,6 +93,18 @@ mutter (3.16.2-2) unstable; urgency=medium
   * Upload to unstable.
 
  -- Emilio Pozuelo Monfort <pochu@debian.org>  Sun, 14 Jun 2015 13:44:02 +0200
+
+mutter (3.16.2-1ubuntu1) wily; urgency=medium
+
+  * Merge with Debian, Remaining Changes
+    - Add Replaces for previous libmutter sonames, so that the library
+      upgrades properly.
+  * Drop d/p/04_ignore_shadow_and_padding.patch: This is no longer possible
+    and would need to be rewritten to be done via CSS
+
+
+
+ -- Tim Lunn <tim@feathertop.org>  Wed, 03 Jun 2015 21:10:43 +1000
 
 mutter (3.16.2-1) experimental; urgency=medium
 
@@ -104,6 +139,44 @@ mutter (3.14.4-1) unstable; urgency=medium
   * Bump shlibs due to new function.
 
  -- Josselin Mouette <joss@debian.org>  Thu, 26 Mar 2015 21:06:28 +0100
+
+mutter (3.14.4-0ubuntu2) wily; urgency=medium
+
+  * No change rebuild for libinput10
+
+ -- Micah Gersten <micahg@ubuntu.com>  Thu, 28 May 2015 22:22:00 -0500
+
+mutter (3.14.4-0ubuntu1) vivid; urgency=medium
+
+  * New upstream bugfix release
+
+ -- Tim Lunn <tim@feathertop.org>  Tue, 24 Mar 2015 08:39:54 +1100
+
+mutter (3.14.3-0ubuntu3) vivid; urgency=medium
+
+  * control.in: Bump libinput build-dep to pick the new version.
+
+ -- Timo Aaltonen <tjaalton@ubuntu.com>  Wed, 04 Feb 2015 11:48:35 +0200
+
+mutter (3.14.3-0ubuntu2) vivid; urgency=medium
+
+  * No change rebuild for libinput transition. LP: #1416274
+
+ -- Jackson Doak <noskcaj@ubuntu.com>  Fri, 30 Jan 2015 18:37:18 +1100
+
+mutter (3.14.3-0ubuntu1) vivid; urgency=medium
+
+  * New upstream release
+  * Drop git patches included in new release
+
+  [ Jackson Doak ]
+  * Merge with Debian. Remaining changes: LP: #1399047
+    - debian/patches/04_ignore_shadow_and_padding.patch:
+      + Silently ignore padding and shadow tags (for light-themes)
+    - Add Replaces for previous libmutter sonames, so that the library
+      upgrades properly.
+
+ -- Tim Lunn <tim@feathertop.org>  Thu, 25 Dec 2014 07:32:02 +1100
 
 mutter (3.14.2-1) unstable; urgency=medium
 
@@ -222,6 +295,34 @@ mutter (3.12.2-2) unstable; urgency=medium
 
  -- Andreas Henriksson <andreas@fatal.se>  Mon, 14 Jul 2014 23:20:08 +0200
 
+mutter (3.12.2-1ubuntu4) vivid; urgency=medium
+
+  * Drop revert_upower_api_changes.patch and build against upower 0.99.
+    (LP: #1330037)
+  * Skip version number for rejected -1ubuntu3.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 30 Oct 2014 15:02:03 +0100
+
+mutter (3.12.2-1ubuntu2) utopic; urgency=medium
+
+  * No change rebuild for gnome-desktop 3.12
+
+ -- Tim Lunn <tim@feathertop.org>  Tue, 23 Sep 2014 08:28:28 +1000
+
+mutter (3.12.2-1ubuntu1) utopic; urgency=medium
+
+  * Merge with Debian. Remaining changes:
+    - debian/patches/04_ignore_shadow_and_padding.patch:
+      + Silently ignore padding and shadow tags (for light-themes)
+    - debian/control.in: Don't depend on gnome-desktop3 3.10
+    - Add Replaces for previous libmutter sonames, so that the library
+      upgrades properly.
+  * Drop all our git patches
+  * Set upower build-depend to << 0.99
+  * Add revert_upower_api_changes.patch
+
+ -- Jackson Doak <noskcaj@ubuntu.com>  Sat, 07 Jun 2014 16:47:00 +1000
+
 mutter (3.12.2-1) experimental; urgency=medium
 
   [ Sjoerd Simons ]
@@ -273,6 +374,67 @@ mutter (3.12.0-1) experimental; urgency=low
 
  -- Andreas Henriksson <andreas@fatal.se>  Sat, 29 Mar 2014 22:09:55 +0100
 
+mutter (3.10.4-0ubuntu5) utopic; urgency=medium
+
+  * debian/patches/git-dont-leave-focus-on-unmanage.patch: git patch
+    to fix meta_window_unmanage crash (LP: #1279919) 
+
+ -- Tim Lunn <tim@feathertop.org>  Tue, 03 Jun 2014 13:05:23 +1000
+
+mutter (3.10.4-0ubuntu4) utopic; urgency=medium
+
+  * debian/patches/git-fix-crash-on-hotplug-*.patch:
+    - Backport crasher fix from upstream git (LP: #1319897, BGO#725637)
+
+ -- Marius Gedminas <marius@gedmin.as>  Fri, 16 May 2014 18:08:32 +0300
+
+mutter (3.10.4-0ubuntu3) utopic; urgency=high
+
+  * debian/patches/0001-Update-for-Cogl-API-breaks.patch: cherry pick
+    patch from upstream to fix FTBFS against cogl20.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Sun, 27 Apr 2014 00:00:49 +0100
+
+mutter (3.10.4-0ubuntu2) trusty; urgency=medium
+
+  * debian/patches/git_ignore_error_when_settings_primary.patch (LP: #1288572) 
+
+ -- Tim Lunn <tim@feathertop.org>  Wed, 19 Mar 2014 08:16:08 +1100
+
+mutter (3.10.4-0ubuntu1) trusty; urgency=medium
+
+  * New upstream release
+  * debian/patches/git_fix_xrandr_backlight.patch: Dropped, included
+    in the new version
+
+ -- Tim Lunn <tim@feathertop.org>  Thu, 20 Feb 2014 17:16:01 +1100
+
+mutter (3.10.3-0ubuntu3) trusty; urgency=medium
+
+  * debian/patches:
+    - remove unused git patches
+    - git_fix_xrandr_backlight.patch, fix backlight not working on various
+      GPU's (LP: #947919)
+
+ -- Tim Lunn <tim@feathertop.org>  Thu, 06 Feb 2014 20:01:34 +1100
+
+mutter (3.10.3-0ubuntu2) trusty; urgency=medium
+
+  * Add Replaces for previous libmutter sonames, so that the library
+    upgrades properly.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Wed, 22 Jan 2014 14:12:56 -0800
+
+mutter (3.10.3-0ubuntu1) trusty; urgency=medium
+
+  * New upstream release (LP: #1269916)
+  * Merge with Debian. Remaining changes:
+    - debian/patches/04_ignore_shadow_and_padding.patch:
+      + Silently ignore padding and shadow tags (for light-themes)
+    - debian/control.in: Don't depend on gnome-desktop3 3.10
+
+ -- Tim Lunn <tim@feathertop.org>  Sun, 29 Dec 2013 09:57:51 +1100
+
 mutter (3.10.1-2) experimental; urgency=low
 
   * Force build against G3.10 version of gnome-desktop
@@ -311,6 +473,51 @@ mutter (3.8.4-1) experimental; urgency=low
   * Bump debhelper compatibility level to 9.
 
  -- Michael Biebl <biebl@debian.org>  Fri, 11 Oct 2013 19:37:56 +0200
+
+mutter (3.8.4-0ubuntu4) trusty; urgency=medium
+
+  * No-change rebuild for new cogl
+
+ -- Iain Lane <iain@orangesquash.org.uk>  Tue, 14 Jan 2014 20:15:33 +0000
+
+mutter (3.8.4-0ubuntu3) trusty; urgency=medium
+
+  * git-ui-add-missing-delimiter.patch,
+    git-prefs-fix-introspection-issues.patch: Add git patch to fix build
+    with current gobject-introspection.
+
+ -- Colin Watson <cjwatson@ubuntu.com>  Fri, 03 Jan 2014 15:06:05 +0000
+
+mutter (3.8.4-0ubuntu2) saucy; urgency=low
+
+  * debian/patches/git-background-dont-save-pixbuf.patch: Add git patch
+    to avoid leaking background pixbuf's (LP: #1217649) 
+
+ -- Tim Lunn <tim@feathertop.org>  Thu, 29 Aug 2013 13:37:30 +1000
+
+mutter (3.8.4-0ubuntu1) saucy; urgency=low
+
+  * New upstream release.
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Wed, 31 Jul 2013 20:13:05 -0400
+
+mutter (3.8.3-1ubuntu2) saucy; urgency=low
+
+  * No-change rebuild against X 1.14 for pressure-sensitive message
+    tray reveal in GNOME Shell
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Mon, 08 Jul 2013 09:54:03 -0400
+
+mutter (3.8.3-1ubuntu1) saucy; urgency=low
+
+  * Sync with Debian. Remaining changes:
+    - debian/patches/04_ignore_shadow_and_padding.patch:
+      + Silently ignore padding and shadow tags (for light-themes)
+    - debian/control.in:
+      + Use standard Breaks/Replaces instead of Conflicts against older mutter
+        libraries
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Sat, 08 Jun 2013 13:46:06 -0400
 
 mutter (3.8.3-1) experimental; urgency=low
 
