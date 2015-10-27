@@ -5,8 +5,9 @@
 Source: mutter
 Section: x11
 Priority: optional
-Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
-Uploaders: Andreas Henriksson <andreas@fatal.se>, Emilio Pozuelo Monfort <pochu@debian.org>, Josselin Mouette <joss@debian.org>, Laurent Bigonville <bigon@debian.org>, Michael Biebl <biebl@debian.org>
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+XSBC-Original-Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
+Uploaders: Andreas Henriksson <andreas@fatal.se>, Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>, Emilio Pozuelo Monfort <pochu@debian.org>, Laurent Bigonville <bigon@debian.org>, Michael Biebl <biebl@debian.org>
 Build-Depends: cdbs (>= 0.4.90),
                debhelper (>= 9),
                gnome-pkg-tools (>= 0.10),
@@ -111,6 +112,13 @@ Conflicts: libmutter0,
            libmutter0d,
            libmutter0e,
            libmutter0f
+Replaces: libmutter0,
+          libmutter0a,
+          libmutter0b,
+          libmutter0c,
+          libmutter0d,
+          libmutter0e,
+          libmutter0f
 Description: window manager library from the Mutter window manager
  Mutter is a small window manager, using GTK+ and Clutter to do
  everything.
