@@ -1,3 +1,9 @@
+mutter (3.18.3-0ubuntu1) xenial; urgency=medium
+
+  * New upstream release
+
+ -- Tim Lunn <tim@feathertop.org>  Tue, 08 Mar 2016 09:45:48 +1100
+
 mutter (3.18.2-0ubuntu1) xenial; urgency=medium
 
   * New upstream release
