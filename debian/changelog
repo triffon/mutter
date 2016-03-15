@@ -1,3 +1,10 @@
+mutter (3.18.3-0ubuntu2) xenial; urgency=medium
+
+  * d/p/git-handle-meta_screeb_get_monitor_for_point-return-NULL.patch
+    - git patch to fix disappearing pointer 
+
+ -- Tim Lunn <tim@feathertop.org>  Tue, 15 Mar 2016 15:32:40 +1100
+
 mutter (3.18.3-0ubuntu1) xenial; urgency=medium
 
   * New upstream release
