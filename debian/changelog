@@ -1,3 +1,10 @@
+mutter (3.18.4-0ubuntu2) yakkety; urgency=medium
+
+  * New upstream release (LP: #1582182)
+  * Drop git patch included in new release 
+
+ -- Tim Lunn <tim@feathertop.org>  Tue, 17 May 2016 09:05:59 +1000
+
 mutter (3.18.3-0ubuntu2) xenial; urgency=medium
 
   * d/p/git-handle-meta_screeb_get_monitor_for_point-return-NULL.patch
