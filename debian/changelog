@@ -1,3 +1,12 @@
+mutter (3.22.1-2ubuntu1) zesty; urgency=medium
+
+  * Add git_stack-docks-below-fullscreen-windows.patch:
+    - Patch from 3.22 branch to fix 3.22 regression where full-screen
+      windows were partially covered by docks in setups such as the default
+      Budgie Remix desktop. Thanks, Udara Madubhashana. (LP: #1638082)
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Wed, 02 Nov 2016 10:57:52 -0400
+
 mutter (3.22.1-2) unstable; urgency=medium
 
   * d/p/wayland-xdg-popup-Always-use-monitor-of-toplevel.patch
