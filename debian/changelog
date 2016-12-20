@@ -1,3 +1,11 @@
+mutter (3.22.2-2ubuntu1) zesty; urgency=medium
+
+  * Add git_flush_all_swap_notifies_on_idle.patch:
+    - Add patch from 3.22 branch that fixes freezes with multiple monitors
+      on Wayland
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Tue, 20 Dec 2016 08:59:06 -0500
+
 mutter (3.22.2-2) unstable; urgency=critical
 
   [ Raphaël Hertzog ]
@@ -8,7 +16,7 @@ mutter (3.22.2-2) unstable; urgency=critical
   [ Jeremy Bicha ]
   * Add git_dont_set_unavailable_scroll_methods.patch:
     - Add patch from 3.22 branch that prevented logging into GNOME on X
-      for some users (LP: #1643370)
+      for some users (LP: #1643370, Closes: #846898)
 
  -- Raphaël Hertzog <hertzog@debian.org>  Tue, 06 Dec 2016 17:35:40 +0100
 
