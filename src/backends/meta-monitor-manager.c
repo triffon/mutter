@@ -37,11 +37,15 @@
 #include <meta/errors.h>
 #include "edid.h"
 #include "meta-monitor-config.h"
+#include "backends/meta-logical-monitor.h"
+#include "backends/meta-monitor.h"
+#include "backends/meta-monitor-config-manager.h"
 #include "backends/x11/meta-monitor-manager-xrandr.h"
 #include "meta-backend-private.h"
 
 enum {
   CONFIRM_DISPLAY_CHANGE,
+  LID_IS_CLOSED_CHANGED,
   SIGNALS_LAST
 };
 
@@ -71,220 +75,187 @@ meta_monitor_manager_init (MetaMonitorManager *manager)
 {
 }
 
-/*
- * rules for constructing a tiled monitor
- * 1. find a tile_group_id
- * 2. iterate over all outputs for that tile group id
- * 3. see if output has a crtc and if it is configured for the tile size
- * 4. calculate the total tile size
- * 5. set tile finished size
- * 6. check for more tile_group_id
-*/
 static void
-construct_tile_monitor (MetaMonitorManager *manager,
-                        GArray *monitor_infos,
-                        guint32 tile_group_id)
+meta_monitor_manager_set_primary_logical_monitor (MetaMonitorManager *manager,
+                                                  MetaLogicalMonitor *logical_monitor)
 {
-  MetaMonitorInfo info;
-  unsigned i;
-
-  for (i = 0; i < monitor_infos->len; i++)
-    {
-      MetaMonitorInfo *pinfo = &g_array_index (monitor_infos, MetaMonitorInfo, i);
-
-      if (pinfo->tile_group_id == tile_group_id)
-        return;
-    }
-
-  /* didn't find it */
-  info.number = monitor_infos->len;
-  info.tile_group_id = tile_group_id;
-  info.is_presentation = FALSE;
-  info.refresh_rate = 0.0;
-  info.width_mm = 0;
-  info.height_mm = 0;
-  info.is_primary = FALSE;
-  info.rect.x = INT_MAX;
-  info.rect.y = INT_MAX;
-  info.rect.width = 0;
-  info.rect.height = 0;
-  info.winsys_id = 0;
-  info.n_outputs = 0;
-  info.monitor_winsys_xid = 0;
-
-  for (i = 0; i < manager->n_outputs; i++)
-    {
-      MetaOutput *output = &manager->outputs[i];
-
-      if (!output->tile_info.group_id)
-        continue;
-
-      if (output->tile_info.group_id != tile_group_id)
-        continue;
-
-      if (!output->crtc)
-        continue;
-
-      if (output->crtc->rect.width != (int)output->tile_info.tile_w ||
-          output->crtc->rect.height != (int)output->tile_info.tile_h)
-        continue;
-
-      if (output->tile_info.loc_h_tile == 0 && output->tile_info.loc_v_tile == 0)
-        {
-          info.refresh_rate = output->crtc->current_mode->refresh_rate;
-          info.width_mm = output->width_mm;
-          info.height_mm = output->height_mm;
-          info.winsys_id = output->winsys_id;
-        }
-
-      /* hack */
-      if (output->crtc->rect.x < info.rect.x)
-        info.rect.x = output->crtc->rect.x;
-      if (output->crtc->rect.y < info.rect.y)
-        info.rect.y = output->crtc->rect.y;
-
-      if (output->tile_info.loc_h_tile == 0)
-        info.rect.height += output->tile_info.tile_h;
-
-      if (output->tile_info.loc_v_tile == 0)
-        info.rect.width += output->tile_info.tile_w;
-
-      if (info.n_outputs > META_MAX_OUTPUTS_PER_MONITOR)
-        continue;
-
-      info.outputs[info.n_outputs++] = output;
-    }
-
-  /* if we don't have a winsys id, i.e. we haven't found tile 0,0
-     don't try and add this to the monitor infos */
-  if (!info.winsys_id)
-    return;
-
-  g_array_append_val (monitor_infos, info);
+  manager->primary_logical_monitor = logical_monitor;
+  if (logical_monitor)
+    meta_logical_monitor_make_primary (logical_monitor);
 }
 
-/*
- * make_logical_config:
- *
- * Turn outputs and CRTCs into logical MetaMonitorInfo,
- * that will be used by the core and API layer (MetaScreen
- * and friends)
- */
-static void
-make_logical_config (MetaMonitorManager *manager)
+static gboolean
+is_main_tiled_monitor_output (MetaOutput *output)
 {
-  MetaMonitorManagerClass *manager_class = META_MONITOR_MANAGER_GET_CLASS (manager);
-  GArray *monitor_infos;
-  unsigned int i, j;
+  return output->tile_info.loc_h_tile == 0 && output->tile_info.loc_v_tile == 0;
+}
 
-  monitor_infos = g_array_sized_new (FALSE, TRUE, sizeof (MetaMonitorInfo),
-                                     manager->n_crtcs);
+static MetaLogicalMonitor *
+logical_monitor_from_layout (MetaMonitorManager *manager,
+                             GList              *logical_monitors,
+                             MetaRectangle      *layout)
+{
+  GList *l;
 
-  /* Walk the list of MetaCRTCs, and build a MetaMonitorInfo
-     for each of them, unless they reference a rectangle that
-     is already there.
-  */
-  /* for tiling we need to work out how many tiled outputs there are */
-  for (i = 0; i < manager->n_outputs; i++)
+  for (l = logical_monitors; l; l = l->next)
     {
-      MetaOutput *output = &manager->outputs[i];
+      MetaLogicalMonitor *logical_monitor = l->data;
 
-      if (output->tile_info.group_id)
-        construct_tile_monitor (manager, monitor_infos, output->tile_info.group_id);
+      if (meta_rectangle_equal (layout, &logical_monitor->rect))
+        return logical_monitor;
     }
 
-  for (i = 0; i < manager->n_crtcs; i++)
-    {
-      MetaCRTC *crtc = &manager->crtcs[i];
+  return NULL;
+}
 
-      /* Ignore CRTCs not in use */
-      if (crtc->current_mode == NULL)
+static MetaLogicalMonitor *
+create_logical_monitor_from_config (MetaMonitorManager       *manager,
+                                    MetaLogicalMonitorConfig *logical_monitor_config,
+                                    int                       monitor_number)
+{
+  MetaLogicalMonitor *logical_monitor;
+  GList *monitor_configs;
+  MetaMonitorConfig *first_monitor_config;
+  MetaMonitorSpec *first_monitor_spec;
+  MetaMonitor *first_monitor;
+  GList *l;
+
+  monitor_configs = logical_monitor_config->monitor_configs;
+  first_monitor_config = g_list_first (monitor_configs)->data;
+  first_monitor_spec = first_monitor_config->monitor_spec;
+  first_monitor =
+    meta_monitor_manager_get_monitor_from_spec (manager, first_monitor_spec);
+
+  /* Create logical monitor from the first monitor. */
+  logical_monitor = meta_logical_monitor_new (first_monitor,
+                                              logical_monitor_config->layout.x,
+                                              logical_monitor_config->layout.y,
+                                              monitor_number);
+
+  /* Add the other monitors. */
+  for (l = monitor_configs->next; l; l = l->next)
+    {
+      MetaMonitorConfig *monitor_config = l->data;
+      MetaMonitorSpec *monitor_spec;
+      MetaMonitor *monitor;
+
+      monitor_spec = monitor_config->monitor_spec;
+      monitor = meta_monitor_manager_get_monitor_from_spec (manager,
+                                                            monitor_spec);
+
+      meta_logical_monitor_add_monitor (logical_monitor, monitor);
+    }
+
+  return logical_monitor;
+}
+
+static void
+meta_monitor_manager_rebuild_logical_monitors (MetaMonitorManager *manager,
+                                               MetaMonitorsConfig *config)
+{
+  GList *logical_monitor_configs;
+  GList *logical_monitors = NULL;
+  GList *l;
+  int monitor_number = 0;
+  MetaLogicalMonitor *primary_logical_monitor = NULL;
+
+  logical_monitor_configs = config ? config->logical_monitor_configs : NULL;
+  for (l = logical_monitor_configs; l; l = l->next)
+    {
+      MetaLogicalMonitorConfig *logical_monitor_config = l->data;
+      MetaLogicalMonitor *logical_monitor;
+
+      logical_monitor =
+        create_logical_monitor_from_config (manager,
+                                            logical_monitor_config,
+                                            monitor_number);
+      monitor_number++;
+
+      if (logical_monitor_config->is_primary)
+        primary_logical_monitor = logical_monitor;
+
+      logical_monitors = g_list_append (logical_monitors, logical_monitor);
+    }
+
+  /*
+   * If no monitor was marked as primary, fall back on marking the first
+   * logical monitor the primary one.
+   */
+  if (!primary_logical_monitor && logical_monitors)
+    primary_logical_monitor = g_list_first (logical_monitors)->data;
+
+  manager->logical_monitors = logical_monitors;
+  meta_monitor_manager_set_primary_logical_monitor (manager,
+                                                    primary_logical_monitor);
+}
+
+static void
+derive_monitor_position (MetaMonitor *monitor,
+                         int         *x,
+                         int         *y)
+{
+  MetaOutput *main_output;
+
+  main_output = meta_monitor_get_main_output (monitor);
+
+  *x = main_output->crtc->rect.x;
+  *y = main_output->crtc->rect.y;
+}
+
+static void
+meta_monitor_manager_rebuild_logical_monitors_derived (MetaMonitorManager *manager)
+{
+  GList *logical_monitors = NULL;
+  GList *l;
+  int monitor_number;
+  MetaLogicalMonitor *primary_logical_monitor = NULL;
+
+  monitor_number = 0;
+
+  for (l = manager->monitors; l; l = l->next)
+    {
+      MetaMonitor *monitor = l->data;
+      MetaLogicalMonitor *logical_monitor;
+      MetaRectangle layout;
+
+      if (!meta_monitor_is_active (monitor))
         continue;
 
-      for (j = 0; j < monitor_infos->len; j++)
+      derive_monitor_position (monitor, &layout.x, &layout.y);
+      meta_monitor_get_dimensions (monitor, &layout.width, &layout.height);
+      logical_monitor = logical_monitor_from_layout (manager, logical_monitors,
+                                                     &layout);
+      if (logical_monitor)
         {
-          MetaMonitorInfo *info = &g_array_index (monitor_infos, MetaMonitorInfo, j);
-          if (meta_rectangle_contains_rect (&info->rect,
-                                            &crtc->rect))
-            {
-              crtc->logical_monitor = info;
-              break;
-            }
+          meta_logical_monitor_add_monitor (logical_monitor, monitor);
+        }
+      else
+        {
+          int x, y;
+
+          derive_monitor_position (monitor, &x, &y);
+          logical_monitor = meta_logical_monitor_new (monitor,
+                                                      x, y,
+                                                      monitor_number);
+          logical_monitors = g_list_append (logical_monitors, logical_monitor);
+          monitor_number++;
         }
 
-      if (crtc->logical_monitor == NULL)
-        {
-          MetaMonitorInfo info;
-
-          info.number = monitor_infos->len;
-          info.tile_group_id = 0;
-          info.rect = crtc->rect;
-          info.refresh_rate = crtc->current_mode->refresh_rate;
-          info.scale = 1;
-          info.is_primary = FALSE;
-          /* This starts true because we want
-             is_presentation only if all outputs are
-             marked as such (while for primary it's enough
-             that any is marked)
-          */
-          info.is_presentation = TRUE;
-          info.in_fullscreen = -1;
-          info.winsys_id = 0;
-          info.n_outputs = 0;
-          info.monitor_winsys_xid = 0;
-          g_array_append_val (monitor_infos, info);
-
-          crtc->logical_monitor = &g_array_index (monitor_infos, MetaMonitorInfo,
-                                                  info.number);
-        }
+      if (meta_monitor_is_primary (monitor))
+        primary_logical_monitor = logical_monitor;
     }
 
-  /* Now walk the list of outputs applying extended properties (primary
-     and presentation)
-  */
-  for (i = 0; i < manager->n_outputs; i++)
-    {
-      MetaOutput *output;
-      MetaMonitorInfo *info;
+  manager->logical_monitors = logical_monitors;
 
-      output = &manager->outputs[i];
+  /*
+   * If no monitor was marked as primary, fall back on marking the first
+   * logical monitor the primary one.
+   */
+  if (!primary_logical_monitor && manager->logical_monitors)
+    primary_logical_monitor = g_list_first (manager->logical_monitors)->data;
 
-      /* Ignore outputs that are not active */
-      if (output->crtc == NULL)
-        continue;
-
-      if (output->tile_info.group_id)
-        continue;
-
-      /* We must have a logical monitor on every CRTC at this point */
-      g_assert (output->crtc->logical_monitor != NULL);
-
-      info = output->crtc->logical_monitor;
-
-      info->is_primary = info->is_primary || output->is_primary;
-      info->is_presentation = info->is_presentation && output->is_presentation;
-
-      info->width_mm = output->width_mm;
-      info->height_mm = output->height_mm;
-
-      info->outputs[0] = output;
-      info->n_outputs = 1;
-
-      info->scale = output->scale;
-
-      if (output->is_primary || info->winsys_id == 0)
-        info->winsys_id = output->winsys_id;
-
-      if (info->is_primary)
-        manager->primary_monitor_index = info->number;
-    }
-
-  manager->n_monitor_infos = monitor_infos->len;
-  manager->monitor_infos = (void*)g_array_free (monitor_infos, FALSE);
-
-  if (manager_class->add_monitor)
-    for (i = 0; i < manager->n_monitor_infos; i++)
-      manager_class->add_monitor (manager, &manager->monitor_infos[i]);
+  meta_monitor_manager_set_primary_logical_monitor (manager,
+                                                    primary_logical_monitor);
 }
 
 static void
@@ -312,34 +283,212 @@ power_save_mode_changed (MetaMonitorManager *manager,
   manager->power_save_mode = mode;
 }
 
+void
+meta_monitor_manager_lid_is_closed_changed (MetaMonitorManager *manager)
+{
+  if (manager->config_manager)
+    meta_monitor_manager_ensure_configured (manager);
+
+  g_signal_emit (manager, signals[LID_IS_CLOSED_CHANGED], 0);
+}
+
+static void
+lid_is_closed_changed (UpClient   *client,
+                       GParamSpec *pspec,
+                       gpointer    user_data)
+{
+  MetaMonitorManager *manager = user_data;
+
+  meta_monitor_manager_lid_is_closed_changed (manager);
+}
+
+static gboolean
+meta_monitor_manager_real_is_lid_closed (MetaMonitorManager *manager)
+{
+  return up_client_get_lid_is_closed (manager->up_client);
+}
+
+gboolean
+meta_monitor_manager_is_lid_closed (MetaMonitorManager *manager)
+{
+  return META_MONITOR_MANAGER_GET_CLASS (manager)->is_lid_closed (manager);
+}
+
+gboolean
+meta_monitor_manager_is_headless (MetaMonitorManager *manager)
+{
+  return !manager->monitors;
+}
+
+static void
+meta_monitor_manager_ensure_initial_config (MetaMonitorManager *manager)
+{
+  META_MONITOR_MANAGER_GET_CLASS (manager)->ensure_initial_config (manager);
+}
+
+static gboolean
+meta_monitor_manager_apply_monitors_config (MetaMonitorManager *manager,
+                                            MetaMonitorsConfig *config,
+                                            GError            **error)
+{
+  MetaMonitorManagerClass *manager_class =
+    META_MONITOR_MANAGER_GET_CLASS (manager);
+
+  return manager_class->apply_monitors_config (manager, config, error);
+}
+
+gboolean
+meta_monitor_manager_has_hotplug_mode_update (MetaMonitorManager *manager)
+{
+  unsigned int i;
+
+  for (i = 0; i < manager->n_outputs; i++)
+    {
+      MetaOutput *output = &manager->outputs[i];
+
+      if (output->hotplug_mode_update)
+        return TRUE;
+    }
+
+  return FALSE;
+}
+
+static gboolean
+should_use_stored_config (MetaMonitorManager *manager)
+{
+  return !meta_monitor_manager_has_hotplug_mode_update (manager);
+}
+
+static void
+legacy_ensure_configured (MetaMonitorManager *manager)
+{
+  if (!meta_monitor_config_apply_stored (manager->legacy_config, manager))
+    meta_monitor_config_make_default (manager->legacy_config, manager);
+}
+
+MetaMonitorsConfig *
+meta_monitor_manager_ensure_configured (MetaMonitorManager *manager)
+{
+  MetaMonitorsConfig *config = NULL;
+  GError *error = NULL;
+
+  if (!manager->config_manager)
+    {
+      legacy_ensure_configured (manager);
+      return NULL;
+    }
+
+  if (should_use_stored_config (manager))
+    {
+      config = meta_monitor_config_manager_get_stored (manager->config_manager);
+      if (config)
+        {
+          if (!meta_monitor_manager_apply_monitors_config (manager, config,
+                                                           &error))
+            {
+              config = NULL;
+              g_warning ("Failed to use stored monitor configuration: %s",
+                         error->message);
+              g_clear_error (&error);
+            }
+          else
+            {
+              g_object_ref (config);
+              goto done;
+            }
+        }
+    }
+
+  config = meta_monitor_config_manager_create_suggested (manager->config_manager);
+  if (config)
+    {
+      if (!meta_monitor_manager_apply_monitors_config (manager, config, &error))
+        {
+          g_clear_object (&config);
+          g_warning ("Failed to use suggested monitor configuration: %s",
+                     error->message);
+          g_clear_error (&error);
+        }
+      else
+        {
+          goto done;
+        }
+    }
+
+  config = meta_monitor_config_manager_create_linear (manager->config_manager);
+  if (config)
+    {
+      if (!meta_monitor_manager_apply_monitors_config (manager, config, &error))
+        {
+          g_clear_object (&config);
+          g_warning ("Failed to use linear monitor configuration: %s",
+                     error->message);
+          g_clear_error (&error);
+        }
+      else
+        {
+          goto done;
+        }
+    }
+
+  config = meta_monitor_config_manager_create_fallback (manager->config_manager);
+  if (config)
+    {
+      if (!meta_monitor_manager_apply_monitors_config (manager, config, &error))
+        {
+          g_clear_object (&config);
+          g_warning ("Failed to use fallback monitor configuration: %s",
+                 error->message);
+          g_clear_error (&error);
+        }
+      else
+        {
+          goto done;
+        }
+    }
+
+done:
+  meta_monitor_config_manager_set_current (manager->config_manager, config);
+
+  if (!config)
+    {
+      meta_monitor_manager_rebuild (manager, NULL);
+      return NULL;
+    }
+
+  g_object_unref (config);
+
+  return config;
+}
+
 static void
 meta_monitor_manager_constructed (GObject *object)
 {
   MetaMonitorManager *manager = META_MONITOR_MANAGER (object);
+  MetaMonitorManagerClass *manager_class =
+    META_MONITOR_MANAGER_GET_CLASS (manager);
+
+  if (manager_class->is_lid_closed == meta_monitor_manager_real_is_lid_closed)
+    {
+      manager->up_client = up_client_new ();
+      g_signal_connect_object (manager->up_client, "notify::lid-is-closed",
+                               G_CALLBACK (lid_is_closed_changed), manager, 0);
+    }
 
   g_signal_connect_object (manager, "notify::power-save-mode",
                            G_CALLBACK (power_save_mode_changed), manager, 0);
 
   manager->in_init = TRUE;
 
-  manager->config = meta_monitor_config_new ();
+  if (g_strcmp0 (g_getenv ("MUTTER_USE_CONFIG_MANAGER"), "1") == 0)
+    manager->config_manager = meta_monitor_config_manager_new (manager);
+  else
+    manager->legacy_config = meta_monitor_config_new (manager);
 
-  meta_monitor_manager_read_current_config (manager);
+  meta_monitor_manager_read_current_state (manager);
 
-  if (!meta_monitor_config_apply_stored (manager->config, manager))
-    meta_monitor_config_make_default (manager->config, manager);
+  meta_monitor_manager_ensure_initial_config (manager);
 
-  /* Under XRandR, we don't rebuild our data structures until we see
-     the RRScreenNotify event, but at least at startup we want to have
-     the right configuration immediately.
-
-     The other backends keep the data structures always updated,
-     so this is not needed.
-  */
-  if (META_IS_MONITOR_MANAGER_XRANDR (manager))
-    meta_monitor_manager_read_current_config (manager);
-
-  make_logical_config (manager);
   initialize_dbus_interface (manager);
 
   manager->in_init = FALSE;
@@ -375,7 +524,7 @@ meta_monitor_manager_free_output_array (MetaOutput *old_outputs,
 }
 
 void
-meta_monitor_manager_clear_mode (MetaMonitorMode *mode)
+meta_monitor_manager_clear_mode (MetaCrtcMode *mode)
 {
   g_free (mode->name);
 
@@ -386,8 +535,8 @@ meta_monitor_manager_clear_mode (MetaMonitorMode *mode)
 }
 
 static void
-meta_monitor_manager_free_mode_array (MetaMonitorMode *old_modes,
-                                      int              n_old_modes)
+meta_monitor_manager_free_mode_array (MetaCrtcMode *old_modes,
+                                      int           n_old_modes)
 {
   int i;
 
@@ -398,7 +547,7 @@ meta_monitor_manager_free_mode_array (MetaMonitorMode *old_modes,
 }
 
 void
-meta_monitor_manager_clear_crtc (MetaCRTC *crtc)
+meta_monitor_manager_clear_crtc (MetaCrtc *crtc)
 {
   if (crtc->driver_notify)
     crtc->driver_notify (crtc);
@@ -407,7 +556,7 @@ meta_monitor_manager_clear_crtc (MetaCRTC *crtc)
 }
 
 static void
-meta_monitor_manager_free_crtc_array (MetaCRTC *old_crtcs,
+meta_monitor_manager_free_crtc_array (MetaCrtc *old_crtcs,
                                       int       n_old_crtcs)
 {
   int i;
@@ -426,7 +575,7 @@ meta_monitor_manager_finalize (GObject *object)
   meta_monitor_manager_free_output_array (manager->outputs, manager->n_outputs);
   meta_monitor_manager_free_mode_array (manager->modes, manager->n_modes);
   meta_monitor_manager_free_crtc_array (manager->crtcs, manager->n_crtcs);
-  g_free (manager->monitor_infos);
+  g_list_free_full (manager->logical_monitors, g_object_unref);
 
   G_OBJECT_CLASS (meta_monitor_manager_parent_class)->finalize (object);
 }
@@ -441,6 +590,9 @@ meta_monitor_manager_dispose (GObject *object)
       g_bus_unown_name (manager->dbus_name_id);
       manager->dbus_name_id = 0;
     }
+
+  g_clear_object (&manager->config_manager);
+  g_clear_object (&manager->up_client);
 
   G_OBJECT_CLASS (meta_monitor_manager_parent_class)->dispose (object);
 }
@@ -470,9 +622,18 @@ meta_monitor_manager_class_init (MetaMonitorManagerClass *klass)
 
   klass->get_edid_file = meta_monitor_manager_real_get_edid_file;
   klass->read_edid = meta_monitor_manager_real_read_edid;
+  klass->is_lid_closed = meta_monitor_manager_real_is_lid_closed;
 
   signals[CONFIRM_DISPLAY_CHANGE] =
     g_signal_new ("confirm-display-change",
+		  G_TYPE_FROM_CLASS (object_class),
+		  G_SIGNAL_RUN_LAST,
+		  0,
+                  NULL, NULL, NULL,
+		  G_TYPE_NONE, 0);
+
+  signals[LID_IS_CLOSED_CHANGED] =
+    g_signal_new ("lid-is-closed-changed",
 		  G_TYPE_FROM_CLASS (object_class),
 		  G_SIGNAL_RUN_LAST,
 		  0,
@@ -593,7 +754,7 @@ meta_monitor_manager_handle_get_resources (MetaDBusDisplayConfig *skeleton,
 
   for (i = 0; i < manager->n_crtcs; i++)
     {
-      MetaCRTC *crtc = &manager->crtcs[i];
+      MetaCrtc *crtc = &manager->crtcs[i];
       GVariantBuilder transforms;
 
       g_variant_builder_init (&transforms, G_VARIANT_TYPE ("au"));
@@ -711,7 +872,7 @@ meta_monitor_manager_handle_get_resources (MetaDBusDisplayConfig *skeleton,
 
   for (i = 0; i < manager->n_modes; i++)
     {
-      MetaMonitorMode *mode = &manager->modes[i];
+      MetaCrtcMode *mode = &manager->modes[i];
 
       g_variant_builder_add (&mode_builder, "(uxuudu)",
                              i, /* ID */
@@ -734,9 +895,9 @@ meta_monitor_manager_handle_get_resources (MetaDBusDisplayConfig *skeleton,
 }
 
 static gboolean
-output_can_config (MetaOutput      *output,
-                   MetaCRTC        *crtc,
-                   MetaMonitorMode *mode)
+output_can_config (MetaOutput   *output,
+                   MetaCrtc     *crtc,
+                   MetaCrtcMode *mode)
 {
   unsigned int i;
   gboolean ok = FALSE;
@@ -772,7 +933,7 @@ output_can_clone (MetaOutput *output,
 
 void
 meta_monitor_manager_apply_configuration (MetaMonitorManager *manager,
-                                          MetaCRTCInfo       **crtcs,
+                                          MetaCrtcInfo       **crtcs,
                                           unsigned int         n_crtcs,
                                           MetaOutputInfo     **outputs,
                                           unsigned int         n_outputs)
@@ -782,24 +943,33 @@ meta_monitor_manager_apply_configuration (MetaMonitorManager *manager,
                                                                  outputs, n_outputs);
 }
 
+static void
+legacy_restore_previous_config (MetaMonitorManager *manager)
+{
+  meta_monitor_config_restore_previous (manager->legacy_config, manager);
+}
+
 static gboolean
 save_config_timeout (gpointer user_data)
 {
   MetaMonitorManager *manager = user_data;
 
-  meta_monitor_config_restore_previous (manager->config, manager);
+  if (manager->config_manager)
+    g_assert (!"missing implementation");
+  else
+    legacy_restore_previous_config (manager);
 
   manager->persistent_timeout_id = 0;
   return G_SOURCE_REMOVE;
 }
 
 static gboolean
-meta_monitor_manager_handle_apply_configuration  (MetaDBusDisplayConfig *skeleton,
-                                                  GDBusMethodInvocation *invocation,
-                                                  guint                  serial,
-                                                  gboolean               persistent,
-                                                  GVariant              *crtcs,
-                                                  GVariant              *outputs)
+meta_monitor_manager_legacy_handle_apply_configuration  (MetaDBusDisplayConfig *skeleton,
+                                                         GDBusMethodInvocation *invocation,
+                                                         guint                  serial,
+                                                         gboolean               persistent,
+                                                         GVariant              *crtcs,
+                                                         GVariant              *outputs)
 {
   MetaMonitorManager *manager = META_MONITOR_MANAGER (skeleton);
   GVariantIter crtc_iter, output_iter, *nested_outputs;
@@ -810,6 +980,14 @@ meta_monitor_manager_handle_apply_configuration  (MetaDBusDisplayConfig *skeleto
   guint transform;
   guint output_index;
   GPtrArray *crtc_infos, *output_infos;
+
+  if (manager->config_manager)
+    {
+      g_dbus_method_invocation_return_error (invocation, G_DBUS_ERROR,
+                                             G_DBUS_ERROR_ACCESS_DENIED,
+                                             "Used old configuration API with new configuration system");
+      return TRUE;
+    }
 
   if (serial != manager->serial)
     {
@@ -831,12 +1009,12 @@ meta_monitor_manager_handle_apply_configuration  (MetaDBusDisplayConfig *skeleto
                               &crtc_id, &new_mode, &x, &y, &transform,
                               &nested_outputs, NULL))
     {
-      MetaCRTCInfo *crtc_info;
+      MetaCrtcInfo *crtc_info;
       MetaOutput *first_output;
-      MetaCRTC *crtc;
-      MetaMonitorMode *mode;
+      MetaCrtc *crtc;
+      MetaCrtcMode *mode;
 
-      crtc_info = g_slice_new (MetaCRTCInfo);
+      crtc_info = g_slice_new (MetaCrtcInfo);
       crtc_info->outputs = g_ptr_array_new ();
 
       if (crtc_id >= manager->n_crtcs)
@@ -1002,7 +1180,7 @@ meta_monitor_manager_handle_apply_configuration  (MetaDBusDisplayConfig *skeleto
     }
 
   meta_monitor_manager_apply_configuration (manager,
-                                            (MetaCRTCInfo**)crtc_infos->pdata,
+                                            (MetaCrtcInfo**)crtc_infos->pdata,
                                             crtc_infos->len,
                                             (MetaOutputInfo**)output_infos->pdata,
                                             output_infos->len);
@@ -1016,7 +1194,7 @@ meta_monitor_manager_handle_apply_configuration  (MetaDBusDisplayConfig *skeleto
      appropriate UI. Then wait 20 seconds and if not confirmed, revert the
      configuration.
   */
-  meta_monitor_config_update_current (manager->config, manager);
+  meta_monitor_config_update_current (manager->legacy_config, manager);
   if (persistent)
     {
       manager->persistent_timeout_id = g_timeout_add_seconds (20, save_config_timeout, manager);
@@ -1026,6 +1204,16 @@ meta_monitor_manager_handle_apply_configuration  (MetaDBusDisplayConfig *skeleto
 
   meta_dbus_display_config_complete_apply_configuration (skeleton, invocation);
   return TRUE;
+}
+
+static void
+legacy_confirm_configuration (MetaMonitorManager *manager,
+                              gboolean            confirmed)
+{
+  if (confirmed)
+    meta_monitor_config_make_persistent (manager->legacy_config);
+  else
+    meta_monitor_config_restore_previous (manager->legacy_config, manager);
 }
 
 void
@@ -1041,10 +1229,10 @@ meta_monitor_manager_confirm_configuration (MetaMonitorManager *manager,
   g_source_remove (manager->persistent_timeout_id);
   manager->persistent_timeout_id = 0;
 
-  if (ok)
-    meta_monitor_config_make_persistent (manager->config);
+  if (manager->config_manager)
+    g_assert (!"not implemented");
   else
-    meta_monitor_config_restore_previous (manager->config, manager);
+    legacy_confirm_configuration (manager, ok);
 }
 
 static gboolean
@@ -1105,7 +1293,7 @@ meta_monitor_manager_handle_get_crtc_gamma  (MetaDBusDisplayConfig *skeleton,
 {
   MetaMonitorManager *manager = META_MONITOR_MANAGER (skeleton);
   MetaMonitorManagerClass *klass;
-  MetaCRTC *crtc;
+  MetaCrtc *crtc;
   gsize size;
   unsigned short *red;
   unsigned short *green;
@@ -1168,7 +1356,7 @@ meta_monitor_manager_handle_set_crtc_gamma  (MetaDBusDisplayConfig *skeleton,
 {
   MetaMonitorManager *manager = META_MONITOR_MANAGER (skeleton);
   MetaMonitorManagerClass *klass;
-  MetaCRTC *crtc;
+  MetaCrtc *crtc;
   gsize size, dummy;
   unsigned short *red;
   unsigned short *green;
@@ -1218,7 +1406,7 @@ static void
 meta_monitor_manager_display_config_init (MetaDBusDisplayConfigIface *iface)
 {
   iface->handle_get_resources = meta_monitor_manager_handle_get_resources;
-  iface->handle_apply_configuration = meta_monitor_manager_handle_apply_configuration;
+  iface->handle_apply_configuration = meta_monitor_manager_legacy_handle_apply_configuration;
   iface->handle_change_backlight = meta_monitor_manager_handle_change_backlight;
   iface->handle_get_crtc_gamma = meta_monitor_manager_handle_get_crtc_gamma;
   iface->handle_set_crtc_gamma = meta_monitor_manager_handle_set_crtc_gamma;
@@ -1283,12 +1471,192 @@ meta_monitor_manager_get (void)
   return meta_backend_get_monitor_manager (backend);
 }
 
-MetaMonitorInfo *
-meta_monitor_manager_get_monitor_infos (MetaMonitorManager *manager,
-                                        unsigned int       *n_infos)
+int
+meta_monitor_manager_get_num_logical_monitors (MetaMonitorManager *manager)
 {
-  *n_infos = manager->n_monitor_infos;
-  return manager->monitor_infos;
+  return g_list_length (manager->logical_monitors);
+}
+
+GList *
+meta_monitor_manager_get_logical_monitors (MetaMonitorManager *manager)
+{
+  return manager->logical_monitors;
+}
+
+MetaLogicalMonitor *
+meta_monitor_manager_get_logical_monitor_from_number (MetaMonitorManager *manager,
+                                                      int                 number)
+{
+  g_assert ((unsigned int) number < g_list_length (manager->logical_monitors));
+
+  return g_list_nth (manager->logical_monitors, number)->data;
+}
+
+MetaLogicalMonitor *
+meta_monitor_manager_get_primary_logical_monitor (MetaMonitorManager *manager)
+{
+  return manager->primary_logical_monitor;
+}
+
+static MetaMonitor *
+find_monitor (MetaMonitorManager *monitor_manager,
+              gboolean (*match_func) (MetaMonitor *monitor))
+{
+  GList *monitors;
+  GList *l;
+
+  monitors = meta_monitor_manager_get_monitors (monitor_manager);
+  for (l = monitors; l; l = l->next)
+    {
+      MetaMonitor *monitor = l->data;
+
+      if (match_func (monitor))
+        return monitor;
+    }
+
+  return NULL;
+}
+
+MetaMonitor *
+meta_monitor_manager_get_primary_monitor (MetaMonitorManager *manager)
+{
+  return find_monitor (manager, meta_monitor_is_primary);
+}
+
+MetaMonitor *
+meta_monitor_manager_get_laptop_panel (MetaMonitorManager *manager)
+{
+  return find_monitor (manager, meta_monitor_is_laptop_panel);
+}
+
+MetaMonitor *
+meta_monitor_manager_get_monitor_from_spec (MetaMonitorManager *manager,
+                                            MetaMonitorSpec    *monitor_spec)
+{
+  GList *l;
+
+  for (l = manager->monitors; l; l = l->next)
+    {
+      MetaMonitor *monitor = l->data;
+
+      if (meta_monitor_spec_equals (meta_monitor_get_spec (monitor),
+                                    monitor_spec))
+        return monitor;
+    }
+
+  return NULL;
+}
+
+MetaLogicalMonitor *
+meta_monitor_manager_get_logical_monitor_at (MetaMonitorManager *manager,
+                                             float               x,
+                                             float               y)
+{
+  GList *l;
+
+  for (l = manager->logical_monitors; l; l = l->next)
+    {
+      MetaLogicalMonitor *logical_monitor = l->data;
+
+      if (POINT_IN_RECT (x, y, logical_monitor->rect))
+        return logical_monitor;
+    }
+
+  return NULL;
+}
+
+MetaLogicalMonitor *
+meta_monitor_manager_get_logical_monitor_from_rect (MetaMonitorManager *manager,
+                                                    MetaRectangle      *rect)
+{
+  MetaLogicalMonitor *best_logical_monitor;
+  int best_logical_monitor_area;
+  GList *l;
+
+  best_logical_monitor = NULL;
+  best_logical_monitor_area = 0;
+
+  for (l = manager->logical_monitors; l; l = l->next)
+    {
+      MetaLogicalMonitor *logical_monitor = l->data;
+      MetaRectangle intersection;
+      int intersection_area;
+
+      if (!meta_rectangle_intersect (&logical_monitor->rect,
+                                     rect,
+                                     &intersection))
+        continue;
+
+      intersection_area = meta_rectangle_area (&intersection);
+
+      if (intersection_area > best_logical_monitor_area)
+        {
+          best_logical_monitor = logical_monitor;
+          best_logical_monitor_area = intersection_area;
+        }
+    }
+
+  if (!best_logical_monitor && (rect->width == 0 || rect->height == 0))
+    best_logical_monitor =
+      meta_monitor_manager_get_logical_monitor_at (manager, rect->x, rect->y);
+
+  if (!best_logical_monitor)
+    best_logical_monitor = manager->primary_logical_monitor;
+
+  return best_logical_monitor;
+}
+
+MetaLogicalMonitor *
+meta_monitor_manager_get_logical_monitor_neighbor (MetaMonitorManager *manager,
+                                                   MetaLogicalMonitor *logical_monitor,
+                                                   MetaScreenDirection direction)
+{
+  GList *l;
+
+  for (l = manager->logical_monitors; l; l = l->next)
+    {
+      MetaLogicalMonitor *other = l->data;
+
+      switch (direction)
+        {
+        case META_SCREEN_RIGHT:
+           if (other->rect.x == (logical_monitor->rect.x +
+                                 logical_monitor->rect.width) &&
+               meta_rectangle_vert_overlap (&other->rect,
+                                            &logical_monitor->rect))
+             return other;
+           break;
+        case META_SCREEN_LEFT:
+           if (logical_monitor->rect.x == (other->rect.x +
+                                           other->rect.width) &&
+               meta_rectangle_vert_overlap (&other->rect,
+                                            &logical_monitor->rect))
+             return other;
+           break;
+        case META_SCREEN_UP:
+           if (logical_monitor->rect.y == (other->rect.y +
+                                           other->rect.height) &&
+               meta_rectangle_horiz_overlap (&other->rect,
+                                             &logical_monitor->rect))
+             return other;
+           break;
+        case META_SCREEN_DOWN:
+           if (other->rect.y == (logical_monitor->rect.y +
+                                 logical_monitor->rect.height) &&
+               meta_rectangle_horiz_overlap (&other->rect,
+                                             &logical_monitor->rect))
+             return other;
+           break;
+        }
+    }
+
+  return NULL;
+}
+
+GList *
+meta_monitor_manager_get_monitors (MetaMonitorManager *manager)
+{
+  return manager->monitors;
 }
 
 MetaOutput *
@@ -1301,9 +1669,9 @@ meta_monitor_manager_get_outputs (MetaMonitorManager *manager,
 
 void
 meta_monitor_manager_get_resources (MetaMonitorManager  *manager,
-                                    MetaMonitorMode    **modes,
+                                    MetaCrtcMode       **modes,
                                     unsigned int        *n_modes,
-                                    MetaCRTC           **crtcs,
+                                    MetaCrtc           **crtcs,
                                     unsigned int        *n_crtcs,
                                     MetaOutput         **outputs,
                                     unsigned int        *n_outputs)
@@ -1325,12 +1693,6 @@ meta_monitor_manager_get_resources (MetaMonitorManager  *manager,
     }
 }
 
-int
-meta_monitor_manager_get_primary_index (MetaMonitorManager *manager)
-{
-  return manager->primary_monitor_index;
-}
-
 void
 meta_monitor_manager_get_screen_size (MetaMonitorManager *manager,
                                       int                *width,
@@ -1349,12 +1711,71 @@ meta_monitor_manager_get_screen_limits (MetaMonitorManager *manager,
   *height = manager->max_screen_height;
 }
 
+static void
+rebuild_monitors (MetaMonitorManager *manager)
+{
+  unsigned int i;
+
+  if (manager->monitors)
+    {
+      g_list_free_full (manager->monitors, g_object_unref);
+      manager->monitors = NULL;
+    }
+
+  for (i = 0; i < manager->n_outputs; i++)
+    {
+      MetaOutput *output = &manager->outputs[i];
+
+      if (output->tile_info.group_id)
+        {
+          if (is_main_tiled_monitor_output (output))
+            {
+              MetaMonitorTiled *monitor_tiled;
+
+              monitor_tiled = meta_monitor_tiled_new (manager, output);
+              manager->monitors = g_list_append (manager->monitors,
+                                                 monitor_tiled);
+            }
+        }
+      else
+        {
+          MetaMonitorNormal *monitor_normal;
+
+          monitor_normal = meta_monitor_normal_new (output);
+          manager->monitors = g_list_append (manager->monitors,
+                                             monitor_normal);
+        }
+    }
+}
+
 void
-meta_monitor_manager_read_current_config (MetaMonitorManager *manager)
+meta_monitor_manager_tiled_monitor_added (MetaMonitorManager *manager,
+                                          MetaMonitor        *monitor)
+{
+  MetaMonitorManagerClass *manager_class =
+    META_MONITOR_MANAGER_GET_CLASS (manager);
+
+  if (manager_class->tiled_monitor_added)
+    manager_class->tiled_monitor_added (manager, monitor);
+}
+
+void
+meta_monitor_manager_tiled_monitor_removed (MetaMonitorManager *manager,
+                                            MetaMonitor        *monitor)
+{
+  MetaMonitorManagerClass *manager_class =
+    META_MONITOR_MANAGER_GET_CLASS (manager);
+
+  if (manager_class->tiled_monitor_removed)
+    manager_class->tiled_monitor_removed (manager, monitor);
+}
+
+void
+meta_monitor_manager_read_current_state (MetaMonitorManager *manager)
 {
   MetaOutput *old_outputs;
-  MetaCRTC *old_crtcs;
-  MetaMonitorMode *old_modes;
+  MetaCrtc *old_crtcs;
+  MetaCrtcMode *old_modes;
   unsigned int n_old_outputs, n_old_crtcs, n_old_modes;
 
   /* Some implementations of read_current use the existing information
@@ -1370,54 +1791,132 @@ meta_monitor_manager_read_current_config (MetaMonitorManager *manager)
   manager->serial++;
   META_MONITOR_MANAGER_GET_CLASS (manager)->read_current (manager);
 
+  rebuild_monitors (manager);
+
   meta_monitor_manager_free_output_array (old_outputs, n_old_outputs);
   meta_monitor_manager_free_mode_array (old_modes, n_old_modes);
   meta_monitor_manager_free_crtc_array (old_crtcs, n_old_crtcs);
 }
 
-void
-meta_monitor_manager_rebuild_derived (MetaMonitorManager *manager)
+static void
+meta_monitor_manager_notify_monitors_changed (MetaMonitorManager *manager)
 {
   MetaBackend *backend = meta_get_backend ();
-  MetaMonitorManagerClass *manager_class = META_MONITOR_MANAGER_GET_CLASS (manager);
-  MetaMonitorInfo *old_monitor_infos;
-  unsigned old_n_monitor_infos;
-  unsigned i, j;
-  old_monitor_infos = manager->monitor_infos;
-  old_n_monitor_infos = manager->n_monitor_infos;
+
+  meta_backend_monitors_changed (backend);
+  g_signal_emit_by_name (manager, "monitors-changed");
+}
+
+static void
+set_logical_monitor_modes (MetaMonitorManager       *manager,
+                           MetaLogicalMonitorConfig *logical_monitor_config)
+{
+  GList *l;
+
+  for (l = logical_monitor_config->monitor_configs; l; l = l->next)
+    {
+      MetaMonitorConfig *monitor_config = l->data;
+      MetaMonitorSpec *monitor_spec;
+      MetaMonitor *monitor;
+      MetaMonitorModeSpec *monitor_mode_spec;
+      MetaMonitorMode *monitor_mode;
+
+      monitor_spec = monitor_config->monitor_spec;
+      monitor = meta_monitor_manager_get_monitor_from_spec (manager,
+                                                            monitor_spec);
+      monitor_mode_spec = monitor_config->mode_spec;
+      monitor_mode = meta_monitor_get_mode_from_spec (monitor,
+                                                      monitor_mode_spec);
+
+      meta_monitor_set_current_mode (monitor, monitor_mode);
+    }
+}
+
+static void
+meta_monitor_manager_update_monitor_modes (MetaMonitorManager *manager,
+                                           MetaMonitorsConfig *config)
+{
+  GList *logical_monitor_configs;
+  GList *l;
+
+  logical_monitor_configs = config ? config->logical_monitor_configs : NULL;
+  for (l = logical_monitor_configs; l; l = l->next)
+    {
+      MetaLogicalMonitorConfig *logical_monitor_config = l->data;
+
+      set_logical_monitor_modes (manager, logical_monitor_config);
+    }
+
+  for (l = manager->monitors; l; l = l->next)
+    {
+      MetaMonitor *monitor = l->data;
+
+      if (!meta_monitor_get_logical_monitor (monitor))
+        meta_monitor_set_current_mode (monitor, NULL);
+    }
+}
+
+void
+meta_monitor_manager_update_logical_state (MetaMonitorManager *manager,
+                                           MetaMonitorsConfig *config)
+{
+  meta_monitor_manager_rebuild_logical_monitors (manager, config);
+  meta_monitor_manager_update_monitor_modes (manager, config);
+}
+
+void
+meta_monitor_manager_rebuild (MetaMonitorManager *manager,
+                              MetaMonitorsConfig *config)
+{
+  GList *old_logical_monitors;
 
   if (manager->in_init)
     return;
 
-  make_logical_config (manager);
+  old_logical_monitors = manager->logical_monitors;
 
-  if (manager_class->delete_monitor)
+  meta_monitor_manager_update_logical_state (manager, config);
+
+  meta_monitor_manager_notify_monitors_changed (manager);
+
+  g_list_free_full (old_logical_monitors, g_object_unref);
+}
+
+static void
+meta_monitor_manager_update_monitor_modes_derived (MetaMonitorManager *manager)
+{
+  GList *l;
+
+  for (l = manager->monitors; l; l = l->next)
     {
-      for (i = 0; i < old_n_monitor_infos; i++)
-        {
-          gboolean delete_mon = TRUE;
-          for (j = 0; j < manager->n_monitor_infos; j++)
-            {
-              if (manager->monitor_infos[j].monitor_winsys_xid == old_monitor_infos[i].monitor_winsys_xid)
-                {
-                  delete_mon = FALSE;
-                  break;
-                }
-            }
-          if (delete_mon)
-            manager_class->delete_monitor (manager, old_monitor_infos[i].monitor_winsys_xid);
-        }
+      MetaMonitor *monitor = l->data;
+
+      meta_monitor_derive_current_mode (monitor);
     }
+}
 
-  /* Tell the backend about that the monitors changed before emitting the
-   * signal, so that the backend can prepare itself before all the signal
-   * consumers.
-   */
-  meta_backend_monitors_changed (backend);
+void
+meta_monitor_manager_update_logical_state_derived (MetaMonitorManager *manager)
+{
+  meta_monitor_manager_rebuild_logical_monitors_derived (manager);
+  meta_monitor_manager_update_monitor_modes_derived (manager);
+}
 
-  g_signal_emit_by_name (manager, "monitors-changed");
+void
+meta_monitor_manager_rebuild_derived (MetaMonitorManager *manager)
+{
+  GList *old_logical_monitors;
 
-  g_free (old_monitor_infos);
+  if (manager->in_init)
+    return;
+
+  old_logical_monitors = manager->logical_monitors;
+
+  meta_monitor_manager_update_logical_state_derived (manager);
+
+  meta_monitor_manager_notify_monitors_changed (manager);
+
+  g_list_free_full (old_logical_monitors, g_object_unref);
 }
 
 void
@@ -1481,8 +1980,8 @@ meta_output_is_laptop (MetaOutput *output)
     }
 }
 
-void
-meta_monitor_manager_on_hotplug (MetaMonitorManager *manager)
+static void
+legacy_on_hotplug (MetaMonitorManager *manager)
 {
   gboolean applied_config = FALSE;
 
@@ -1492,13 +1991,25 @@ meta_monitor_manager_on_hotplug (MetaMonitorManager *manager)
    */
   if (!meta_monitor_manager_has_hotplug_mode_update (manager))
     {
-      if (meta_monitor_config_apply_stored (manager->config, manager))
+      if (meta_monitor_config_apply_stored (manager->legacy_config, manager))
         applied_config = TRUE;
     }
 
   /* If we haven't applied any configuration, apply the default configuration. */
   if (!applied_config)
-    meta_monitor_config_make_default (manager->config, manager);
+    meta_monitor_config_make_default (manager->legacy_config, manager);
+}
+
+void
+meta_monitor_manager_on_hotplug (MetaMonitorManager *manager)
+{
+  if (manager->legacy_config)
+    {
+      legacy_on_hotplug (manager);
+      return;
+    }
+
+  meta_monitor_manager_ensure_configured (manager);
 }
 
 static gboolean
@@ -1567,7 +2078,7 @@ meta_monitor_manager_get_monitor_for_output (MetaMonitorManager *manager,
                                              guint               id)
 {
   MetaOutput *output;
-  guint i;
+  GList *l;
 
   g_return_val_if_fail (META_IS_MONITOR_MANAGER (manager), -1);
   g_return_val_if_fail (id < manager->n_outputs, -1);
@@ -1576,33 +2087,13 @@ meta_monitor_manager_get_monitor_for_output (MetaMonitorManager *manager,
   if (!output || !output->crtc)
     return -1;
 
-  for (i = 0; i < manager->n_monitor_infos; i++)
-    if (meta_rectangle_contains_rect (&manager->monitor_infos[i].rect,
-                                      &output->crtc->rect))
-      return i;
-
-  return -1;
-}
-
-gint
-meta_monitor_manager_get_monitor_at_point (MetaMonitorManager *manager,
-                                           gfloat              x,
-                                           gfloat              y)
-{
-  unsigned int i;
-
-  for (i = 0; i < manager->n_monitor_infos; i++)
+  for (l = manager->logical_monitors; l; l = l->next)
     {
-      MetaMonitorInfo *monitor = &manager->monitor_infos[i];
-      int left, right, top, bottom;
+      MetaLogicalMonitor *logical_monitor = l->data;
 
-      left = monitor->rect.x;
-      right = left + monitor->rect.width;
-      top = monitor->rect.y;
-      bottom = top + monitor->rect.height;
-
-      if ((x >= left) && (x < right) && (y >= top) && (y < bottom))
-	return i;
+      if (meta_rectangle_contains_rect (&logical_monitor->rect,
+                                        &output->crtc->rect))
+        return logical_monitor->number;
     }
 
   return -1;
@@ -1611,7 +2102,13 @@ meta_monitor_manager_get_monitor_at_point (MetaMonitorManager *manager,
 gboolean
 meta_monitor_manager_get_is_builtin_display_on (MetaMonitorManager *manager)
 {
+  MetaMonitor *laptop_panel;
+
   g_return_val_if_fail (META_IS_MONITOR_MANAGER (manager), FALSE);
 
-  return meta_monitor_config_get_is_builtin_display_on (manager->config);
+  laptop_panel = meta_monitor_manager_get_laptop_panel (manager);
+  if (!laptop_panel)
+    return FALSE;
+
+  return meta_monitor_is_active (laptop_panel);
 }

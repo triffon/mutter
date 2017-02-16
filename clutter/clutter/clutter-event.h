@@ -459,6 +459,7 @@ struct _ClutterTouchpadPinchEvent
   gfloat dy;
   gfloat angle_delta;
   gfloat scale;
+  guint n_fingers;
 };
 
 /**
@@ -507,6 +508,7 @@ struct _ClutterPadButtonEvent
   guint32 button;
   guint32 group;
   ClutterInputDevice *device;
+  guint32 mode;
 };
 
 struct _ClutterPadStripEvent
@@ -522,6 +524,7 @@ struct _ClutterPadStripEvent
   guint32 strip_number;
   guint32 group;
   gdouble value;
+  guint32 mode;
 };
 
 struct _ClutterPadRingEvent
@@ -537,6 +540,7 @@ struct _ClutterPadRingEvent
   guint32 ring_number;
   guint32 group;
   gdouble angle;
+  guint32 mode;
 };
 
 /**
@@ -752,7 +756,7 @@ CLUTTER_AVAILABLE_IN_1_2
 const ClutterEvent *    clutter_get_current_event               (void);
 
 CLUTTER_AVAILABLE_IN_1_24
-guint                   clutter_event_get_gesture_swipe_finger_count (const ClutterEvent     *event);
+guint                   clutter_event_get_touchpad_gesture_finger_count (const ClutterEvent  *event);
 
 CLUTTER_AVAILABLE_IN_1_24
 gdouble                 clutter_event_get_gesture_pinch_angle_delta  (const ClutterEvent     *event);

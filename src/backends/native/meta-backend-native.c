@@ -37,6 +37,8 @@
 #include "meta-cursor-renderer-native.h"
 #include "meta-launcher.h"
 #include "backends/meta-cursor-tracker-private.h"
+#include "backends/meta-logical-monitor.h"
+#include "backends/meta-monitor-manager-private.h"
 #include "backends/meta-pointer-constraint.h"
 #include "backends/meta-stage.h"
 #include "backends/native/meta-clutter-backend-native.h"
@@ -44,6 +46,11 @@
 #include "backends/native/meta-stage-native.h"
 
 #include <stdlib.h>
+
+struct _MetaBackendNative
+{
+  MetaBackend parent;
+};
 
 struct _MetaBackendNativePrivate
 {
@@ -154,7 +161,8 @@ constrain_to_client_constraint (ClutterInputDevice *device,
                                 float              *y)
 {
   MetaBackend *backend = meta_get_backend ();
-  MetaPointerConstraint *constraint = backend->client_pointer_constraint;
+  MetaPointerConstraint *constraint =
+    meta_backend_get_client_pointer_constraint (backend);
 
   if (!constraint)
     return;
@@ -174,14 +182,13 @@ constrain_to_client_constraint (ClutterInputDevice *device,
 
 static void
 constrain_all_screen_monitors (ClutterInputDevice *device,
-			       MetaMonitorInfo    *monitors,
-			       unsigned            n_monitors,
-			       float              *x,
-			       float              *y)
+                               MetaMonitorManager *monitor_manager,
+                               float              *x,
+                               float              *y)
 {
   ClutterPoint current;
-  unsigned int i;
   float cx, cy;
+  GList *logical_monitors, *l;
 
   clutter_input_device_get_coords (device, NULL, &current);
 
@@ -189,15 +196,18 @@ constrain_all_screen_monitors (ClutterInputDevice *device,
   cy = current.y;
 
   /* if we're trying to escape, clamp to the CRTC we're coming from */
-  for (i = 0; i < n_monitors; i++)
+
+  logical_monitors =
+    meta_monitor_manager_get_logical_monitors (monitor_manager);
+  for (l = logical_monitors; l; l = l->next)
     {
-      MetaMonitorInfo *monitor = &monitors[i];
+      MetaLogicalMonitor *logical_monitor = l->data;
       int left, right, top, bottom;
 
-      left = monitor->rect.x;
-      right = left + monitor->rect.width;
-      top = monitor->rect.y;
-      bottom = top + monitor->rect.height;
+      left = logical_monitor->rect.x;
+      right = left + logical_monitor->rect.width;
+      top = logical_monitor->rect.y;
+      bottom = top + logical_monitor->rect.height;
 
       if ((cx >= left) && (cx < right) && (cy >= top) && (cy < bottom))
 	{
@@ -224,9 +234,9 @@ pointer_constrain_callback (ClutterInputDevice *device,
                             float              *new_y,
                             gpointer            user_data)
 {
-  MetaMonitorManager *monitor_manager;
-  MetaMonitorInfo *monitors;
-  unsigned int n_monitors;
+  MetaBackend *backend = meta_get_backend ();
+  MetaMonitorManager *monitor_manager =
+    meta_backend_get_monitor_manager (backend);
 
   /* Constrain to barriers */
   constrain_to_barriers (device, time, new_x, new_y);
@@ -234,15 +244,13 @@ pointer_constrain_callback (ClutterInputDevice *device,
   /* Constrain to pointer lock */
   constrain_to_client_constraint (device, time, prev_x, prev_y, new_x, new_y);
 
-  monitor_manager = meta_monitor_manager_get ();
-  monitors = meta_monitor_manager_get_monitor_infos (monitor_manager, &n_monitors);
-
   /* if we're moving inside a monitor, we're fine */
-  if (meta_monitor_manager_get_monitor_at_point (monitor_manager, *new_x, *new_y) >= 0)
+  if (meta_monitor_manager_get_logical_monitor_at (monitor_manager,
+                                                   *new_x, *new_y))
     return;
 
   /* if we're trying to escape, clamp to the CRTC we're coming from */
-  constrain_all_screen_monitors(device, monitors, n_monitors, new_x, new_y);
+  constrain_all_screen_monitors (device, monitor_manager, new_x, new_y);
 }
 
 static ClutterBackend *
@@ -290,11 +298,13 @@ meta_backend_native_create_renderer (MetaBackend *backend)
   MetaBackendNativePrivate *priv =
     meta_backend_native_get_instance_private (native);
   int kms_fd;
-  GError *error;
+  const char *kms_file_path;
+  GError *error = NULL;
   MetaRendererNative *renderer_native;
 
   kms_fd = meta_launcher_get_kms_fd (priv->launcher);
-  renderer_native = meta_renderer_native_new (kms_fd, &error);
+  kms_file_path = meta_launcher_get_kms_file_path (priv->launcher);
+  renderer_native = meta_renderer_native_new (kms_fd, kms_file_path, &error);
   if (!renderer_native)
     {
       meta_warning ("Failed to create renderer: %s\n", error->message);
@@ -312,7 +322,7 @@ meta_backend_native_warp_pointer (MetaBackend *backend,
 {
   ClutterDeviceManager *manager = clutter_device_manager_get_default ();
   ClutterInputDevice *device = clutter_device_manager_get_core_device (manager, CLUTTER_POINTER_DEVICE);
-  MetaCursorTracker *tracker = meta_cursor_tracker_get_for_screen (NULL);
+  MetaCursorTracker *cursor_tracker = meta_backend_get_cursor_tracker (backend);
 
   /* XXX */
   guint32 time_ = 0;
@@ -321,7 +331,19 @@ meta_backend_native_warp_pointer (MetaBackend *backend,
   clutter_evdev_warp_pointer (device, time_, x, y);
 
   /* Warp displayed pointer cursor. */
-  meta_cursor_tracker_update_position (tracker, x, y);
+  meta_cursor_tracker_update_position (cursor_tracker, x, y);
+}
+
+static MetaLogicalMonitor *
+meta_backend_native_get_current_logical_monitor (MetaBackend *backend)
+{
+  MetaCursorTracker *cursor_tracker = meta_backend_get_cursor_tracker (backend);
+  MetaMonitorManager *monitor_manager =
+    meta_backend_get_monitor_manager (backend);
+  int x, y;
+
+  meta_cursor_tracker_get_pointer (cursor_tracker, &x, &y, NULL);
+  return meta_monitor_manager_get_logical_monitor_at (monitor_manager, x, y);
 }
 
 static void
@@ -424,6 +446,9 @@ meta_backend_native_class_init (MetaBackendNativeClass *klass)
   backend_class->create_renderer = meta_backend_native_create_renderer;
 
   backend_class->warp_pointer = meta_backend_native_warp_pointer;
+
+  backend_class->get_current_logical_monitor = meta_backend_native_get_current_logical_monitor;
+
   backend_class->set_keymap = meta_backend_native_set_keymap;
   backend_class->get_keymap = meta_backend_native_get_keymap;
   backend_class->lock_layout_group = meta_backend_native_lock_layout_group;

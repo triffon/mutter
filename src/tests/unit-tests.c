@@ -17,6 +17,8 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "config.h"
+
 #include <glib.h>
 #include <stdlib.h>
 
@@ -24,6 +26,11 @@
 #include <meta/util.h>
 
 #include "compositor/meta-plugin-manager.h"
+#include "core/main-private.h"
+#include "tests/meta-backend-test.h"
+#include "tests/monitor-unit-tests.h"
+#include "tests/monitor-store-unit-tests.h"
+#include "wayland/meta-wayland.h"
 
 typedef struct _MetaTestLaterOrderCallbackData
 {
@@ -194,44 +201,25 @@ init_tests (int argc, char **argv)
   g_test_add_func ("/util/meta-later/order", meta_test_util_later_order);
   g_test_add_func ("/util/meta-later/schedule-from-later",
                    meta_test_util_later_schedule_from_later);
+
+  init_monitor_store_tests ();
+  init_monitor_tests ();
 }
 
 int
 main (int argc, char *argv[])
 {
-  GOptionContext *ctx;
-  GError *error = NULL;
-
-  ctx = g_option_context_new (NULL);
-
-  if (!g_option_context_parse (ctx,
-                               &argc, &argv, &error))
-    {
-      g_printerr ("%s", error->message);
-      return 1;
-    }
-
-  g_option_context_free (ctx);
-
-  const char *fake_args[] = { NULL, "--wayland", "--nested" };
-  fake_args[0] = argv[0];
-  char **fake_argv = (char**)fake_args;
-  int fake_argc = G_N_ELEMENTS (fake_args);
-
-  ctx = meta_get_option_context ();
-  if (!g_option_context_parse (ctx, &fake_argc, &fake_argv, &error))
-    {
-      g_printerr ("mutter: %s\n", error->message);
-      exit (1);
-    }
-  g_option_context_free (ctx);
+  init_tests (argc, argv);
 
   meta_plugin_manager_load ("default");
+
+  meta_override_compositor_configuration (META_COMPOSITOR_TYPE_WAYLAND,
+                                          META_TYPE_BACKEND_TEST);
+  meta_wayland_override_display_name ("mutter-test-display");
 
   meta_init ();
   meta_register_with_session ();
 
-  init_tests (argc, argv);
   g_idle_add (run_tests, NULL);
 
   return meta_run ();

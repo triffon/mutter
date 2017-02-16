@@ -1,3 +1,17 @@
+mutter (3.23.90-0ubuntu1) zesty; urgency=medium
+
+  * New upstream release (LP: #1662805)
+  * libmutter0 has been renamed upstream to libmutter-0-0
+  * Rename libmutter-dev to libmutter-0-dev too
+  * debian/control.in:
+    - Drop obsolete Conflicts/Replaces now that the library
+      uses different file names
+  * Drop patches applied in new release:
+    - git_dont_set_unavailable_scroll_methods.patch
+    - git_flush_all_swap_notifies_on_idle.patch
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Thu, 16 Feb 2017 05:14:28 -0500
+
 mutter (3.22.2-3) unstable; urgency=medium
 
   [ Jeremy Bicha ]

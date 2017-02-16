@@ -78,7 +78,6 @@ typedef enum
   META_MOVE_RESIZE_RESIZE_ACTION     = 1 << 3,
   META_MOVE_RESIZE_WAYLAND_RESIZE    = 1 << 4,
   META_MOVE_RESIZE_STATE_CHANGED     = 1 << 5,
-  META_MOVE_RESIZE_DONT_SYNC_COMPOSITOR = 1 << 6,
 } MetaMoveResizeFlags;
 
 typedef enum
@@ -136,7 +135,7 @@ struct _MetaWindow
   MetaDisplay *display;
   MetaScreen *screen;
   guint64 stamp;
-  const MetaMonitorInfo *monitor;
+  MetaLogicalMonitor *monitor;
   MetaWorkspace *workspace;
   MetaWindowClientType client_type;
   MetaWaylandSurface *surface;
@@ -222,7 +221,12 @@ struct _MetaWindow
    * been overridden (via a client message), the window will cover the union of
    * these monitors.  If not, this is the single monitor which the window's
    * origin is on. */
-  gint fullscreen_monitors[4];
+  struct {
+    MetaLogicalMonitor *top;
+    MetaLogicalMonitor *bottom;
+    MetaLogicalMonitor *left;
+    MetaLogicalMonitor *right;
+  } fullscreen_monitors;
 
   /* Whether we're trying to constrain the window to be fully onscreen */
   guint require_fully_onscreen : 1;
@@ -528,7 +532,7 @@ struct _MetaWindowClass
   uint32_t (*get_client_pid)     (MetaWindow *window);
   void (*update_main_monitor)    (MetaWindow *window);
   void (*main_monitor_changed)   (MetaWindow *window,
-                                  const MetaMonitorInfo *old);
+                                  const MetaLogicalMonitor *old);
 };
 
 /* These differ from window->has_foo_func in that they consider
@@ -575,11 +579,13 @@ void        meta_window_maximize_internal  (MetaWindow        *window,
                                             MetaRectangle     *saved_rect);
 
 void        meta_window_make_fullscreen_internal (MetaWindow    *window);
-void        meta_window_update_fullscreen_monitors (MetaWindow    *window,
-                                                    unsigned long  top,
-                                                    unsigned long  bottom,
-                                                    unsigned long  left,
-                                                    unsigned long  right);
+void        meta_window_update_fullscreen_monitors (MetaWindow         *window,
+                                                    MetaLogicalMonitor *top,
+                                                    MetaLogicalMonitor *bottom,
+                                                    MetaLogicalMonitor *left,
+                                                    MetaLogicalMonitor *right);
+
+gboolean    meta_window_has_fullscreen_monitors (MetaWindow *window);
 
 void        meta_window_resize_frame_with_gravity (MetaWindow  *window,
                                                    gboolean     user_op,
@@ -630,6 +636,10 @@ gboolean meta_window_handle_mouse_grab_op_event  (MetaWindow         *window,
                                                   const ClutterEvent *event);
 
 GList* meta_window_get_workspaces (MetaWindow *window);
+
+void meta_window_get_work_area_for_logical_monitor (MetaWindow         *window,
+                                                    MetaLogicalMonitor *logical_monitor,
+                                                    MetaRectangle      *area);
 
 int meta_window_get_current_tile_monitor_number (MetaWindow *window);
 void meta_window_get_current_tile_area         (MetaWindow    *window,
@@ -719,6 +729,9 @@ void meta_window_activate_full (MetaWindow     *window,
                                 MetaClientType  source_indication,
                                 MetaWorkspace  *workspace);
 
+MetaLogicalMonitor * meta_window_calculate_main_logical_monitor (MetaWindow *window);
+
+MetaLogicalMonitor * meta_window_get_main_logical_monitor (MetaWindow *window);
 void meta_window_update_monitor (MetaWindow *window,
                                  gboolean    user_op);
 

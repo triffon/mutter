@@ -51,6 +51,7 @@
 #include "meta-window-wayland.h"
 
 #include "compositor/region-utils.h"
+#include "compositor/meta-shaped-texture-private.h"
 
 #include "meta-surface-actor.h"
 #include "meta-surface-actor-wayland.h"
@@ -146,8 +147,8 @@ meta_wayland_surface_role_commit (MetaWaylandSurfaceRole  *surface_role,
                                   MetaWaylandPendingState *pending);
 
 static gboolean
-meta_wayland_surface_role_is_on_output (MetaWaylandSurfaceRole *surface_role,
-                                        MetaMonitorInfo *info);
+meta_wayland_surface_role_is_on_logical_monitor (MetaWaylandSurfaceRole *surface_role,
+                                                 MetaLogicalMonitor     *logical_monitor);
 
 static MetaWaylandSurface *
 meta_wayland_surface_role_get_toplevel (MetaWaylandSurfaceRole *surface_role);
@@ -170,6 +171,11 @@ meta_wayland_surface_role_shell_surface_close (MetaWaylandSurfaceRoleShellSurfac
 static void
 meta_wayland_surface_role_shell_surface_managed (MetaWaylandSurfaceRoleShellSurface *shell_surface_role,
                                                  MetaWindow                         *window);
+
+static void
+surface_actor_mapped_notify (MetaSurfaceActorWayland *surface_actor,
+                             GParamSpec              *pspec,
+                             MetaWaylandSurface      *surface);
 
 static void
 unset_param_value (GParameter *param)
@@ -404,6 +410,10 @@ meta_wayland_surface_destroy_window (MetaWaylandSurface *surface)
     {
       MetaDisplay *display = meta_get_display ();
       guint32 timestamp = meta_display_get_current_time_roundtrip (display);
+
+      g_signal_handlers_disconnect_by_func (surface->surface_actor,
+                                            surface_actor_mapped_notify,
+                                            surface);
 
       meta_window_unmanage (surface->window, timestamp);
     }
@@ -701,9 +711,6 @@ static void
 apply_pending_state (MetaWaylandSurface      *surface,
                      MetaWaylandPendingState *pending)
 {
-  MetaSurfaceActorWayland *surface_actor_wayland =
-    META_SURFACE_ACTOR_WAYLAND (surface->surface_actor);
-
   if (surface->role)
     {
       meta_wayland_surface_role_pre_commit (surface->role, pending);
@@ -738,21 +745,38 @@ apply_pending_state (MetaWaylandSurface      *surface,
       if (pending->buffer)
         meta_wayland_surface_ref_buffer_use_count (surface);
 
-      if (switched_buffer && pending->buffer)
+      if (pending->buffer)
         {
-          CoglTexture *texture;
+          GError *error = NULL;
 
-          texture = meta_wayland_buffer_ensure_texture (pending->buffer);
-          if (!texture)
+          if (!meta_wayland_buffer_attach (pending->buffer, &error))
             {
+              g_warning ("Could not import pending buffer: %s", error->message);
               wl_resource_post_error (surface->resource, WL_DISPLAY_ERROR_NO_MEMORY,
-                              "Failed to create a texture for surface %i",
-                              wl_resource_get_id (surface->resource));
-
+                                      "Failed to create a texture for surface %i: %s",
+                                      wl_resource_get_id (surface->resource),
+                                      error->message);
+              g_error_free (error);
               goto cleanup;
             }
-          meta_surface_actor_wayland_set_texture (surface_actor_wayland,
-                                                  texture);
+
+          if (switched_buffer)
+            {
+              MetaShapedTexture *stex;
+              CoglTexture *texture;
+              CoglSnippet *snippet;
+              gboolean is_y_inverted;
+
+              stex = meta_surface_actor_get_texture (surface->surface_actor);
+              texture = meta_wayland_buffer_get_texture (pending->buffer);
+              snippet = meta_wayland_buffer_create_snippet (pending->buffer);
+              is_y_inverted = meta_wayland_buffer_is_y_inverted (pending->buffer);
+
+              meta_shaped_texture_set_texture (stex, texture);
+              meta_shaped_texture_set_snippet (stex, snippet);
+              meta_shaped_texture_set_is_y_inverted (stex, is_y_inverted);
+              g_clear_pointer (&snippet, cogl_object_unref);
+            }
         }
 
       /* If the newly attached buffer is going to be accessed directly without
@@ -1146,15 +1170,15 @@ set_surface_is_on_output (MetaWaylandSurface *surface,
 }
 
 static gboolean
-actor_surface_is_on_output (MetaWaylandSurfaceRole *surface_role,
-                            MetaMonitorInfo        *monitor)
+actor_surface_is_on_logical_monitor (MetaWaylandSurfaceRole *surface_role,
+                                     MetaLogicalMonitor     *logical_monitor)
 {
   MetaWaylandSurface *surface =
     meta_wayland_surface_role_get_surface (surface_role);
   MetaSurfaceActorWayland *actor =
     META_SURFACE_ACTOR_WAYLAND (surface->surface_actor);
 
-  return meta_surface_actor_wayland_is_on_monitor (actor, monitor);
+  return meta_surface_actor_wayland_is_on_monitor (actor, logical_monitor);
 }
 
 static void
@@ -1162,20 +1186,22 @@ update_surface_output_state (gpointer key, gpointer value, gpointer user_data)
 {
   MetaWaylandOutput *wayland_output = value;
   MetaWaylandSurface *surface = user_data;
-  MetaMonitorInfo *monitor;
-  gboolean is_on_output;
+  MetaLogicalMonitor *logical_monitor;
+  gboolean is_on_logical_monitor;
 
   g_assert (surface->role);
 
-  monitor = wayland_output->monitor_info;
-  if (!monitor)
+  logical_monitor = wayland_output->logical_monitor;
+  if (!logical_monitor)
     {
       set_surface_is_on_output (surface, wayland_output, FALSE);
       return;
     }
 
-  is_on_output = meta_wayland_surface_role_is_on_output (surface->role, monitor);
-  set_surface_is_on_output (surface, wayland_output, is_on_output);
+  is_on_logical_monitor =
+    meta_wayland_surface_role_is_on_logical_monitor (surface->role,
+                                                     logical_monitor);
+  set_surface_is_on_output (surface, wayland_output, is_on_logical_monitor);
 }
 
 static void
@@ -1271,6 +1297,14 @@ surface_actor_painting (MetaSurfaceActorWayland *surface_actor,
   meta_wayland_surface_update_outputs (surface);
 }
 
+static void
+surface_actor_mapped_notify (MetaSurfaceActorWayland *surface_actor,
+                             GParamSpec              *pspec,
+                             MetaWaylandSurface      *surface)
+{
+  meta_wayland_surface_update_outputs (surface);
+}
+
 MetaWaylandSurface *
 meta_wayland_surface_create (MetaWaylandCompositor *compositor,
                              struct wl_client      *client,
@@ -1294,6 +1328,10 @@ meta_wayland_surface_create (MetaWaylandCompositor *compositor,
                            G_CALLBACK (surface_actor_painting),
                            surface,
                            0);
+  g_signal_connect_object (surface->surface_actor,
+                           "notify::mapped",
+                           G_CALLBACK (surface_actor_mapped_notify),
+                           surface, 0);
 
   sync_drag_dest_funcs (surface);
 
@@ -1888,14 +1926,14 @@ meta_wayland_surface_role_commit (MetaWaylandSurfaceRole  *surface_role,
 }
 
 static gboolean
-meta_wayland_surface_role_is_on_output (MetaWaylandSurfaceRole *surface_role,
-                                        MetaMonitorInfo        *monitor)
+meta_wayland_surface_role_is_on_logical_monitor (MetaWaylandSurfaceRole *surface_role,
+                                                 MetaLogicalMonitor     *logical_monitor)
 {
   MetaWaylandSurfaceRoleClass *klass;
 
   klass = META_WAYLAND_SURFACE_ROLE_GET_CLASS (surface_role);
-  if (klass->is_on_output)
-    return klass->is_on_output (surface_role, monitor);
+  if (klass->is_on_logical_monitor)
+    return klass->is_on_logical_monitor (surface_role, logical_monitor);
   else
     return FALSE;
 }
@@ -2030,7 +2068,7 @@ meta_wayland_surface_role_actor_surface_class_init (MetaWaylandSurfaceRoleActorS
 
   surface_role_class->assigned = actor_surface_assigned;
   surface_role_class->commit = actor_surface_commit;
-  surface_role_class->is_on_output = actor_surface_is_on_output;
+  surface_role_class->is_on_logical_monitor = actor_surface_is_on_logical_monitor;
 }
 
 static void

@@ -1,23 +1,81 @@
-3.22.2
+3.23.90
+=======
+* Fix window menu placement with HiDPI [Jonas; #776055]
+* Improve EGLStream support [Jonas; #773629]
+* Start moving low-level monitor configuration into mutter [Jonas; #777732]
+* Fix erroneous key event repeats [Rui; #774989]
+* Don't hardcode seat ID in ClutterDeviceManager [Carlos; #778092]
+* Fix "ghost" cursors in multi-monitor setups [Jonas; #771056]
+* Use eglGetPlatformDisplay [Adam; #772422]
+* Fix erratic raise_or_lower behavior [Jose; #705200]
+* Fix coordinate mapping of absolute devices [Carlos; #774115]
+* Show OSD on tablet mode switches [Carlos; #771098]
+* Make mutter libs parallel installable [Jonas; #777317]
+* Only apply keymap when not running nested [Jonas; #777800]
+* Set right scale for tablet tool cursors on HiDPI [Carlos; #778474]
+* Adjust server-side shadows to match Adwaita [Juraj; #744667]
+* Misc. bug fixes [Jonas, Bastien, Carlos, Peter, Lionel, Jeremy, Florian;
+  #774891, #777389, #777691, #778262, #776543, #778684, #778699, #744667]
+
+Contributors:
+  Jonas Ådahl, Jeremy Bicha, Piotr Drąg, Juraj Fiala, Carlos Garnacho,
+  Peter Hutterer, Adam Jackson, Lionel Landwerlin, Jose Marino, Rui Matos,
+  Florian Müllner, Bastien Nocera
+
+Translations:
+  Kjartan Maraas [nb], Mandy Wang [zh_CN], Marek Černocký [cs],
+  Anders Jonsson [sv], Dušan Kazik [sk], Piotr Drąg [pl], Matej Urbančič [sl]
+
+3.23.3
 ======
+* Fix frequent freezes in multihead setups on wayland [Rui; #774557]
+* Preserve root window mask on XSelectionRequest [Olivier; #776128]
+* Misc. bug fixes [Carlos, Florian, Rui, Olivier; #775478, #774891, #775986,
+  #776036]
+
+Contributors:
+  Olivier Fourdan, Carlos Garnacho, Rui Matos, Florian Müllner
+
+3.23.2
+======
+* Stack docks below other windows on fullscreen monitors [Rui; #772937]
+* Fix popup grabs blocking screen lock on wayland [Rui; #771235]
+* Handle touchpad pinch gestures with more than two fingers [Carlos; #765937]
+* Implement drawing tablet support on X11 [Carlos; #773779]
+* Fix some Wine games starting minimized [Carlos; #774333]
+* Fix switching between two finger- and edge scrolling on wayland [Rui; #771744]
+* Implement support for EGLStream/EGLDevice [Jonas; #773629]
+* Add size_changed vfunc to handle async client size changes [Rui; #770345]
+* Change focus window on clicks with any modifiers [Rui; #746642]
+* Misc. bug fixes and cleanups [Carlos, Daniel, Jonas, Rui; #771067, #774330, #774613,
+  #771297, #774135, #774827, #774923]
+
+Contributors:
+  Jonas Ådahl, Carlos Garnacho, Rui Matos, Florian Müllner, Daniel Stone
+
+Translations:
+  Kjartan Maraas [nb]
+
+3.23.1
+======
+* Fix handling of Escape shortcut in force-quit dialog [Landry; #737109]
+* Improve pointer constraints support [Jonas; #771859]
 * Really fix framebuffer capture origin offset [Rui; #771502]
 * Fix session going into idle mode immediately on startup [Rui; #772839]
 * Fix mirror mode with stage views [Rui; #773115]
-* Improve pointer constraints support [Jonas; #771859]
-* Stack docks below other windows on fullscreen monitors [Rui; #772937]
-* Fix switching between two finger- and edge scrolling on wayland [Rui; #771744]
-* Fix popup grabs blocking screen lock on wayland [Rui; #771235]
-* Fix various crashes on wayland [Jonas; #771646, #771858]
-* Fix various placement issues on wayland [Jonas, Sjoerd, Olivier; #768039,
-  #771841, #773141, #772729]
+* Fall back to X with connectors spread across multiple GPUs [Ray; #771442]
+* Fix various crashes on wayland [Jonas, Carlos; #771646, #771858, #772929]
+* Fix various placement issues on wayland [Olivier, Jonas, Sjoerd; #772729,
+  #768039, #771841, #771841, #773141]
 * Misc. bug fixes [Rui, Jonas, Olivier; #771019, #773116, #772914, #773210]
 
 Contributors:
-  Jonas Ådahl, Olivier Fourdan, Rui Matos, Sjoerd Simons
+  Jonas Ådahl, Olivier Fourdan, Carlos Garnacho, Rui Matos, Landry MINOZA,
+  Sjoerd Simons, Ray Strode
 
 Translations:
-  Theppitak Karoonboonyanan [th], Kjartan Maraas [nb], liushuyu [zh_CN],
-  YunQiang Su [zh_CN]
+  Theppitak Karoonboonyanan [th], Kjartan Maraas [nb], Hannie Dumoleyn [nl],
+  liushuyu [zh_CN]
 
 3.22.1
 ======

@@ -47,6 +47,8 @@
 #include "meta-idle-monitor-native.h"
 #include "meta-renderer-native.h"
 
+#define DRM_CARD_UDEV_DEVICE_TYPE "drm_minor"
+
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(GUdevDevice, g_object_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(GUdevClient, g_object_unref)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(GUdevEnumerator, g_object_unref)
@@ -59,6 +61,7 @@ struct _MetaLauncher
   gboolean session_active;
 
   int kms_fd;
+  char *kms_file_path;
 };
 
 static Login1Session *
@@ -282,6 +285,55 @@ on_active_changed (Login1Session *session,
   sync_active (self);
 }
 
+static guint
+count_devices_with_connectors (const gchar *seat_name,
+                               GList       *devices)
+{
+  g_autoptr (GHashTable) cards = NULL;
+  GList *tmp;
+
+  cards = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, g_object_unref);
+  for (tmp = devices; tmp != NULL; tmp = tmp->next)
+    {
+      GUdevDevice *device = tmp->data;
+      g_autoptr (GUdevDevice) parent_device = NULL;
+      const gchar *parent_device_type = NULL;
+      const gchar *parent_device_name = NULL;
+      const gchar *card_seat;
+
+      /* filter out the real card devices, we only care about the connectors */
+      if (g_udev_device_get_device_type (device) != G_UDEV_DEVICE_TYPE_NONE)
+        continue;
+
+      /* only connectors have a modes attribute */
+      if (!g_udev_device_has_sysfs_attr (device, "modes"))
+        continue;
+
+      parent_device = g_udev_device_get_parent (device);
+
+      if (g_udev_device_get_device_type (parent_device) == G_UDEV_DEVICE_TYPE_CHAR)
+        parent_device_type = g_udev_device_get_property (parent_device, "DEVTYPE");
+
+      if (g_strcmp0 (parent_device_type, DRM_CARD_UDEV_DEVICE_TYPE) != 0)
+        continue;
+
+      card_seat = g_udev_device_get_property (parent_device, "ID_SEAT");
+
+      if (!card_seat)
+        card_seat = "seat0";
+
+      if (g_strcmp0 (seat_name, card_seat) != 0)
+        continue;
+
+      parent_device_name = g_udev_device_get_name (parent_device);
+      g_hash_table_insert (cards,
+                           (gpointer) parent_device_name ,
+                           g_steal_pointer (&parent_device));
+    }
+
+  return g_hash_table_size (cards);
+}
+
 static gchar *
 get_primary_gpu_path (const gchar *seat_name)
 {
@@ -295,9 +347,28 @@ get_primary_gpu_path (const gchar *seat_name)
   g_udev_enumerator_add_match_name (enumerator, "card*");
   g_udev_enumerator_add_match_tag (enumerator, "seat");
 
+  /* We need to explicitly match the subsystem for now.
+   * https://bugzilla.gnome.org/show_bug.cgi?id=773224
+   */
+  g_udev_enumerator_add_match_subsystem (enumerator, "drm");
+
   devices = g_udev_enumerator_execute (enumerator);
   if (!devices)
     goto out;
+
+  /* For now, fail on systems where some of the connectors
+   * are connected to secondary gpus.
+   *
+   * https://bugzilla.gnome.org/show_bug.cgi?id=771442
+   */
+  if (g_getenv ("MUTTER_ALLOW_HYBRID_GPUS") == NULL)
+    {
+      guint num_devices;
+
+      num_devices = count_devices_with_connectors (seat_name, devices);
+      if (num_devices != 1)
+        goto out;
+    }
 
   for (tmp = devices; tmp != NULL; tmp = tmp->next)
     {
@@ -305,10 +376,15 @@ get_primary_gpu_path (const gchar *seat_name)
       g_autoptr (GUdevDevice) pci_device = NULL;
       GUdevDevice *dev = tmp->data;
       gint boot_vga;
+      const gchar *device_type;
       const gchar *device_seat;
 
       /* filter out devices that are not character device, like card0-VGA-1 */
       if (g_udev_device_get_device_type (dev) != G_UDEV_DEVICE_TYPE_CHAR)
+        continue;
+
+      device_type = g_udev_device_get_property (dev, "DEVTYPE");
+      if (g_strcmp0 (device_type, DRM_CARD_UDEV_DEVICE_TYPE) != 0)
         continue;
 
       device_seat = g_udev_device_get_property (dev, "ID_SEAT");
@@ -350,9 +426,9 @@ get_primary_gpu_path (const gchar *seat_name)
         }
     }
 
+out:
   g_list_free_full (devices, g_object_unref);
 
-out:
   return path;
 }
 
@@ -360,6 +436,7 @@ static gboolean
 get_kms_fd (Login1Session *session_proxy,
             const gchar   *seat_id,
             int           *fd_out,
+            char         **kms_file_path_out,
             GError       **error)
 {
   int major, minor;
@@ -391,6 +468,7 @@ get_kms_fd (Login1Session *session_proxy,
     }
 
   *fd_out = fd;
+  *kms_file_path_out = g_steal_pointer (&path);
 
   return TRUE;
 }
@@ -434,6 +512,7 @@ meta_launcher_new (GError **error)
   g_autofree char *seat_id = NULL;
   gboolean have_control = FALSE;
   int kms_fd;
+  char *kms_file_path;
 
   session_proxy = get_session_proxy (NULL, error);
   if (!session_proxy)
@@ -455,7 +534,7 @@ meta_launcher_new (GError **error)
   if (!seat_proxy)
     goto fail;
 
-  if (!get_kms_fd (session_proxy, seat_id, &kms_fd, error))
+  if (!get_kms_fd (session_proxy, seat_id, &kms_fd, &kms_file_path, error))
     goto fail;
 
   self = g_slice_new0 (MetaLauncher);
@@ -464,6 +543,9 @@ meta_launcher_new (GError **error)
 
   self->session_active = TRUE;
   self->kms_fd = kms_fd;
+  self->kms_file_path = kms_file_path;
+
+  clutter_evdev_set_seat_id (seat_id);
 
   clutter_evdev_set_device_callbacks (on_evdev_device_open,
                                       on_evdev_device_close,
@@ -483,6 +565,7 @@ meta_launcher_free (MetaLauncher *self)
 {
   g_object_unref (self->seat_proxy);
   g_object_unref (self->session_proxy);
+  g_free (self->kms_file_path);
   g_slice_free (MetaLauncher, self);
 }
 
@@ -509,4 +592,10 @@ int
 meta_launcher_get_kms_fd (MetaLauncher *self)
 {
   return self->kms_fd;
+}
+
+const char *
+meta_launcher_get_kms_file_path (MetaLauncher *self)
+{
+  return self->kms_file_path;
 }
