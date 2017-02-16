@@ -30,6 +30,7 @@
 #include <cogl/cogl-wayland-server.h>
 #include "meta-shaped-texture-private.h"
 
+#include "backends/meta-logical-monitor.h"
 #include "wayland/meta-wayland-buffer.h"
 #include "wayland/meta-wayland-private.h"
 #include "wayland/meta-window-wayland.h"
@@ -267,7 +268,7 @@ meta_surface_actor_wayland_sync_state_recursive (MetaSurfaceActorWayland *self)
 
 gboolean
 meta_surface_actor_wayland_is_on_monitor (MetaSurfaceActorWayland *self,
-                                          MetaMonitorInfo         *monitor)
+                                          MetaLogicalMonitor      *logical_monitor)
 {
   float x, y, width, height;
   cairo_rectangle_int_t actor_rect;
@@ -287,10 +288,10 @@ meta_surface_actor_wayland_is_on_monitor (MetaSurfaceActorWayland *self,
 
   cairo_region_intersect_rectangle (region,
 				    &((cairo_rectangle_int_t) {
-				      .x = monitor->rect.x,
-				      .y = monitor->rect.y,
-				      .width = monitor->rect.width,
-				      .height = monitor->rect.height,
+				      .x = logical_monitor->rect.x,
+				      .y = logical_monitor->rect.y,
+				      .width = logical_monitor->rect.width,
+				      .height = logical_monitor->rect.height,
 				    }));
 
   is_on_monitor = !cairo_region_is_empty (region);
@@ -405,8 +406,10 @@ meta_surface_actor_wayland_dispose (GObject *object)
   MetaSurfaceActorWaylandPrivate *priv =
     meta_surface_actor_wayland_get_instance_private (self);
   MetaWaylandFrameCallback *cb, *next;
+  MetaShapedTexture *stex =
+    meta_surface_actor_get_texture (META_SURFACE_ACTOR (self));
 
-  meta_surface_actor_wayland_set_texture (self, NULL);
+  meta_shaped_texture_set_texture (stex, NULL);
   if (priv->surface)
     {
       g_object_remove_weak_pointer (G_OBJECT (priv->surface),
@@ -470,14 +473,6 @@ meta_surface_actor_wayland_new (MetaWaylandSurface *surface)
                              (gpointer *) &priv->surface);
 
   return META_SURFACE_ACTOR (self);
-}
-
-void
-meta_surface_actor_wayland_set_texture (MetaSurfaceActorWayland *self,
-                                        CoglTexture *texture)
-{
-  MetaShapedTexture *stex = meta_surface_actor_get_texture (META_SURFACE_ACTOR (self));
-  meta_shaped_texture_set_texture (stex, texture);
 }
 
 MetaWaylandSurface *

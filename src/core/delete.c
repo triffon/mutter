@@ -44,8 +44,8 @@ dialog_exited (GPid pid, int status, gpointer user_data)
 
   window->dialog_pid = -1;
 
-  /* exit status of 1 means the user pressed "Force Quit" */
-  if (WIFEXITED (status) && WEXITSTATUS (status) == 1)
+  /* exit status of 0 means the user pressed "Force Quit" */
+  if (WIFEXITED (status) && WEXITSTATUS (status) == 0)
     meta_window_kill (window);
 }
 
@@ -122,8 +122,8 @@ show_delete_dialog (MetaWindow *window,
       window_title = NULL;
     }
 
-  /* Translators: %s is a window title */
   if (window_title)
+    /* Translators: %s is a window title */
     tmp = g_strdup_printf (_("“%s” is not responding."), window_title);
   else
     tmp = g_strdup (_("Application is not responding."));
@@ -138,7 +138,7 @@ show_delete_dialog (MetaWindow *window,
     meta_show_dialog ("--question",
                       window_content, NULL,
                       window->screen->screen_name,
-                      _("_Wait"), _("_Force Quit"),
+                      _("_Force Quit"), _("_Wait"),
                       "face-sad-symbolic", window->xwindow,
                       NULL, NULL);
 

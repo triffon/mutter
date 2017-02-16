@@ -35,6 +35,7 @@
 #include "meta-cursor-renderer.h"
 #include "meta-monitor-manager-private.h"
 #include "meta-input-settings-private.h"
+#include "backends/meta-egl.h"
 #include "backends/meta-pointer-constraint.h"
 #include "backends/meta-renderer.h"
 #include "core/util-private.h"
@@ -42,22 +43,8 @@
 #define DEFAULT_XKB_RULES_FILE "evdev"
 #define DEFAULT_XKB_MODEL "pc105+inet"
 
-#define META_TYPE_BACKEND             (meta_backend_get_type ())
-#define META_BACKEND(obj)             (G_TYPE_CHECK_INSTANCE_CAST ((obj), META_TYPE_BACKEND, MetaBackend))
-#define META_BACKEND_CLASS(klass)     (G_TYPE_CHECK_CLASS_CAST ((klass),  META_TYPE_BACKEND, MetaBackendClass))
-#define META_IS_BACKEND(obj)          (G_TYPE_CHECK_INSTANCE_TYPE ((obj), META_TYPE_BACKEND))
-#define META_IS_BACKEND_CLASS(klass)  (G_TYPE_CHECK_CLASS_TYPE ((klass),  META_TYPE_BACKEND))
-#define META_BACKEND_GET_CLASS(obj)   (G_TYPE_INSTANCE_GET_CLASS ((obj),  META_TYPE_BACKEND, MetaBackendClass))
-
-struct _MetaBackend
-{
-  GObject parent;
-
-  GHashTable *device_monitors;
-  gint current_device_id;
-
-  MetaPointerConstraint *client_pointer_constraint;
-};
+#define META_TYPE_BACKEND (meta_backend_get_type ())
+G_DECLARE_DERIVABLE_TYPE (MetaBackend, meta_backend, META, BACKEND, GObject)
 
 struct _MetaBackendClass
 {
@@ -84,6 +71,8 @@ struct _MetaBackendClass
                          int          x,
                          int          y);
 
+  MetaLogicalMonitor * (* get_current_logical_monitor) (MetaBackend *backend);
+
   void (* set_keymap) (MetaBackend *backend,
                        const char  *layouts,
                        const char  *variants,
@@ -108,15 +97,21 @@ struct _MetaBackendClass
 
 };
 
-void meta_init_backend (MetaBackendType backend_type);
+void meta_init_backend (GType backend_gtype);
 
 ClutterBackend * meta_backend_get_clutter_backend (MetaBackend *backend);
 
 MetaIdleMonitor * meta_backend_get_idle_monitor (MetaBackend *backend,
                                                  int          device_id);
+void meta_backend_foreach_device_monitor (MetaBackend *backend,
+                                          GFunc        func,
+                                          gpointer     user_data);
+
 MetaMonitorManager * meta_backend_get_monitor_manager (MetaBackend *backend);
+MetaCursorTracker * meta_backend_get_cursor_tracker (MetaBackend *backend);
 MetaCursorRenderer * meta_backend_get_cursor_renderer (MetaBackend *backend);
 MetaRenderer * meta_backend_get_renderer (MetaBackend *backend);
+MetaEgl * meta_backend_get_egl (MetaBackend *backend);
 
 gboolean meta_backend_grab_device (MetaBackend *backend,
                                    int          device_id,
@@ -128,6 +123,8 @@ gboolean meta_backend_ungrab_device (MetaBackend *backend,
 void meta_backend_warp_pointer (MetaBackend *backend,
                                 int          x,
                                 int          y);
+
+MetaLogicalMonitor * meta_backend_get_current_logical_monitor (MetaBackend *backend);
 
 struct xkb_keymap * meta_backend_get_keymap (MetaBackend *backend);
 
@@ -141,6 +138,7 @@ gboolean meta_backend_get_relative_motion_deltas (MetaBackend *backend,
                                                   double       *dx_unaccel,
                                                   double       *dy_unaccel);
 
+MetaPointerConstraint * meta_backend_get_client_pointer_constraint (MetaBackend *backend);
 void meta_backend_set_client_pointer_constraint (MetaBackend *backend,
                                                  MetaPointerConstraint *constraint);
 

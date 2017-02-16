@@ -37,6 +37,7 @@
 #include "meta-wayland-tablet-seat.h"
 #include "meta-wayland-tablet-tool.h"
 #include "backends/meta-input-settings-private.h"
+#include "backends/meta-logical-monitor.h"
 
 #ifdef HAVE_NATIVE_BACKEND
 #include "backends/native/meta-backend-native.h"
@@ -98,7 +99,7 @@ meta_wayland_tablet_tool_update_cursor_surface (MetaWaylandTabletTool *tool)
         cursor = NULL;
     }
   else if (tool->current_tablet)
-    cursor = meta_cursor_sprite_from_theme (META_CURSOR_CROSSHAIR);
+    cursor = tool->default_sprite;
   else
     cursor = NULL;
 
@@ -380,6 +381,25 @@ tablet_tool_handle_cursor_surface_destroy (struct wl_listener *listener,
   meta_wayland_tablet_tool_set_cursor_surface (tool, NULL);
 }
 
+static void
+tool_cursor_prepare_at (MetaCursorSprite      *cursor_sprite,
+                        int                    x,
+                        int                    y,
+                        MetaWaylandTabletTool *tool)
+{
+  MetaBackend *backend = meta_get_backend ();
+  MetaMonitorManager *monitor_manager =
+    meta_backend_get_monitor_manager (backend);
+  MetaLogicalMonitor *logical_monitor;
+
+  logical_monitor =
+    meta_monitor_manager_get_logical_monitor_at (monitor_manager, x, y);
+
+  /* Reload the cursor texture if the scale has changed. */
+  if (logical_monitor)
+    meta_cursor_sprite_set_theme_scale (cursor_sprite, logical_monitor->scale);
+}
+
 MetaWaylandTabletTool *
 meta_wayland_tablet_tool_new (MetaWaylandTabletSeat  *seat,
                               ClutterInputDevice     *device,
@@ -396,6 +416,11 @@ meta_wayland_tablet_tool_new (MetaWaylandTabletSeat  *seat,
 
   tool->focus_surface_destroy_listener.notify = tablet_tool_handle_focus_surface_destroy;
   tool->cursor_surface_destroy_listener.notify = tablet_tool_handle_cursor_surface_destroy;
+
+  tool->default_sprite = meta_cursor_sprite_from_theme (META_CURSOR_CROSSHAIR);
+  tool->prepare_at_signal_id =
+    g_signal_connect (tool->default_sprite, "prepare-at",
+                      G_CALLBACK (tool_cursor_prepare_at), tool);
 
   return tool;
 }
@@ -415,6 +440,9 @@ meta_wayland_tablet_tool_free (MetaWaylandTabletTool *tool)
       wl_list_remove (wl_resource_get_link (resource));
       wl_list_init (wl_resource_get_link (resource));
     }
+
+  g_signal_handler_disconnect (tool->default_sprite, tool->prepare_at_signal_id);
+  g_object_unref (tool->default_sprite);
 
   g_slice_free (MetaWaylandTabletTool, tool);
 }
@@ -654,63 +682,6 @@ broadcast_up (MetaWaylandTabletTool *tool,
     }
 }
 
-static guint32
-translate_button_action (MetaWaylandTabletTool *tool,
-                         const ClutterEvent    *event)
-{
-  MetaInputSettings *input_settings;
-  GDesktopStylusButtonAction action;
-  MetaBackend *backend;
-
-  backend = meta_get_backend ();
-  input_settings = meta_backend_get_input_settings (backend);
-
-  if (input_settings)
-    {
-      ClutterInputDevice *device;
-
-      device = clutter_event_get_source_device (event);
-      action = meta_input_settings_get_stylus_button_action (input_settings,
-                                                             tool->device_tool,
-                                                             device,
-                                                             event->button.button);
-    }
-  else
-    {
-      action = G_DESKTOP_STYLUS_BUTTON_ACTION_DEFAULT;
-    }
-
-  switch (action)
-    {
-    case G_DESKTOP_STYLUS_BUTTON_ACTION_MIDDLE:
-      return BTN_STYLUS;
-    case G_DESKTOP_STYLUS_BUTTON_ACTION_RIGHT:
-      return BTN_STYLUS2;
-    case G_DESKTOP_STYLUS_BUTTON_ACTION_BACK:
-      return BTN_BACK;
-    case G_DESKTOP_STYLUS_BUTTON_ACTION_FORWARD:
-      return BTN_FORWARD;
-    case G_DESKTOP_STYLUS_BUTTON_ACTION_DEFAULT:
-    default:
-      {
-#ifdef HAVE_NATIVE_BACKEND
-        MetaBackend *backend = meta_get_backend ();
-        if (META_IS_BACKEND_NATIVE (backend))
-          {
-            return clutter_evdev_event_get_event_code (event);
-          }
-        else
-#endif
-          {
-            /* We can't do much better here, there's several
-             * different BTN_ ranges to cover.
-             */
-            return event->button.button;
-          }
-      }
-    }
-}
-
 static void
 broadcast_button (MetaWaylandTabletTool *tool,
                   const ClutterEvent    *event)
@@ -718,7 +689,21 @@ broadcast_button (MetaWaylandTabletTool *tool,
   struct wl_resource *resource;
   guint32 button;
 
-  button = translate_button_action (tool, event);
+#ifdef HAVE_NATIVE_BACKEND
+  MetaBackend *backend = meta_get_backend ();
+  if (META_IS_BACKEND_NATIVE (backend))
+    {
+      button = clutter_evdev_event_get_event_code (event);
+    }
+  else
+#endif
+    {
+      /* We can't do much better here, there's several
+       * different BTN_ ranges to cover.
+       */
+      button = event->button.button;
+    }
+
   tool->button_serial = wl_display_next_serial (tool->seat->manager->wl_display);
 
   wl_resource_for_each (resource, &tool->focus_resource_list)
@@ -744,24 +729,6 @@ broadcast_axis (MetaWaylandTabletTool *tool,
 
   if (!clutter_input_device_get_axis_value (source, event->motion.axes, axis, &val))
     return;
-
-  if (axis == CLUTTER_INPUT_AXIS_PRESSURE)
-    {
-      MetaInputSettings *input_settings;
-      ClutterInputDevice *device;
-      MetaBackend *backend;
-
-      backend = meta_get_backend ();
-      input_settings = meta_backend_get_input_settings (backend);
-      device = clutter_event_get_source_device (event);
-
-      if (input_settings)
-        {
-          val = meta_input_settings_translate_tablet_tool_pressure (input_settings,
-                                                                    tool->device_tool,
-                                                                    device, val);
-        }
-    }
 
   value = val * TABLET_AXIS_MAX;
 

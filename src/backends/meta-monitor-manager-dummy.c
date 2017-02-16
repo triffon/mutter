@@ -30,6 +30,7 @@
 #include <stdlib.h>
 
 #include <meta/util.h>
+#include "backends/meta-monitor-config-manager.h"
 
 #define ALL_TRANSFORMS ((1 << (META_MONITOR_TRANSFORM_FLIPPED_270 + 1)) - 1)
 
@@ -113,7 +114,7 @@ meta_monitor_manager_dummy_read_current (MetaMonitorManager *manager)
   manager->screen_width = 1024 * num_monitors;
   manager->screen_height = 768;
 
-  manager->modes = g_new0 (MetaMonitorMode, 1);
+  manager->modes = g_new0 (MetaCrtcMode, 1);
   manager->n_modes = 1;
 
   manager->modes[0].mode_id = 0;
@@ -121,7 +122,7 @@ meta_monitor_manager_dummy_read_current (MetaMonitorManager *manager)
   manager->modes[0].height = 768;
   manager->modes[0].refresh_rate = 60.0;
 
-  manager->crtcs = g_new0 (MetaCRTC, num_monitors);
+  manager->crtcs = g_new0 (MetaCrtc, num_monitors);
   manager->n_crtcs = num_monitors;
   manager->outputs = g_new0 (MetaOutput, num_monitors);
   manager->n_outputs = num_monitors;
@@ -154,10 +155,10 @@ meta_monitor_manager_dummy_read_current (MetaMonitorManager *manager)
       manager->outputs[i].subpixel_order = COGL_SUBPIXEL_ORDER_UNKNOWN;
       manager->outputs[i].preferred_mode = &manager->modes[0];
       manager->outputs[i].n_modes = 1;
-      manager->outputs[i].modes = g_new0 (MetaMonitorMode *, 1);
+      manager->outputs[i].modes = g_new0 (MetaCrtcMode *, 1);
       manager->outputs[i].modes[0] = &manager->modes[0];
       manager->outputs[i].n_possible_crtcs = 1;
-      manager->outputs[i].possible_crtcs = g_new0 (MetaCRTC *, 1);
+      manager->outputs[i].possible_crtcs = g_new0 (MetaCrtc *, 1);
       manager->outputs[i].possible_crtcs[0] = &manager->crtcs[i];
       manager->outputs[i].n_possible_clones = 0;
       manager->outputs[i].possible_clones = g_new0 (MetaOutput *, 0);
@@ -170,19 +171,32 @@ meta_monitor_manager_dummy_read_current (MetaMonitorManager *manager)
 }
 
 static void
-meta_monitor_manager_dummy_apply_config (MetaMonitorManager *manager,
-                                         MetaCRTCInfo       **crtcs,
-                                         unsigned int         n_crtcs,
-                                         MetaOutputInfo     **outputs,
-                                         unsigned int         n_outputs)
+meta_monitor_manager_dummy_ensure_initial_config (MetaMonitorManager *manager)
 {
-    unsigned i;
-    int screen_width = 0, screen_height = 0;
+  MetaMonitorsConfig *config;
+
+  config = meta_monitor_manager_ensure_configured (manager);
+
+  if (manager->config_manager)
+    meta_monitor_manager_update_logical_state (manager, config);
+  else
+    meta_monitor_manager_update_logical_state_derived (manager);
+}
+
+static void
+apply_crtc_assignments (MetaMonitorManager *manager,
+                        MetaCrtcInfo      **crtcs,
+                        unsigned int        n_crtcs,
+                        MetaOutputInfo    **outputs,
+                        unsigned int        n_outputs)
+{
+  unsigned i;
+  int screen_width = 0, screen_height = 0;
 
   for (i = 0; i < n_crtcs; i++)
     {
-      MetaCRTCInfo *crtc_info = crtcs[i];
-      MetaCRTC *crtc = crtc_info->crtc;
+      MetaCrtcInfo *crtc_info = crtcs[i];
+      MetaCrtc *crtc = crtc_info->crtc;
       crtc->is_dirty = TRUE;
 
       if (crtc_info->mode == NULL)
@@ -195,7 +209,7 @@ meta_monitor_manager_dummy_apply_config (MetaMonitorManager *manager,
         }
       else
         {
-          MetaMonitorMode *mode;
+          MetaCrtcMode *mode;
           MetaOutput *output;
           unsigned int j;
           int width, height;
@@ -245,7 +259,7 @@ meta_monitor_manager_dummy_apply_config (MetaMonitorManager *manager,
   /* Disable CRTCs not mentioned in the list */
   for (i = 0; i < manager->n_crtcs; i++)
     {
-      MetaCRTC *crtc = &manager->crtcs[i];
+      MetaCrtc *crtc = &manager->crtcs[i];
 
       crtc->logical_monitor = NULL;
 
@@ -279,6 +293,43 @@ meta_monitor_manager_dummy_apply_config (MetaMonitorManager *manager,
 
   manager->screen_width = screen_width;
   manager->screen_height = screen_height;
+}
+
+static gboolean
+meta_monitor_manager_dummy_apply_monitors_config (MetaMonitorManager *manager,
+                                                  MetaMonitorsConfig *config,
+                                                  GError            **error)
+{
+  GPtrArray *crtc_infos;
+  GPtrArray *output_infos;
+
+  if (!meta_monitor_config_manager_assign (manager, config,
+                                           &crtc_infos, &output_infos,
+                                           error))
+    return FALSE;
+
+  apply_crtc_assignments (manager,
+                          (MetaCrtcInfo **) crtc_infos->pdata,
+                          crtc_infos->len,
+                          (MetaOutputInfo **) output_infos->pdata,
+                          output_infos->len);
+
+  g_ptr_array_free (crtc_infos, TRUE);
+  g_ptr_array_free (output_infos, TRUE);
+
+  meta_monitor_manager_rebuild (manager, config);
+
+  return TRUE;
+}
+
+static void
+meta_monitor_manager_dummy_apply_config (MetaMonitorManager *manager,
+                                         MetaCrtcInfo      **crtcs,
+                                         unsigned int        n_crtcs,
+                                         MetaOutputInfo    **outputs,
+                                         unsigned int        n_outputs)
+{
+  apply_crtc_assignments (manager, crtcs, n_crtcs, outputs, n_outputs);
 
   meta_monitor_manager_rebuild_derived (manager);
 }
@@ -289,6 +340,8 @@ meta_monitor_manager_dummy_class_init (MetaMonitorManagerDummyClass *klass)
   MetaMonitorManagerClass *manager_class = META_MONITOR_MANAGER_CLASS (klass);
 
   manager_class->read_current = meta_monitor_manager_dummy_read_current;
+  manager_class->ensure_initial_config = meta_monitor_manager_dummy_ensure_initial_config;
+  manager_class->apply_monitors_config = meta_monitor_manager_dummy_apply_monitors_config;
   manager_class->apply_configuration = meta_monitor_manager_dummy_apply_config;
 }
 

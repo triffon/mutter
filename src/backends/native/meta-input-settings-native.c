@@ -24,8 +24,10 @@
 #include "config.h"
 
 #include <clutter/evdev/clutter-evdev.h>
+#include <linux/input-event-codes.h>
 #include <libinput.h>
 
+#include "meta-backend-native.h"
 #include "meta-input-settings-native.h"
 
 G_DEFINE_TYPE (MetaInputSettingsNative, meta_input_settings_native, META_TYPE_INPUT_SETTINGS)
@@ -64,14 +66,11 @@ meta_input_settings_native_set_matrix (MetaInputSettings  *settings,
                                        ClutterInputDevice *device,
                                        gfloat              matrix[6])
 {
-  struct libinput_device *libinput_device;
+  cairo_matrix_t dev_matrix;
 
-  libinput_device = clutter_evdev_input_device_get_libinput_device (device);
-  if (!libinput_device)
-    return;
-
-  if (libinput_device_config_calibration_has_matrix (libinput_device) > 0)
-    libinput_device_config_calibration_set_matrix (libinput_device, matrix);
+  cairo_matrix_init (&dev_matrix, matrix[0], matrix[3], matrix[1],
+                     matrix[4], matrix[2], matrix[5]);
+  g_object_set (device, "device-matrix", &dev_matrix, NULL);
 }
 
 static void
@@ -381,7 +380,33 @@ meta_input_settings_native_set_tablet_keep_aspect (MetaInputSettings  *settings,
                                                    MetaOutput         *output,
                                                    gboolean            keep_aspect)
 {
-  /* FIXME: Implement */
+  gdouble output_aspect = 0;
+
+  if (keep_aspect)
+    {
+      gint output_width, output_height;
+
+      if (output && output->crtc)
+        {
+          output_width = output->crtc->rect.width;
+          output_height = output->crtc->rect.height;
+        }
+      else
+        {
+          MetaMonitorManager *monitor_manager;
+          MetaBackend *backend;
+
+          backend = meta_get_backend ();
+          monitor_manager = meta_backend_get_monitor_manager (backend);
+          meta_monitor_manager_get_screen_limits (monitor_manager,
+                                                  &output_width,
+                                                  &output_height);
+        }
+
+      output_aspect = (gdouble) output_width / output_height;
+    }
+
+  g_object_set (device, "output-aspect-ratio", output_aspect, NULL);
 }
 
 static void
@@ -392,7 +417,64 @@ meta_input_settings_native_set_tablet_area (MetaInputSettings  *settings,
                                             gdouble             padding_top,
                                             gdouble             padding_bottom)
 {
-  /* FIXME: Implement */
+  struct libinput_device *libinput_device;
+  gfloat matrix[6] = { 1. - (padding_left + padding_right), 0., padding_left,
+                       0., 1. - (padding_top + padding_bottom), padding_top };
+
+  libinput_device = clutter_evdev_input_device_get_libinput_device (device);
+  if (!libinput_device ||
+      !libinput_device_config_calibration_has_matrix (libinput_device))
+    return;
+
+  libinput_device_config_calibration_set_matrix (libinput_device, matrix);
+}
+
+static void
+meta_input_settings_native_set_stylus_pressure (MetaInputSettings      *settings,
+                                                ClutterInputDevice     *device,
+                                                ClutterInputDeviceTool *tool,
+                                                const gint              curve[4])
+{
+  gdouble pressure_curve[4];
+
+  pressure_curve[0] = (gdouble) curve[0] / 100;
+  pressure_curve[1] = (gdouble) curve[1] / 100;
+  pressure_curve[2] = (gdouble) curve[2] / 100;
+  pressure_curve[3] = (gdouble) curve[3] / 100;
+
+  clutter_evdev_input_device_tool_set_pressure_curve (tool, pressure_curve);
+}
+
+static guint
+action_to_evcode (GDesktopStylusButtonAction action)
+{
+  switch (action)
+    {
+    case G_DESKTOP_STYLUS_BUTTON_ACTION_MIDDLE:
+      return BTN_STYLUS;
+    case G_DESKTOP_STYLUS_BUTTON_ACTION_RIGHT:
+      return BTN_STYLUS2;
+    case G_DESKTOP_STYLUS_BUTTON_ACTION_BACK:
+      return BTN_BACK;
+    case G_DESKTOP_STYLUS_BUTTON_ACTION_FORWARD:
+      return BTN_FORWARD;
+    case G_DESKTOP_STYLUS_BUTTON_ACTION_DEFAULT:
+    default:
+      return 0;
+    }
+}
+
+static void
+meta_input_settings_native_set_stylus_button_map (MetaInputSettings          *settings,
+                                                  ClutterInputDevice         *device,
+                                                  ClutterInputDeviceTool     *tool,
+                                                  GDesktopStylusButtonAction  primary,
+                                                  GDesktopStylusButtonAction  secondary)
+{
+  clutter_evdev_input_device_tool_set_button_code (tool, CLUTTER_BUTTON_MIDDLE,
+                                                   action_to_evcode (primary));
+  clutter_evdev_input_device_tool_set_button_code (tool, CLUTTER_BUTTON_SECONDARY,
+                                                   action_to_evcode (secondary));
 }
 
 static void
@@ -418,6 +500,9 @@ meta_input_settings_native_class_init (MetaInputSettingsNativeClass *klass)
 
   input_settings_class->set_mouse_accel_profile = meta_input_settings_native_set_mouse_accel_profile;
   input_settings_class->set_trackball_accel_profile = meta_input_settings_native_set_trackball_accel_profile;
+
+  input_settings_class->set_stylus_pressure = meta_input_settings_native_set_stylus_pressure;
+  input_settings_class->set_stylus_button_map = meta_input_settings_native_set_stylus_button_map;
 }
 
 static void

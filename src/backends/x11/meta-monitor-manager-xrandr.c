@@ -42,6 +42,8 @@
 #include <meta/main.h>
 #include <meta/errors.h>
 #include "meta-monitor-config.h"
+#include "backends/meta-monitor-config-manager.h"
+#include "backends/meta-logical-monitor.h"
 
 #define ALL_TRANSFORMS ((1 << (META_MONITOR_TRANSFORM_FLIPPED_270 + 1)) - 1)
 
@@ -59,6 +61,10 @@ struct _MetaMonitorManagerXrandr
   int rr_event_base;
   int rr_error_base;
   gboolean has_randr15;
+
+#ifdef HAVE_XRANDR15
+  GHashTable *tiled_monitor_atoms;
+#endif /* HAVE_XRANDR15 */
 };
 
 struct _MetaMonitorManagerXrandrClass
@@ -67,6 +73,15 @@ struct _MetaMonitorManagerXrandrClass
 };
 
 G_DEFINE_TYPE (MetaMonitorManagerXrandr, meta_monitor_manager_xrandr, META_TYPE_MONITOR_MANAGER);
+
+#ifdef HAVE_XRANDR15
+typedef struct _MetaMonitorXrandrData
+{
+  Atom xrandr_name;
+} MetaMonitorXrandrData;
+
+GQuark quark_meta_monitor_xrandr_data;
+#endif /* HAVE_RANDR15 */
 
 static MetaMonitorTransform
 meta_monitor_transform_from_xrandr (Rotation rotation)
@@ -639,7 +654,7 @@ output_get_modes (MetaMonitorManager *manager,
   guint j, k;
   guint n_actual_modes;
 
-  meta_output->modes = g_new0 (MetaMonitorMode *, output->nmode);
+  meta_output->modes = g_new0 (MetaCrtcMode *, output->nmode);
 
   n_actual_modes = 0;
   for (j = 0; j < (guint)output->nmode; j++)
@@ -667,7 +682,7 @@ output_get_crtcs (MetaMonitorManager *manager,
   guint j, k;
   guint n_actual_crtcs;
 
-  meta_output->possible_crtcs = g_new0 (MetaCRTC *, output->ncrtc);
+  meta_output->possible_crtcs = g_new0 (MetaCrtc *, output->ncrtc);
 
   n_actual_crtcs = 0;
   for (j = 0; j < (unsigned)output->ncrtc; j++)
@@ -773,13 +788,13 @@ meta_monitor_manager_xrandr_read_current (MetaMonitorManager *manager)
   manager->n_crtcs = resources->ncrtc;
   manager->n_modes = resources->nmode;
   manager->outputs = g_new0 (MetaOutput, manager->n_outputs);
-  manager->modes = g_new0 (MetaMonitorMode, manager->n_modes);
-  manager->crtcs = g_new0 (MetaCRTC, manager->n_crtcs);
+  manager->modes = g_new0 (MetaCrtcMode, manager->n_modes);
+  manager->crtcs = g_new0 (MetaCrtc, manager->n_crtcs);
 
   for (i = 0; i < (unsigned)resources->nmode; i++)
     {
       XRRModeInfo *xmode = &resources->modes[i];
-      MetaMonitorMode *mode;
+      MetaCrtcMode *mode;
 
       mode = &manager->modes[i];
 
@@ -795,7 +810,7 @@ meta_monitor_manager_xrandr_read_current (MetaMonitorManager *manager)
   for (i = 0; i < (unsigned)resources->ncrtc; i++)
     {
       XRRCrtcInfo *crtc;
-      MetaCRTC *meta_crtc;
+      MetaCrtc *meta_crtc;
 
       crtc = XRRGetCrtcInfo (manager_xrandr->xdisplay, resources, resources->crtcs[i]);
 
@@ -1046,11 +1061,11 @@ output_set_underscanning_xrandr (MetaMonitorManagerXrandr *manager_xrandr,
 }
 
 static void
-meta_monitor_manager_xrandr_apply_configuration (MetaMonitorManager *manager,
-						 MetaCRTCInfo       **crtcs,
-						 unsigned int         n_crtcs,
-						 MetaOutputInfo     **outputs,
-						 unsigned int         n_outputs)
+apply_crtc_assignments (MetaMonitorManager *manager,
+                        MetaCrtcInfo      **crtcs,
+                        unsigned int        n_crtcs,
+                        MetaOutputInfo    **outputs,
+                        unsigned int        n_outputs)
 {
   MetaMonitorManagerXrandr *manager_xrandr = META_MONITOR_MANAGER_XRANDR (manager);
   unsigned i;
@@ -1062,8 +1077,8 @@ meta_monitor_manager_xrandr_apply_configuration (MetaMonitorManager *manager,
   width = 0; height = 0;
   for (i = 0; i < n_crtcs; i++)
     {
-      MetaCRTCInfo *crtc_info = crtcs[i];
-      MetaCRTC *crtc = crtc_info->crtc;
+      MetaCrtcInfo *crtc_info = crtcs[i];
+      MetaCrtc *crtc = crtc_info->crtc;
       crtc->is_dirty = TRUE;
 
       if (crtc_info->mode == NULL)
@@ -1088,8 +1103,8 @@ meta_monitor_manager_xrandr_apply_configuration (MetaMonitorManager *manager,
   */
   for (i = 0; i < n_crtcs; i++)
     {
-      MetaCRTCInfo *crtc_info = crtcs[i];
-      MetaCRTC *crtc = crtc_info->crtc;
+      MetaCrtcInfo *crtc_info = crtcs[i];
+      MetaCrtc *crtc = crtc_info->crtc;
 
       if (crtc_info->mode == NULL ||
           crtc->rect.x + crtc->rect.width > width ||
@@ -1115,7 +1130,7 @@ meta_monitor_manager_xrandr_apply_configuration (MetaMonitorManager *manager,
   /* Disable CRTCs not mentioned in the list */
   for (i = 0; i < manager->n_crtcs; i++)
     {
-      MetaCRTC *crtc = &manager->crtcs[i];
+      MetaCrtc *crtc = &manager->crtcs[i];
 
       if (crtc->is_dirty)
         {
@@ -1155,12 +1170,12 @@ meta_monitor_manager_xrandr_apply_configuration (MetaMonitorManager *manager,
 
   for (i = 0; i < n_crtcs; i++)
     {
-      MetaCRTCInfo *crtc_info = crtcs[i];
-      MetaCRTC *crtc = crtc_info->crtc;
+      MetaCrtcInfo *crtc_info = crtcs[i];
+      MetaCrtc *crtc = crtc_info->crtc;
 
       if (crtc_info->mode != NULL)
         {
-          MetaMonitorMode *mode;
+          MetaCrtcMode *mode;
           g_autofree XID *output_ids = NULL;
           unsigned int j, n_output_ids;
           Status ok;
@@ -1266,6 +1281,56 @@ meta_monitor_manager_xrandr_apply_configuration (MetaMonitorManager *manager,
 }
 
 static void
+meta_monitor_manager_xrandr_ensure_initial_config (MetaMonitorManager *manager)
+{
+  meta_monitor_manager_ensure_configured (manager);
+
+  /*
+   * Normally we don't rebuild our data structures until we see the
+   * RRScreenNotify event, but at least at startup we want to have the right
+   * configuration immediately.
+   */
+  meta_monitor_manager_read_current_state (manager);
+
+  meta_monitor_manager_update_logical_state_derived (manager);
+}
+
+static gboolean
+meta_monitor_manager_xrandr_apply_monitors_config (MetaMonitorManager *manager,
+                                                   MetaMonitorsConfig *config,
+                                                   GError            **error)
+{
+  GPtrArray *crtc_infos;
+  GPtrArray *output_infos;
+
+  if (!meta_monitor_config_manager_assign (manager, config,
+                                           &crtc_infos, &output_infos,
+                                           error))
+    return FALSE;
+
+  apply_crtc_assignments (manager,
+                          (MetaCrtcInfo **) crtc_infos->pdata,
+                          crtc_infos->len,
+                          (MetaOutputInfo **) output_infos->pdata,
+                          output_infos->len);
+
+  g_ptr_array_free (crtc_infos, TRUE);
+  g_ptr_array_free (output_infos, TRUE);
+
+  return TRUE;
+}
+
+static void
+meta_monitor_manager_xrandr_apply_configuration (MetaMonitorManager *manager,
+						 MetaCrtcInfo      **crtcs,
+						 unsigned int        n_crtcs,
+						 MetaOutputInfo    **outputs,
+						 unsigned int        n_outputs)
+{
+  apply_crtc_assignments (manager, crtcs, n_crtcs, outputs, n_outputs);
+}
+
+static void
 meta_monitor_manager_xrandr_change_backlight (MetaMonitorManager *manager,
 					      MetaOutput         *output,
 					      gint                value)
@@ -1290,7 +1355,7 @@ meta_monitor_manager_xrandr_change_backlight (MetaMonitorManager *manager,
 
 static void
 meta_monitor_manager_xrandr_get_crtc_gamma (MetaMonitorManager  *manager,
-					    MetaCRTC            *crtc,
+					    MetaCrtc            *crtc,
 					    gsize               *size,
 					    unsigned short     **red,
 					    unsigned short     **green,
@@ -1311,7 +1376,7 @@ meta_monitor_manager_xrandr_get_crtc_gamma (MetaMonitorManager  *manager,
 
 static void
 meta_monitor_manager_xrandr_set_crtc_gamma (MetaMonitorManager *manager,
-					    MetaCRTC           *crtc,
+					    MetaCrtc           *crtc,
 					    gsize               size,
 					    unsigned short     *red,
 					    unsigned short     *green,
@@ -1331,61 +1396,142 @@ meta_monitor_manager_xrandr_set_crtc_gamma (MetaMonitorManager *manager,
 }
 
 #ifdef HAVE_XRANDR15
+static MetaMonitorXrandrData *
+meta_monitor_xrandr_data_from_monitor (MetaMonitor *monitor)
+{
+  MetaMonitorXrandrData *monitor_xrandr_data;
+
+  monitor_xrandr_data = g_object_get_qdata (G_OBJECT (monitor),
+                                            quark_meta_monitor_xrandr_data);
+  if (monitor_xrandr_data)
+    return monitor_xrandr_data;
+
+  monitor_xrandr_data = g_new0 (MetaMonitorXrandrData, 1);
+  g_object_set_qdata_full (G_OBJECT (monitor),
+                           quark_meta_monitor_xrandr_data,
+                           monitor_xrandr_data,
+                           g_free);
+
+  return monitor_xrandr_data;
+}
+
 static void
-meta_monitor_manager_xrandr_add_monitor(MetaMonitorManager *manager,
-                                        MetaMonitorInfo *monitor)
+meta_monitor_manager_xrandr_increase_monitor_count (MetaMonitorManagerXrandr *manager_xrandr,
+                                                    Atom                      name_atom)
+{
+  int count;
+
+  count =
+    GPOINTER_TO_INT (g_hash_table_lookup (manager_xrandr->tiled_monitor_atoms,
+                                          GSIZE_TO_POINTER (name_atom)));
+
+  count++;
+  g_hash_table_insert (manager_xrandr->tiled_monitor_atoms,
+                       GSIZE_TO_POINTER (name_atom),
+                       GINT_TO_POINTER (count));
+}
+
+static int
+meta_monitor_manager_xrandr_decrease_monitor_count (MetaMonitorManagerXrandr *manager_xrandr,
+                                                    Atom                      name_atom)
+{
+  int count;
+
+  count =
+    GPOINTER_TO_SIZE (g_hash_table_lookup (manager_xrandr->tiled_monitor_atoms,
+                                           GSIZE_TO_POINTER (name_atom)));
+  g_assert (count > 0);
+
+  count--;
+  g_hash_table_insert (manager_xrandr->tiled_monitor_atoms,
+                       GSIZE_TO_POINTER (name_atom),
+                       GINT_TO_POINTER (count));
+
+  return count;
+}
+
+static void
+meta_monitor_manager_xrandr_tiled_monitor_added (MetaMonitorManager *manager,
+                                                 MetaMonitor        *monitor)
 {
   MetaMonitorManagerXrandr *manager_xrandr = META_MONITOR_MANAGER_XRANDR (manager);
-  XRRMonitorInfo *m;
-  int o;
-  Atom name;
-  char name_buf[40];
+  MetaMonitorTiled *monitor_tiled = META_MONITOR_TILED (monitor);
+  const char *product;
+  char *name;
+  uint32_t tile_group_id;
+  MetaMonitorXrandrData *monitor_xrandr_data;
+  Atom name_atom;
+  XRRMonitorInfo *xrandr_monitor_info;
+  GList *outputs;
+  GList *l;
+  int i;
 
   if (manager_xrandr->has_randr15 == FALSE)
     return;
 
-  if (monitor->n_outputs <= 1)
-    return;
+  product = meta_monitor_get_product (monitor);
+  tile_group_id = meta_monitor_tiled_get_tile_group_id (monitor_tiled);
 
-  if (monitor->outputs[0]->product)
-    snprintf (name_buf, 40, "%s-%d", monitor->outputs[0]->product, monitor->outputs[0]->tile_info.group_id);
+  if (product)
+    name = g_strdup_printf ("%s-%d", product, tile_group_id);
   else
-    snprintf (name_buf, 40, "Tiled-%d", monitor->outputs[0]->tile_info.group_id);
+    name = g_strdup_printf ("Tiled-%d", tile_group_id);
 
-  name = XInternAtom (manager_xrandr->xdisplay, name_buf, False);
-  monitor->monitor_winsys_xid = name;
-  m = XRRAllocateMonitor (manager_xrandr->xdisplay, monitor->n_outputs);
-  if (!m)
-    return;
-  m->name = name;
-  m->primary = monitor->is_primary;
-  m->automatic = True;
+  name_atom = XInternAtom (manager_xrandr->xdisplay, name, False);
+  g_free (name);
 
-  for (o = 0; o < monitor->n_outputs; o++) {
-    MetaOutput *output = monitor->outputs[o];
-    m->outputs[o] = output->winsys_id;
-  }
+  monitor_xrandr_data = meta_monitor_xrandr_data_from_monitor (monitor);
+  monitor_xrandr_data->xrandr_name = name_atom;
+
+  meta_monitor_manager_xrandr_increase_monitor_count (manager_xrandr,
+                                                      name_atom);
+
+  outputs = meta_monitor_get_outputs (monitor);
+  xrandr_monitor_info = XRRAllocateMonitor (manager_xrandr->xdisplay,
+                                            g_list_length (outputs));
+  xrandr_monitor_info->name = name_atom;
+  xrandr_monitor_info->primary = meta_monitor_is_primary (monitor);
+  xrandr_monitor_info->automatic = True;
+  for (l = outputs, i = 0; l; l = l->next, i++)
+    {
+      MetaOutput *output = l->data;
+
+      xrandr_monitor_info->outputs[i] = output->winsys_id;
+    }
+
   XRRSetMonitor (manager_xrandr->xdisplay,
                  DefaultRootWindow (manager_xrandr->xdisplay),
-                 m);
-  XRRFreeMonitors (m);
+                 xrandr_monitor_info);
+  XRRFreeMonitors (xrandr_monitor_info);
 }
 
 static void
-meta_monitor_manager_xrandr_delete_monitor(MetaMonitorManager *manager,
-                                           int monitor_winsys_xid)
+meta_monitor_manager_xrandr_tiled_monitor_removed (MetaMonitorManager *manager,
+                                                   MetaMonitor        *monitor)
 {
   MetaMonitorManagerXrandr *manager_xrandr = META_MONITOR_MANAGER_XRANDR (manager);
+  MetaMonitorXrandrData *monitor_xrandr_data;
+  Atom monitor_name;
+
+  int monitor_count;
 
   if (manager_xrandr->has_randr15 == FALSE)
     return;
-  XRRDeleteMonitor (manager_xrandr->xdisplay,
-                    DefaultRootWindow (manager_xrandr->xdisplay),
-                    monitor_winsys_xid);
+
+  monitor_xrandr_data = meta_monitor_xrandr_data_from_monitor (monitor);
+  monitor_name = monitor_xrandr_data->xrandr_name;
+  monitor_count =
+    meta_monitor_manager_xrandr_decrease_monitor_count (manager_xrandr,
+                                                        monitor_name);
+
+  if (monitor_count == 0)
+    XRRDeleteMonitor (manager_xrandr->xdisplay,
+                      DefaultRootWindow (manager_xrandr->xdisplay),
+                      monitor_name);
 }
 
 static void
-meta_monitor_manager_xrandr_init_monitors(MetaMonitorManagerXrandr *manager_xrandr)
+meta_monitor_manager_xrandr_init_monitors (MetaMonitorManagerXrandr *manager_xrandr)
 {
   XRRMonitorInfo *m;
   int n, i;
@@ -1443,7 +1589,10 @@ meta_monitor_manager_xrandr_init (MetaMonitorManagerXrandr *manager_xrandr)
       if (major_version > 1 ||
           (major_version == 1 &&
            minor_version >= 5))
-        manager_xrandr->has_randr15 = TRUE;
+        {
+          manager_xrandr->has_randr15 = TRUE;
+          manager_xrandr->tiled_monitor_atoms = g_hash_table_new (NULL, NULL);
+        }
       meta_monitor_manager_xrandr_init_monitors (manager_xrandr);
 #endif
     }
@@ -1458,6 +1607,8 @@ meta_monitor_manager_xrandr_finalize (GObject *object)
     XRRFreeScreenResources (manager_xrandr->resources);
   manager_xrandr->resources = NULL;
 
+  g_hash_table_destroy (manager_xrandr->tiled_monitor_atoms);
+
   G_OBJECT_CLASS (meta_monitor_manager_xrandr_parent_class)->finalize (object);
 }
 
@@ -1471,15 +1622,20 @@ meta_monitor_manager_xrandr_class_init (MetaMonitorManagerXrandrClass *klass)
 
   manager_class->read_current = meta_monitor_manager_xrandr_read_current;
   manager_class->read_edid = meta_monitor_manager_xrandr_read_edid;
+  manager_class->ensure_initial_config = meta_monitor_manager_xrandr_ensure_initial_config;
+  manager_class->apply_monitors_config = meta_monitor_manager_xrandr_apply_monitors_config;
   manager_class->apply_configuration = meta_monitor_manager_xrandr_apply_configuration;
   manager_class->set_power_save_mode = meta_monitor_manager_xrandr_set_power_save_mode;
   manager_class->change_backlight = meta_monitor_manager_xrandr_change_backlight;
   manager_class->get_crtc_gamma = meta_monitor_manager_xrandr_get_crtc_gamma;
   manager_class->set_crtc_gamma = meta_monitor_manager_xrandr_set_crtc_gamma;
 #ifdef HAVE_XRANDR15
-  manager_class->add_monitor = meta_monitor_manager_xrandr_add_monitor;
-  manager_class->delete_monitor = meta_monitor_manager_xrandr_delete_monitor;
+  manager_class->tiled_monitor_added = meta_monitor_manager_xrandr_tiled_monitor_added;
+  manager_class->tiled_monitor_removed = meta_monitor_manager_xrandr_tiled_monitor_removed;
 #endif
+
+  quark_meta_monitor_xrandr_data =
+    g_quark_from_static_string ("-meta-monitor-xrandr-data");
 }
 
 gboolean
@@ -1494,7 +1650,7 @@ meta_monitor_manager_xrandr_handle_xevent (MetaMonitorManagerXrandr *manager_xra
 
   XRRUpdateConfiguration (event);
 
-  meta_monitor_manager_read_current_config (manager);
+  meta_monitor_manager_read_current_state (manager);
 
   hotplug = manager_xrandr->resources->timestamp < manager_xrandr->resources->configTimestamp;
   if (hotplug)
