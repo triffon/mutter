@@ -1,3 +1,11 @@
+mutter (3.23.90-0ubuntu2) zesty; urgency=medium
+
+  * debian/control.in:
+    - Loosen dependency on -common package
+  * Rename gir1.2-mutter-3.0 to gir-1.2-mutter-0
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Sun, 19 Feb 2017 20:39:33 -0500
+
 mutter (3.23.90-0ubuntu1) zesty; urgency=medium
 
   * New upstream release (LP: #1662805)
