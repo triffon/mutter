@@ -1,3 +1,9 @@
+mutter (3.23.91-0ubuntu1) zesty; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Wed, 01 Mar 2017 11:21:22 -0500
+
 mutter (3.23.90-0ubuntu2) zesty; urgency=medium
 
   * debian/control.in:
