@@ -1,3 +1,10 @@
+mutter (3.23.91-0ubuntu1.1) zesty; urgency=medium
+
+  * Add git_revert_call_threaded_swap.patch:
+    - Revert patch that caused Budgie to crash (LP: #1669584)
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Thu, 02 Mar 2017 16:09:36 -0500
+
 mutter (3.23.91-0ubuntu1) zesty; urgency=medium
 
   * New upstream release
