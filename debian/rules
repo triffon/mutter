@@ -12,6 +12,7 @@ override_dh_autoreconf:
 
 ifeq ($(DEB_HOST_ARCH_OS),linux)
 CONFFLAGS = \
+	--enable-egl-device \
 	--enable-wayland \
 	--enable-native-backend
 else
