@@ -1,3 +1,12 @@
+mutter (3.23.91-0ubuntu2) zesty; urgency=medium
+
+  * debian/rules:
+    - Build with --enable-egl-device (LP: #1666664)
+      This enables experimental support for using NVIDIA proprietary
+      drivers with GNOME on Wayland
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Fri, 10 Mar 2017 09:59:32 -0500
+
 mutter (3.23.91-0ubuntu1.1) zesty; urgency=medium
 
   * Add git_revert_call_threaded_swap.patch:
