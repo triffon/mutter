@@ -70,13 +70,11 @@ struct _MetaEgl
 
 G_DEFINE_TYPE (MetaEgl, meta_egl, G_TYPE_OBJECT)
 
+G_DEFINE_QUARK (-meta-egl-error-quark, meta_egl_error)
+
 static const char *
-get_egl_error_str (void)
+get_egl_error_str (EGLint error_number)
 {
-  EGLint error_number;
-
-  error_number = eglGetError ();
-
   switch (error_number)
     {
     case EGL_SUCCESS:
@@ -124,6 +122,19 @@ get_egl_error_str (void)
     case EGL_CONTEXT_LOST:
       return "A power management event has occurred. The application must destroy all contexts and reinitialise OpenGL ES state and objects to continue rendering. ";
       break;
+    case EGL_BAD_STREAM_KHR:
+      return "An EGLStreamKHR argument does not name a valid EGL stream.";
+      break;
+    case EGL_BAD_STATE_KHR:
+      return "An EGLStreamKHR argument is not in a valid state";
+      break;
+    case EGL_BAD_DEVICE_EXT:
+      return "An EGLDeviceEXT argument does not name a valid EGL device.";
+      break;
+    case EGL_BAD_OUTPUT_LAYER_EXT:
+      return "An EGLOutputLayerEXT argument does not name a valid EGL output layer.";
+    case EGL_RESOURCE_BUSY_EXT:
+      return "The operation could not be completed on the requested resource because it is temporary unavailable.";
     default:
       return "Unknown error";
       break;
@@ -133,14 +144,16 @@ get_egl_error_str (void)
 static void
 set_egl_error (GError **error)
 {
+  EGLint error_number;
   const char *error_str;
 
   if (!error)
     return;
 
-  error_str = get_egl_error_str ();
-  g_set_error_literal (error, G_IO_ERROR,
-                       G_IO_ERROR_FAILED,
+  error_number = eglGetError ();
+  error_str = get_egl_error_str (error_number);
+  g_set_error_literal (error, META_EGL_ERROR,
+                       error_number,
                        error_str);
 }
 
@@ -200,7 +213,8 @@ meta_egl_has_extensions (MetaEgl   *egl,
   extensions_str = (const char *) eglQueryString (display, EGL_EXTENSIONS);
   if (!extensions_str)
     {
-      g_warning ("Failed to query string: %s", get_egl_error_str ());
+      g_warning ("Failed to query string: %s",
+                 get_egl_error_str (eglGetError ()));
       return FALSE;
     }
 

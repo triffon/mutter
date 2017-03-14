@@ -31,6 +31,8 @@
 #include <clutter/evdev/clutter-evdev.h>
 #include <libupower-glib/upower.h>
 
+#include "clutter/egl/clutter-egl.h"
+#include "clutter/evdev/clutter-evdev.h"
 #include "meta-barrier-native.h"
 #include "meta-idle-monitor-native.h"
 #include "meta-monitor-manager-kms.h"
@@ -530,4 +532,47 @@ meta_activate_session (void)
     }
 
   return TRUE;
+}
+
+void
+meta_backend_native_pause (MetaBackendNative *native)
+{
+  MetaBackend *backend = META_BACKEND (native);
+  MetaMonitorManager *monitor_manager =
+    meta_backend_get_monitor_manager (backend);
+  MetaMonitorManagerKms *monitor_manager_kms =
+    META_MONITOR_MANAGER_KMS (monitor_manager);
+
+  clutter_evdev_release_devices ();
+  clutter_egl_freeze_master_clock ();
+
+  meta_monitor_manager_kms_pause (monitor_manager_kms);
+}
+
+void meta_backend_native_resume (MetaBackendNative *native)
+{
+  MetaBackend *backend = META_BACKEND (native);
+  MetaMonitorManager *monitor_manager =
+    meta_backend_get_monitor_manager (backend);
+  MetaMonitorManagerKms *monitor_manager_kms =
+    META_MONITOR_MANAGER_KMS (monitor_manager);
+  MetaCursorRenderer *cursor_renderer;
+  MetaCursorRendererNative *cursor_renderer_native;
+  ClutterActor *stage;
+  MetaIdleMonitor *idle_monitor;
+
+  meta_monitor_manager_kms_resume (monitor_manager_kms);
+
+  clutter_evdev_reclaim_devices ();
+  clutter_egl_thaw_master_clock ();
+
+  stage = meta_backend_get_stage (backend);
+  clutter_actor_queue_redraw (stage);
+
+  cursor_renderer = meta_backend_get_cursor_renderer (backend);
+  cursor_renderer_native = META_CURSOR_RENDERER_NATIVE (cursor_renderer);
+  meta_cursor_renderer_native_force_update (cursor_renderer_native);
+
+  idle_monitor = meta_backend_get_idle_monitor (backend, 0);
+  meta_idle_monitor_native_reset_idletime (idle_monitor);
 }

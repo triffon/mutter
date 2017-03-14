@@ -345,6 +345,9 @@ struct _MetaMonitorManagerClass
   void (*tiled_monitor_removed) (MetaMonitorManager *,
                                  MetaMonitor        *);
 
+  gboolean (*is_transform_handled) (MetaMonitorManager  *,
+                                    MetaCrtc            *,
+                                    MetaMonitorTransform);
 };
 
 void                meta_monitor_manager_rebuild (MetaMonitorManager *manager,
@@ -420,13 +423,17 @@ void               meta_monitor_manager_read_current_state (MetaMonitorManager *
 void               meta_monitor_manager_on_hotplug (MetaMonitorManager *manager);
 
 gboolean           meta_monitor_manager_get_monitor_matrix (MetaMonitorManager *manager,
-                                                            MetaOutput         *output,
+                                                            MetaLogicalMonitor *logical_monitor,
                                                             gfloat              matrix[6]);
 
 void               meta_monitor_manager_tiled_monitor_added (MetaMonitorManager *manager,
                                                              MetaMonitor        *monitor);
 void               meta_monitor_manager_tiled_monitor_removed (MetaMonitorManager *manager,
                                                                MetaMonitor        *monitor);
+
+gboolean           meta_monitor_manager_is_transform_handled (MetaMonitorManager  *manager,
+                                                              MetaCrtc            *crtc,
+                                                              MetaMonitorTransform transform);
 
 MetaMonitorsConfig * meta_monitor_manager_ensure_configured (MetaMonitorManager *manager);
 

@@ -52,10 +52,6 @@
 #define ALL_TRANSFORMS_MASK ((1 << ALL_TRANSFORMS) - 1)
 #define SYNC_TOLERANCE 0.01    /* 1 percent */
 
-/* Try each 50 milleseconds up to half a second to get a proper EDID read */
-#define EDID_RETRY_TIMEOUT_MS 50
-#define EDID_MAX_NUM_RETRIES 10
-
 typedef struct
 {
   drmModeConnector *connector;
@@ -112,13 +108,11 @@ struct _MetaMonitorManagerKms
   unsigned int       n_connectors;
 
   GUdevClient *udev;
+  guint uevent_handler_id;
 
   GSettings *desktop_settings;
 
   gboolean page_flips_not_supported;
-
-  guint handle_hotplug_timeout;
-  int read_edid_tries;
 };
 
 struct _MetaMonitorManagerKmsClass
@@ -331,7 +325,7 @@ read_edid_blob (MetaMonitorManagerKms *manager_kms,
   if (!edid_blob)
     {
       g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno),
-                   "Failed to get EDID property blob: %s", strerror (errno));
+                   "%s", strerror (errno));
       return NULL;
     }
 
@@ -906,7 +900,8 @@ init_output (MetaOutput         *output,
       edid = read_output_edid (manager_kms, output, &error);
       if (!edid)
         {
-          g_warning ("Failed to read EDID: %s", error->message);
+          g_warning ("Failed to read EDID blob from %s: %s",
+                     output->name, error->message);
           g_error_free (error);
         }
     }
@@ -1593,112 +1588,11 @@ meta_monitor_manager_kms_set_crtc_gamma (MetaMonitorManager *manager,
   drmModeCrtcSetGamma (manager_kms->fd, crtc->crtc_id, size, red, green, blue);
 }
 
-static gboolean
-has_pending_edid_blob (MetaMonitorManagerKms *manager_kms)
-{
-  drmModeRes *resources;
-  int n_connectors;
-  int i, j;
-  gboolean edid_blob_pending;
-
-  resources = drmModeGetResources (manager_kms->fd);
-  n_connectors = resources->count_connectors;
-
-  edid_blob_pending = FALSE;
-  for (i = 0; i < n_connectors; i++)
-    {
-      drmModeConnector *drm_connector;
-      uint32_t edid_blob_id;
-
-      drm_connector = drmModeGetConnector (manager_kms->fd,
-                                           resources->connectors[i]);
-
-      edid_blob_id = 0;
-      for (j = 0; j < drm_connector->count_props; j++)
-        {
-          drmModePropertyPtr prop;
-
-          prop = drmModeGetProperty (manager_kms->fd, drm_connector->props[j]);
-
-          if (prop->flags & DRM_MODE_PROP_BLOB &&
-              g_str_equal (prop->name, "EDID"))
-            edid_blob_id = drm_connector->prop_values[j];
-
-          drmModeFreeProperty (prop);
-
-          if (edid_blob_id)
-            break;
-        }
-
-      drmModeFreeConnector (drm_connector);
-
-      if (edid_blob_id)
-        {
-          GError *error = NULL;
-          drmModePropertyBlobPtr edid_blob;
-
-          edid_blob = read_edid_blob (manager_kms, edid_blob_id, &error);
-          if (!edid_blob &&
-              g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
-            {
-              edid_blob_pending = TRUE;
-              g_error_free (error);
-            }
-          else if (!edid_blob)
-            {
-              g_error_free (error);
-            }
-          else
-            {
-              drmModeFreePropertyBlob (edid_blob);
-            }
-        }
-
-      if (edid_blob_pending)
-        break;
-    }
-
-  drmModeFreeResources (resources);
-
-  return edid_blob_pending;
-}
-
 static void
 handle_hotplug_event (MetaMonitorManager *manager)
 {
   meta_monitor_manager_read_current_state (manager);
   meta_monitor_manager_on_hotplug (manager);
-}
-
-static gboolean
-handle_hotplug_event_timeout (gpointer user_data)
-{
-  MetaMonitorManager *manager = user_data;
-  MetaMonitorManagerKms *manager_kms = META_MONITOR_MANAGER_KMS (user_data);
-
-  if (!has_pending_edid_blob (manager_kms))
-    {
-      handle_hotplug_event (manager);
-
-      manager_kms->handle_hotplug_timeout = 0;
-      return G_SOURCE_REMOVE;
-    }
-
-  manager_kms->read_edid_tries++;
-
-  if (manager_kms->read_edid_tries > EDID_MAX_NUM_RETRIES)
-    {
-      g_warning ("Tried to read the EDID %d times, "
-                 "but one or more are still missing, continuing without",
-                 manager_kms->read_edid_tries);
-
-      handle_hotplug_event (manager);
-
-      manager_kms->handle_hotplug_timeout = 0;
-      return G_SOURCE_REMOVE;
-    }
-
-  return G_SOURCE_CONTINUE;
 }
 
 static void
@@ -1712,28 +1606,6 @@ on_uevent (GUdevClient *client,
 
   if (!g_udev_device_get_property_as_boolean (device, "HOTPLUG"))
     return;
-
-  if (manager_kms->handle_hotplug_timeout)
-    {
-      g_source_remove (manager_kms->handle_hotplug_timeout);
-      manager_kms->handle_hotplug_timeout = 0;
-    }
-
-  /*
-   * On a hot-plug event, the EDID of one or more connectors might not yet be
-   * ready at this point, resulting in invalid configuration potentially being
-   * applied. Avoid this by first checking whether the EDID is ready at this
-   * point, or otherwise wait a bit and try again.
-   */
-  manager_kms->read_edid_tries = 0;
-  if (has_pending_edid_blob (manager_kms))
-    {
-      manager_kms->handle_hotplug_timeout =
-        g_timeout_add (EDID_RETRY_TIMEOUT_MS,
-                       handle_hotplug_event_timeout,
-                       manager);
-      return;
-    }
 
   handle_hotplug_event (manager);
 }
@@ -1765,6 +1637,38 @@ static GSourceFuncs kms_event_funcs = {
 };
 
 static void
+meta_monitor_manager_kms_connect_uevent_handler (MetaMonitorManagerKms *manager_kms)
+{
+  manager_kms->uevent_handler_id = g_signal_connect (manager_kms->udev,
+                                                     "uevent",
+                                                     G_CALLBACK (on_uevent),
+                                                     manager_kms);
+}
+
+static void
+meta_monitor_manager_kms_disconnect_uevent_handler (MetaMonitorManagerKms *manager_kms)
+{
+  g_signal_handler_disconnect (manager_kms->udev,
+                               manager_kms->uevent_handler_id);
+  manager_kms->uevent_handler_id = 0;
+}
+
+void
+meta_monitor_manager_kms_pause (MetaMonitorManagerKms *manager_kms)
+{
+  meta_monitor_manager_kms_disconnect_uevent_handler (manager_kms);
+}
+
+void
+meta_monitor_manager_kms_resume (MetaMonitorManagerKms *manager_kms)
+{
+  MetaMonitorManager *manager = META_MONITOR_MANAGER (manager_kms);
+
+  meta_monitor_manager_kms_connect_uevent_handler (manager_kms);
+  handle_hotplug_event (manager);
+}
+
+static void
 meta_monitor_manager_kms_init (MetaMonitorManagerKms *manager_kms)
 {
   MetaBackend *backend = meta_get_backend ();
@@ -1778,8 +1682,7 @@ meta_monitor_manager_kms_init (MetaMonitorManagerKms *manager_kms)
 
   const char *subsystems[2] = { "drm", NULL };
   manager_kms->udev = g_udev_client_new (subsystems);
-  g_signal_connect (manager_kms->udev, "uevent",
-                    G_CALLBACK (on_uevent), manager_kms);
+  meta_monitor_manager_kms_connect_uevent_handler (manager_kms);
 
   source = g_source_new (&kms_event_funcs, sizeof (MetaKmsSource));
   manager_kms->source = (MetaKmsSource *) source;
@@ -1968,6 +1871,19 @@ meta_monitor_manager_kms_wait_for_flip (MetaMonitorManagerKms *manager_kms)
   drmHandleEvent (manager_kms->fd, &evctx);
 }
 
+static gboolean
+meta_monitor_manager_kms_is_transform_handled (MetaMonitorManager  *manager,
+                                               MetaCrtc            *crtc,
+                                               MetaMonitorTransform transform)
+{
+  MetaCrtcKms *crtc_kms = crtc->driver_private;
+
+  if ((1 << crtc->transform) & crtc_kms->all_hw_transforms)
+    return TRUE;
+  else
+    return FALSE;
+}
+
 static void
 meta_monitor_manager_kms_dispose (GObject *object)
 {
@@ -2007,20 +1923,5 @@ meta_monitor_manager_kms_class_init (MetaMonitorManagerKmsClass *klass)
   manager_class->set_power_save_mode = meta_monitor_manager_kms_set_power_save_mode;
   manager_class->get_crtc_gamma = meta_monitor_manager_kms_get_crtc_gamma;
   manager_class->set_crtc_gamma = meta_monitor_manager_kms_set_crtc_gamma;
-}
-
-MetaMonitorTransform
-meta_monitor_manager_kms_get_view_transform (MetaMonitorManagerKms *manager,
-                                             MetaCrtc              *crtc)
-{
-  MetaCrtcKms *crtc_kms;
-
-  crtc_kms = crtc->driver_private;
-  if ((1 << crtc->transform) & crtc_kms->all_hw_transforms)
-    {
-      /* Transform is managed by the hardware, the view is untransformed */
-      return META_MONITOR_TRANSFORM_NORMAL;
-    }
-
-  return crtc->transform;
+  manager_class->is_transform_handled = meta_monitor_manager_kms_is_transform_handled;
 }

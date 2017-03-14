@@ -1,3 +1,9 @@
+mutter (3.23.92-0ubuntu1) zesty; urgency=medium
+
+  * New upstream release (LP: #1670910)
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Mon, 13 Mar 2017 22:25:03 -0400
+
 mutter (3.23.91-0ubuntu2) zesty; urgency=medium
 
   * debian/rules:

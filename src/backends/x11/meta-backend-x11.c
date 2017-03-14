@@ -46,6 +46,7 @@
 #include <meta/util.h>
 #include "display-private.h"
 #include "compositor/compositor-private.h"
+#include "backends/meta-dnd-private.h"
 
 struct _MetaBackendX11Private
 {
@@ -254,6 +255,9 @@ handle_host_xevent (MetaBackend *backend,
       {
         MetaCompositor *compositor = display->compositor;
         if (meta_plugin_manager_xevent_filter (compositor->plugin_mgr, event))
+          bypass_clutter = TRUE;
+
+        if (meta_dnd_handle_xdnd_event (backend, compositor, display, event))
           bypass_clutter = TRUE;
       }
   }
@@ -534,6 +538,9 @@ meta_backend_x11_get_current_logical_monitor (MetaBackend *backend)
   monitor_manager = meta_backend_get_monitor_manager (backend);
   logical_monitor =
     meta_monitor_manager_get_logical_monitor_at (monitor_manager, x, y);
+
+  if (!logical_monitor && monitor_manager->logical_monitors)
+    logical_monitor = monitor_manager->logical_monitors->data;
 
   priv->cached_current_logical_monitor = logical_monitor;
   return priv->cached_current_logical_monitor;
