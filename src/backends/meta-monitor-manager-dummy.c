@@ -34,9 +34,16 @@
 
 #define ALL_TRANSFORMS ((1 << (META_MONITOR_TRANSFORM_FLIPPED_270 + 1)) - 1)
 
+#define MAX_MONITORS 5
+#define MAX_OUTPUTS (MAX_MONITORS * 2)
+#define MAX_CRTCS (MAX_MONITORS * 2)
+#define MAX_MODES (MAX_MONITORS * 4)
+
 struct _MetaMonitorManagerDummy
 {
   MetaMonitorManager parent_instance;
+
+  gboolean is_transform_handled;
 };
 
 struct _MetaMonitorManagerDummyClass
@@ -46,6 +53,159 @@ struct _MetaMonitorManagerDummyClass
 
 G_DEFINE_TYPE (MetaMonitorManagerDummy, meta_monitor_manager_dummy, META_TYPE_MONITOR_MANAGER);
 
+#define array_last(a, t) \
+  g_array_index (a, t, a->len - 1)
+
+static void
+append_monitor (GArray *modes,
+                GArray *crtcs,
+                GArray *outputs,
+                int     scale)
+{
+  MetaCrtcMode modes_decl[] = {
+    {
+      .width = 800,
+      .height = 600,
+      .refresh_rate = 60.0
+    },
+    {
+      .width = 1024,
+      .height = 768,
+      .refresh_rate = 60.0
+    }
+  };
+  MetaCrtc crtc;
+  MetaOutput output;
+  unsigned int i;
+
+  for (i = 0; i < G_N_ELEMENTS (modes_decl); i++)
+    modes_decl[i].mode_id = modes->len + i;
+  g_array_append_vals (modes, modes_decl, G_N_ELEMENTS (modes_decl));
+
+  crtc = (MetaCrtc) {
+    .crtc_id = crtcs->len + 1,
+    .all_transforms = ALL_TRANSFORMS,
+  };
+  g_array_append_val (crtcs, crtc);
+
+  output = (MetaOutput) {
+    .winsys_id = outputs->len + 1,
+    .name = g_strdup_printf ("LVDS%d", outputs->len + 1),
+    .vendor = g_strdup ("MetaProducts Inc."),
+    .product = g_strdup ("MetaMonitor"),
+    .serial = g_strdup_printf ("0xC0FFEE-%d", outputs->len + 1),
+    .suggested_x = -1,
+    .suggested_y = -1,
+    .width_mm = 222,
+    .height_mm = 125,
+    .subpixel_order = COGL_SUBPIXEL_ORDER_UNKNOWN,
+    .preferred_mode = &array_last (modes, MetaCrtcMode),
+    .n_possible_clones = 0,
+    .backlight = -1,
+    .connector_type = META_CONNECTOR_TYPE_LVDS,
+    .scale = scale,
+  };
+
+  output.modes = g_new0 (MetaCrtcMode *, G_N_ELEMENTS (modes_decl));
+  for (i = 0; i < G_N_ELEMENTS (modes_decl); i++)
+    output.modes[i] = &g_array_index (modes, MetaCrtcMode,
+                                      modes->len - (i + 1));
+  output.n_modes = G_N_ELEMENTS (modes_decl);
+  output.possible_crtcs = g_new0 (MetaCrtc *, 1);
+  output.possible_crtcs[0] = &array_last (crtcs, MetaCrtc);
+  output.n_possible_crtcs = 1;
+
+  g_array_append_val (outputs, output);
+}
+
+static void
+append_tiled_monitor (GArray *modes,
+                      GArray *crtcs,
+                      GArray *outputs,
+                      int     scale)
+{
+  MetaCrtcMode modes_decl[] = {
+    {
+      .width = 800,
+      .height = 600,
+      .refresh_rate = 60.0
+    },
+    {
+      .width = 512,
+      .height = 768,
+      .refresh_rate = 60.0
+    }
+  };
+  MetaCrtc crtcs_decl[] = {
+    {
+      .all_transforms = ALL_TRANSFORMS,
+    },
+    {
+      .all_transforms = ALL_TRANSFORMS,
+    },
+  };
+  MetaOutput output;
+  unsigned int i;
+  uint32_t tile_group_id;
+
+  for (i = 0; i < G_N_ELEMENTS (modes_decl); i++)
+    modes_decl[i].mode_id = modes->len + i;
+  g_array_append_vals (modes, modes_decl, G_N_ELEMENTS (modes_decl));
+
+  for (i = 0; i < G_N_ELEMENTS (crtcs_decl); i++)
+    crtcs_decl[i].crtc_id = crtcs->len + i + 1;
+  g_array_append_vals (crtcs, crtcs_decl, G_N_ELEMENTS (crtcs_decl));
+
+  tile_group_id = outputs->len + 1;
+  for (i = 0; i < G_N_ELEMENTS (crtcs_decl); i++)
+    {
+      MetaCrtcMode *preferred_mode;
+      unsigned int j;
+
+      preferred_mode = &array_last (modes, MetaCrtcMode),
+      output = (MetaOutput) {
+        .winsys_id = outputs->len + 1,
+        .name = g_strdup_printf ("LVDS%d", outputs->len + 1),
+        .vendor = g_strdup ("MetaProducts Inc."),
+        .product = g_strdup ("MetaMonitor"),
+        .serial = g_strdup_printf ("0xC0FFEE-%d", outputs->len + 1),
+        .suggested_x = -1,
+        .suggested_y = -1,
+        .width_mm = 222,
+        .height_mm = 125,
+        .subpixel_order = COGL_SUBPIXEL_ORDER_UNKNOWN,
+        .preferred_mode = preferred_mode,
+        .n_possible_clones = 0,
+        .backlight = -1,
+        .connector_type = META_CONNECTOR_TYPE_LVDS,
+        .tile_info = (MetaTileInfo) {
+          .group_id = tile_group_id,
+          .max_h_tiles = G_N_ELEMENTS (crtcs_decl),
+          .max_v_tiles = 1,
+          .loc_h_tile = i,
+          .loc_v_tile = 0,
+          .tile_w = preferred_mode->width,
+          .tile_h = preferred_mode->height
+        },
+        .scale = scale
+      };
+
+      output.modes = g_new0 (MetaCrtcMode *, G_N_ELEMENTS (modes_decl));
+      for (j = 0; j < G_N_ELEMENTS (modes_decl); j++)
+        output.modes[j] = &g_array_index (modes, MetaCrtcMode,
+                                          modes->len - (j + 1));
+      output.n_modes = G_N_ELEMENTS (modes_decl);
+
+      output.possible_crtcs = g_new0 (MetaCrtc *, G_N_ELEMENTS (crtcs_decl));
+      for (j = 0; j < G_N_ELEMENTS (crtcs_decl); j++)
+        output.possible_crtcs[j] = &g_array_index (crtcs, MetaCrtc,
+                                                   crtcs->len - (j + 1));
+      output.n_possible_crtcs = G_N_ELEMENTS (crtcs_decl);
+
+      g_array_append_val (outputs, output);
+    }
+}
+
 static void
 meta_monitor_manager_dummy_read_current (MetaMonitorManager *manager)
 {
@@ -53,8 +213,12 @@ meta_monitor_manager_dummy_read_current (MetaMonitorManager *manager)
   int *monitor_scales = NULL;
   const char *num_monitors_str;
   const char *monitor_scales_str;
+  const char *tiled_monitors_str;
+  gboolean tiled_monitors;
   unsigned int i;
-  int current_x = 0;
+  GArray *outputs;
+  GArray *crtcs;
+  GArray *modes;
 
   /* To control what monitor configuration is generated, there are two available
    * environmental variables that can be used:
@@ -68,11 +232,17 @@ meta_monitor_manager_dummy_read_current (MetaMonitorManager *manager)
    *
    * A comma separated list that specifies the scales of the dummy monitors.
    *
+   * MUTTER_DEBUG_TILED_DUMMY_MONITORS
+   *
+   * If set to "1" the dummy monitors will emulate being tiled, i.e. each have a
+   * unique tile group id, made up of multiple outputs and CRTCs.
+   *
    * For example the following configuration results in two monitors, where the
    * first one has the monitor scale 1, and the other the monitor scale 2.
    *
    * MUTTER_DEBUG_NUM_DUMMY_MONITORS=2
    * MUTTER_DEBUG_DUMMY_MONITOR_SCALES=1,2
+   * MUTTER_DEBUG_TILED_DUMMY_MONITORS=1
    */
   num_monitors_str = getenv ("MUTTER_DEBUG_NUM_DUMMY_MONITORS");
   if (num_monitors_str)
@@ -82,6 +252,13 @@ meta_monitor_manager_dummy_read_current (MetaMonitorManager *manager)
         {
           meta_warning ("Invalid number of dummy monitors");
           num_monitors = 1;
+        }
+
+      if (num_monitors > MAX_MONITORS)
+        {
+          meta_warning ("Clamping monitor count to max (%d)",
+                        MAX_MONITORS);
+          num_monitors = MAX_MONITORS;
         }
     }
 
@@ -109,65 +286,34 @@ meta_monitor_manager_dummy_read_current (MetaMonitorManager *manager)
       g_strfreev (scales_str_list);
     }
 
+  tiled_monitors_str = g_getenv ("MUTTER_DEBUG_TILED_DUMMY_MONITORS");
+  tiled_monitors = g_strcmp0 (tiled_monitors_str, "1") == 0;
+
   manager->max_screen_width = 65535;
   manager->max_screen_height = 65535;
-  manager->screen_width = 1024 * num_monitors;
-  manager->screen_height = 768;
 
-  manager->modes = g_new0 (MetaCrtcMode, 1);
-  manager->n_modes = 1;
-
-  manager->modes[0].mode_id = 0;
-  manager->modes[0].width = 1024;
-  manager->modes[0].height = 768;
-  manager->modes[0].refresh_rate = 60.0;
-
-  manager->crtcs = g_new0 (MetaCrtc, num_monitors);
-  manager->n_crtcs = num_monitors;
-  manager->outputs = g_new0 (MetaOutput, num_monitors);
-  manager->n_outputs = num_monitors;
+  modes = g_array_sized_new (FALSE, TRUE, sizeof (MetaCrtcMode), MAX_MODES);
+  crtcs = g_array_sized_new (FALSE, TRUE, sizeof (MetaCrtc), MAX_CRTCS);
+  outputs = g_array_sized_new (FALSE, TRUE, sizeof (MetaOutput), MAX_OUTPUTS);
 
   for (i = 0; i < num_monitors; i++)
     {
-      manager->crtcs[i].crtc_id = i + 1;
-      manager->crtcs[i].rect.x = current_x;
-      manager->crtcs[i].rect.y = 0;
-      manager->crtcs[i].rect.width = manager->modes[0].width;
-      manager->crtcs[i].rect.height = manager->modes[0].height;
-      manager->crtcs[i].current_mode = &manager->modes[0];
-      manager->crtcs[i].transform = META_MONITOR_TRANSFORM_NORMAL;
-      manager->crtcs[i].all_transforms = ALL_TRANSFORMS;
-      manager->crtcs[i].is_dirty = FALSE;
-      manager->crtcs[i].logical_monitor = NULL;
-
-      current_x += manager->crtcs[i].rect.width;
-
-      manager->outputs[i].crtc = &manager->crtcs[i];
-      manager->outputs[i].winsys_id = i + 1;
-      manager->outputs[i].name = g_strdup_printf ("LVDS%d", i + 1);
-      manager->outputs[i].vendor = g_strdup ("MetaProducts Inc.");
-      manager->outputs[i].product = g_strdup ("unknown");
-      manager->outputs[i].serial = g_strdup ("0xC0FFEE");
-      manager->outputs[i].suggested_x = -1;
-      manager->outputs[i].suggested_y = -1;
-      manager->outputs[i].width_mm = 222;
-      manager->outputs[i].height_mm = 125;
-      manager->outputs[i].subpixel_order = COGL_SUBPIXEL_ORDER_UNKNOWN;
-      manager->outputs[i].preferred_mode = &manager->modes[0];
-      manager->outputs[i].n_modes = 1;
-      manager->outputs[i].modes = g_new0 (MetaCrtcMode *, 1);
-      manager->outputs[i].modes[0] = &manager->modes[0];
-      manager->outputs[i].n_possible_crtcs = 1;
-      manager->outputs[i].possible_crtcs = g_new0 (MetaCrtc *, 1);
-      manager->outputs[i].possible_crtcs[0] = &manager->crtcs[i];
-      manager->outputs[i].n_possible_clones = 0;
-      manager->outputs[i].possible_clones = g_new0 (MetaOutput *, 0);
-      manager->outputs[i].backlight = -1;
-      manager->outputs[i].backlight_min = 0;
-      manager->outputs[i].backlight_max = 0;
-      manager->outputs[i].connector_type = META_CONNECTOR_TYPE_LVDS;
-      manager->outputs[i].scale = monitor_scales[i];
+      if (tiled_monitors)
+        append_tiled_monitor (modes, crtcs, outputs, monitor_scales[i]);
+      else
+        append_monitor (modes, crtcs, outputs, monitor_scales[i]);
     }
+
+  manager->modes = (MetaCrtcMode *) modes->data;
+  manager->n_modes = modes->len;
+  manager->crtcs = (MetaCrtc *) crtcs->data;
+  manager->n_crtcs = crtcs->len;
+  manager->outputs = (MetaOutput *) outputs->data;
+  manager->n_outputs = outputs->len;
+
+  g_array_free (modes, FALSE);
+  g_array_free (crtcs, FALSE);
+  g_array_free (outputs, FALSE);
 }
 
 static void
@@ -191,7 +337,6 @@ apply_crtc_assignments (MetaMonitorManager *manager,
                         unsigned int        n_outputs)
 {
   unsigned i;
-  int screen_width = 0, screen_height = 0;
 
   for (i = 0; i < n_crtcs; i++)
     {
@@ -233,9 +378,6 @@ apply_crtc_assignments (MetaMonitorManager *manager,
           crtc->rect.height = height;
           crtc->current_mode = mode;
           crtc->transform = crtc_info->transform;
-
-          screen_width = MAX (screen_width, crtc_info->x + width);
-          screen_height = MAX (screen_height, crtc_info->y + height);
 
           for (j = 0; j < crtc_info->outputs->len; j++)
             {
@@ -290,6 +432,32 @@ apply_crtc_assignments (MetaMonitorManager *manager,
       output->crtc = NULL;
       output->is_primary = FALSE;
     }
+}
+
+static void
+update_screen_size (MetaMonitorManager *manager,
+                    MetaMonitorsConfig *config)
+{
+  GList *l;
+  int screen_width = 0;
+  int screen_height = 0;
+
+  for (l = config->logical_monitor_configs; l; l = l->next)
+    {
+      MetaLogicalMonitorConfig *logical_monitor_config = l->data;
+      int right_edge;
+      int bottom_edge;
+
+      right_edge = (logical_monitor_config->layout.width +
+                    logical_monitor_config->layout.x);
+      if (right_edge > screen_width)
+        screen_width = right_edge;
+
+      bottom_edge = (logical_monitor_config->layout.height +
+                     logical_monitor_config->layout.y);
+      if (bottom_edge > screen_height)
+        screen_height = bottom_edge;
+    }
 
   manager->screen_width = screen_width;
   manager->screen_height = screen_height;
@@ -317,9 +485,28 @@ meta_monitor_manager_dummy_apply_monitors_config (MetaMonitorManager *manager,
   g_ptr_array_free (crtc_infos, TRUE);
   g_ptr_array_free (output_infos, TRUE);
 
+  update_screen_size (manager, config);
   meta_monitor_manager_rebuild (manager, config);
 
   return TRUE;
+}
+
+static void
+legacy_calculate_screen_size (MetaMonitorManager *manager)
+{
+  unsigned int i;
+  int width = 0, height = 0;
+
+  for (i = 0; i < manager->n_crtcs; i++)
+    {
+      MetaCrtc *crtc = &manager->crtcs[i];
+
+      width = MAX (width, crtc->rect.x + crtc->rect.width);
+      height = MAX (height, crtc->rect.y + crtc->rect.height);
+    }
+
+  manager->screen_width = width;
+  manager->screen_height = height;
 }
 
 static void
@@ -331,7 +518,19 @@ meta_monitor_manager_dummy_apply_config (MetaMonitorManager *manager,
 {
   apply_crtc_assignments (manager, crtcs, n_crtcs, outputs, n_outputs);
 
+  legacy_calculate_screen_size (manager);
+
   meta_monitor_manager_rebuild_derived (manager);
+}
+
+static gboolean
+meta_monitor_manager_dummy_is_transform_handled (MetaMonitorManager  *manager,
+                                                 MetaCrtc            *crtc,
+                                                 MetaMonitorTransform transform)
+{
+  MetaMonitorManagerDummy *manager_dummy = META_MONITOR_MANAGER_DUMMY (manager);
+
+  return manager_dummy->is_transform_handled;
 }
 
 static void
@@ -343,9 +542,18 @@ meta_monitor_manager_dummy_class_init (MetaMonitorManagerDummyClass *klass)
   manager_class->ensure_initial_config = meta_monitor_manager_dummy_ensure_initial_config;
   manager_class->apply_monitors_config = meta_monitor_manager_dummy_apply_monitors_config;
   manager_class->apply_configuration = meta_monitor_manager_dummy_apply_config;
+  manager_class->is_transform_handled = meta_monitor_manager_dummy_is_transform_handled;
 }
 
 static void
 meta_monitor_manager_dummy_init (MetaMonitorManagerDummy *manager)
 {
+  const char *nested_offscreen_transform;
+
+  nested_offscreen_transform =
+    g_getenv ("MUTTER_DEBUG_NESTED_OFFSCREEN_TRANSFORM");
+  if (g_strcmp0 (nested_offscreen_transform, "1") == 0)
+    manager->is_transform_handled = FALSE;
+  else
+    manager->is_transform_handled = TRUE;
 }
