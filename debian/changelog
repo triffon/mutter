@@ -1,3 +1,9 @@
+mutter (3.24.0-0ubuntu1) zesty; urgency=medium
+
+  * New upstream translations release
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Mon, 20 Mar 2017 15:08:36 -0400
+
 mutter (3.23.92-0ubuntu1) zesty; urgency=medium
 
   * New upstream release (LP: #1670910)
