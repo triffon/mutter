@@ -102,6 +102,9 @@ struct _ClutterDeviceManagerEvdevPrivate
   gpointer                        constrain_data;
   GDestroyNotify                  constrain_data_notify;
 
+  ClutterRelativeMotionFilter relative_motion_filter;
+  gpointer relative_motion_filter_user_data;
+
   ClutterStageManager *stage_manager;
   guint stage_added_handler;
   guint stage_removed_handler;
@@ -264,6 +267,22 @@ _clutter_device_manager_evdev_constrain_pointer (ClutterDeviceManagerEvdev *mana
     }
 }
 
+void
+_clutter_device_manager_evdev_filter_relative_motion (ClutterDeviceManagerEvdev *manager_evdev,
+                                                      ClutterInputDevice        *device,
+                                                      float                      x,
+                                                      float                      y,
+                                                      float                     *dx,
+                                                      float                     *dy)
+{
+  ClutterDeviceManagerEvdevPrivate *priv = manager_evdev->priv;
+
+  if (!priv->relative_motion_filter)
+    return;
+
+  priv->relative_motion_filter (device, x, y, dx, dy,
+                                priv->relative_motion_filter_user_data);
+}
 
 static ClutterEvent *
 new_absolute_motion_event (ClutterInputDevice *input_device,
@@ -358,11 +377,23 @@ notify_relative_tool_motion (ClutterInputDevice *input_device,
                              gfloat              dy,
                              gdouble            *axes)
 {
+  ClutterInputDeviceEvdev *device_evdev;
   ClutterEvent *event;
+  ClutterSeatEvdev *seat;
   gfloat x, y;
 
+  device_evdev = CLUTTER_INPUT_DEVICE_EVDEV (input_device);
+  seat = _clutter_input_device_evdev_get_seat (device_evdev);
   x = input_device->current_x + dx;
   y = input_device->current_y + dy;
+
+  _clutter_device_manager_evdev_filter_relative_motion (seat->manager_evdev,
+                                                        input_device,
+                                                        seat->pointer_x,
+                                                        seat->pointer_y,
+                                                        &dx,
+                                                        &dy);
+
   event = new_absolute_motion_event (input_device, time_us, x, y, axes);
   _clutter_evdev_event_set_relative_motion (event, dx, dy, 0, 0);
 
@@ -2659,6 +2690,23 @@ clutter_evdev_set_pointer_constrain_callback (ClutterDeviceManager            *e
   priv->constrain_callback = callback;
   priv->constrain_data = user_data;
   priv->constrain_data_notify = user_data_notify;
+}
+
+void
+clutter_evdev_set_relative_motion_filter (ClutterDeviceManager       *evdev,
+                                          ClutterRelativeMotionFilter filter,
+                                          gpointer                    user_data)
+{
+  ClutterDeviceManagerEvdev *manager_evdev;
+  ClutterDeviceManagerEvdevPrivate *priv;
+
+  g_return_if_fail (CLUTTER_IS_DEVICE_MANAGER_EVDEV (evdev));
+
+  manager_evdev = CLUTTER_DEVICE_MANAGER_EVDEV (evdev);
+  priv = manager_evdev->priv;
+
+  priv->relative_motion_filter = filter;
+  priv->relative_motion_filter_user_data = user_data;
 }
 
 /**
