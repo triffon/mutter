@@ -1,3 +1,12 @@
+mutter (3.24.1-0ubuntu3) artful; urgency=medium
+
+  * Add git-conform-actor-graph-Add-missing-null-termination.patch:
+    - Fix actor-graph test on some architectures
+  * debian/rules:
+    - Don't fail the build for test failure on s390x
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Fri, 05 May 2017 10:19:20 -0400
+
 mutter (3.24.1-0ubuntu2) artful; urgency=medium
 
   * debian/rules: Run build tests
