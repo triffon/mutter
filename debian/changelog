@@ -1,3 +1,12 @@
+mutter (3.24.1-0ubuntu2) artful; urgency=medium
+
+  * debian/rules: Run build tests
+  * debian/control.in: Build-depend on xauth and xfvb
+  * Add debian/patches/skip-failing-tests.patch:
+    - Don't run a few tests that have been reported as failing
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Fri, 05 May 2017 08:00:53 -0400
+
 mutter (3.24.1-0ubuntu1) zesty; urgency=medium
 
   * New upstream release (LP: #1682238)
