@@ -1,3 +1,9 @@
+mutter (3.24.1-0ubuntu4) artful; urgency=medium
+
+  * debian/rules: Fix previous change
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Fri, 05 May 2017 11:02:35 -0400
+
 mutter (3.24.1-0ubuntu3) artful; urgency=medium
 
   * Add git-conform-actor-graph-Add-missing-null-termination.patch:
