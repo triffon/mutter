@@ -7,7 +7,7 @@ Section: x11
 Priority: optional
 Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 XSBC-Original-Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
-Uploaders: Andreas Henriksson <andreas@fatal.se>, Jeremy Bicha <jbicha@ubuntu.com>, Michael Biebl <biebl@debian.org>
+Uploaders: Andreas Henriksson <andreas@fatal.se>, Jeremy Bicha <jbicha@ubuntu.com>
 Build-Depends: debhelper (>= 10),
                gnome-pkg-tools (>= 0.10),
                gtk-doc-tools (>= 1.15),
@@ -54,6 +54,8 @@ Build-Depends: debhelper (>= 10),
                libwayland-dev (>= 1.5.90) [linux-any],
                wayland-protocols (>= 1.7) [linux-any],
                xkb-data,
+               xvfb <!nocheck>,
+               xauth <!nocheck>,
                zenity
 Standards-Version: 3.9.8
 Vcs-Svn: svn://anonscm.debian.org/pkg-gnome/desktop/unstable/mutter
@@ -64,6 +66,7 @@ Architecture: any
 Depends: ${shlibs:Depends},
          ${misc:Depends},
          mutter-common (>= ${source:Version}),
+         gnome-settings-daemon,
          gsettings-desktop-schemas (>= 3.21.4),
          zenity
 Provides: x-window-manager
