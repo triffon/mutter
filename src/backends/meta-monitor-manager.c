@@ -260,6 +260,9 @@ lid_is_closed_changed (UpClient   *client,
 static gboolean
 meta_monitor_manager_real_is_lid_closed (MetaMonitorManager *manager)
 {
+  if (!manager->up_client)
+    return FALSE;
+
   return up_client_get_lid_is_closed (manager->up_client);
 }
 
@@ -1667,7 +1670,7 @@ rebuild_monitors (MetaMonitorManager *manager)
         {
           MetaMonitorNormal *monitor_normal;
 
-          monitor_normal = meta_monitor_normal_new (output);
+          monitor_normal = meta_monitor_normal_new (manager, output);
           manager->monitors = g_list_append (manager->monitors,
                                              monitor_normal);
         }
