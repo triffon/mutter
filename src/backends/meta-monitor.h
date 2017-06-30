@@ -68,6 +68,9 @@ struct _MetaMonitorClass
   void (* derive_dimensions) (MetaMonitor   *monitor,
                               int           *width,
                               int           *height);
+  gboolean (* get_suggested_position) (MetaMonitor *monitor,
+                                       int         *width,
+                                       int         *height);
 };
 
 #define META_TYPE_MONITOR_NORMAL (meta_monitor_normal_get_type ())
@@ -83,7 +86,8 @@ G_DECLARE_FINAL_TYPE (MetaMonitorTiled, meta_monitor_tiled,
 MetaMonitorTiled * meta_monitor_tiled_new (MetaMonitorManager *monitor_manager,
                                            MetaOutput         *main_output);
 
-MetaMonitorNormal * meta_monitor_normal_new (MetaOutput *output);
+MetaMonitorNormal * meta_monitor_normal_new (MetaMonitorManager *monitor_manager,
+                                             MetaOutput         *output);
 
 MetaMonitorSpec * meta_monitor_get_spec (MetaMonitor *monitor);
 
