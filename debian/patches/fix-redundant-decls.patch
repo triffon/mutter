@@ -1,0 +1,33 @@
+From 9131f26caedb9fda7a562363215889920ebaf354 Mon Sep 17 00:00:00 2001
+From: Emmanuele Bassi <ebassi@gnome.org>
+Date: Sun, 30 Apr 2017 14:55:20 +0100
+Subject: Generate marshallers without including the generated header
+
+GLib now generates the prototypes for the generated marshallers, so it's
+not necessary to include the header any more.
+
+This fixes a build failure in GNOME Continuous with GLib master, caused
+by -Werror=redundant-decls.
+---
+ clutter/clutter/Makefile.am.marshal | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/clutter/clutter/Makefile.am.marshal b/clutter/clutter/Makefile.am.marshal
+index 89d3222..b6fc896 100644
+--- a/clutter/clutter/Makefile.am.marshal
++++ b/clutter/clutter/Makefile.am.marshal
+@@ -43,10 +43,9 @@ $(marshal_h): stamp-marshal
+ 	@true
+ 
+ $(marshal_c): $(marshal_h)
+-	$(AM_V_GEN)(echo "#include \"$(marshal_h)\"" ; \
+-	$(GLIB_GENMARSHAL) \
++	$(AM_V_GEN)$(GLIB_GENMARSHAL) \
+ 		--prefix=$(glib_marshal_prefix) \
+ 		--body \
+-	$(marshal_list)) > xgen-mc \
+-	&& cp xgen-mc $(marshal_c) \
++	$(marshal_list) > xgen-mc \
++	&& (cmp -s xgen-mc $(marshal_c) || cp -f xgen-mc $(marshal_c)) \
+ 	&& rm -f xgen-mc
+
