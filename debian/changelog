@@ -1,3 +1,10 @@
+mutter (3.24.3-0ubuntu3) artful; urgency=medium
+
+  * debian/control.in:
+    - Don't recommend gnome-session (LP: #1703685)
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Tue, 11 Jul 2017 18:03:13 -0400
+
 mutter (3.24.3-0ubuntu2) artful; urgency=medium
 
   * Add fix-redundant-decls.patch:
