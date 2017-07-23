@@ -1,3 +1,9 @@
+mutter (3.24.4-0ubuntu1) artful; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Sun, 23 Jul 2017 13:04:21 -0400
+
 mutter (3.24.3-0ubuntu3) artful; urgency=medium
 
   * debian/control.in:

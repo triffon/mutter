@@ -140,11 +140,12 @@ gboolean                   meta_input_settings_is_pad_button_grabbed     (MetaIn
                                                                           ClutterInputDevice *pad,
                                                                           guint               button);
 
-gboolean                   meta_input_settings_handle_pad_button         (MetaInputSettings           *input_settings,
-                                                                          const ClutterPadButtonEvent *event);
-gchar *                    meta_input_settings_get_pad_button_action_label (MetaInputSettings  *input_settings,
-                                                                            ClutterInputDevice *pad,
-                                                                            guint               button);
+gboolean                   meta_input_settings_handle_pad_event          (MetaInputSettings    *input_settings,
+                                                                          const ClutterEvent   *event);
+gchar *                    meta_input_settings_get_pad_action_label      (MetaInputSettings  *input_settings,
+                                                                          ClutterInputDevice *pad,
+                                                                          MetaPadActionType   action,
+                                                                          guint               number);
 
 #ifdef HAVE_LIBWACOM
 WacomDevice * meta_input_settings_get_tablet_wacom_device (MetaInputSettings *settings,
