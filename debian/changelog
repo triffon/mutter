@@ -1,3 +1,10 @@
+mutter (3.25.91+20170902~ce515c5-1ubuntu1) artful; urgency=medium
+
+  * Sync with Debian.
+  * Ignore test failures on s390x
+
+ -- Jeremy Bicha <jbicha@ubuntu.com>  Sat, 02 Sep 2017 17:21:59 -0400
+
 mutter (3.25.91+20170902~ce515c5-1) experimental; urgency=medium
 
   * New upstream git snapshot (LP: #1714330)
