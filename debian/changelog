@@ -1,3 +1,10 @@
+mutter (3.26.0+20170925~ea214fb-1ubuntu1) artful; urgency=medium
+
+  * debian/patches/snap_packages_for_app_id.patch
+    - Support snap packages for sandboxed app IDs, cherry picked from master
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Wed, 27 Sep 2017 10:20:38 -0400
+
 mutter (3.26.0+20170925~ea214fb-1) experimental; urgency=medium
 
   * New upstream git snapshot (LP: #1717272)
