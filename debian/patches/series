@@ -8,3 +8,5 @@ git_fix_xorg_maximize_crash.patch
 0009-monitor-manager-use-g_return_val_if_fail-if-trying-t.patch
 0010-backend-move-the-cursor-render-update-on-screen-chan.patch
 0011-workspace-ensure-that-workarea-data-is-valid-when-fe.patch
+git_4ad8c4b86bab938e20e37f47781025911d5ff419.patch
+git_12381d57d1c9256bb1f5206a403c1272bf2af34e.patch

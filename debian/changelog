@@ -1,3 +1,11 @@
+mutter (3.26.1-2ubuntu2) artful; urgency=medium
+
+  * Cherry-pick gdm crasher from gnome-3-26 branch: (LP: #1725153)
+    - git_12381d57d1c9256bb1f5206a403c1272bf2af34e.patch
+    - git_4ad8c4b86bab938e20e37f47781025911d5ff419.patch
+
+ -- Didier Roche <didrocks@ubuntu.com>  Thu, 19 Oct 2017 08:42:04 +0200
+
 mutter (3.26.1-2ubuntu1) artful; urgency=medium
 
   * Cherry-pick more fixes from gnome-3-26 branch (LP: #1722811):
