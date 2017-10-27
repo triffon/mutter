@@ -1,3 +1,15 @@
+mutter (3.26.2-0ubuntu1) bionic; urgency=medium
+
+  [ Jeremy Bicha ]
+  * New upstream release (LP: #1730097)
+  * Drop all cherry-picked patches, applied in new release
+
+  [ Simon McVittie ]
+  * d/changelog: Retroactively add a reference from 3.26.1-2 to #878353
+  * d/p/*.patch: Add metadata to mark remaining patches as Debian-specific
+
+ -- Simon McVittie <smcv@debian.org>  Fri, 27 Oct 2017 12:41:28 +0100
+
 mutter (3.26.1-6) unstable; urgency=high
 
   * debian/control.in: Bump libegl1-mesa-dev to (>= 17) (Closes: #878702)
@@ -47,7 +59,7 @@ mutter (3.26.1-2) experimental; urgency=medium
 
   * Add git_fix_xorg_maximize_crash.patch:
     - Cherry-pick fix for crash when closing windows on Budgie or
-      GNOME Shell (LP: #1722510)
+      GNOME Shell (LP: #1722510, Closes: #878353)
 
  -- Jeremy Bicha <jbicha@debian.org>  Tue, 10 Oct 2017 10:22:41 -0400
 
