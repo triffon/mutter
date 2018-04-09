@@ -14,9 +14,7 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  *
  * Adapted from gnome-session/gnome-session/gs-idle-monitor.c and
  *         from gnome-desktop/libgnome-desktop/gnome-idle-monitor.c
@@ -607,8 +605,10 @@ meta_idle_monitor_remove_watch (MetaIdleMonitor *monitor,
 {
   g_return_if_fail (META_IS_IDLE_MONITOR (monitor));
 
+  g_object_ref (monitor);
   g_hash_table_remove (monitor->watches,
                        GUINT_TO_POINTER (id));
+  g_object_unref (monitor);
 }
 
 /**
@@ -778,6 +778,9 @@ create_monitor_skeleton (GDBusObjectManagerServer *manager,
   meta_dbus_object_skeleton_set_idle_monitor (object, skeleton);
 
   g_dbus_object_manager_server_export (manager, G_DBUS_OBJECT_SKELETON (object));
+
+  g_object_unref (skeleton);
+  g_object_unref (object);
 }
 
 static void
@@ -841,6 +844,8 @@ on_bus_acquired (GDBusConnection *connection,
 
   for (iter = devices; iter; iter = iter->next)
     on_device_added (device_manager, iter->data, manager);
+
+  g_slist_free (devices);
 
   g_signal_connect_object (device_manager, "device-added",
                            G_CALLBACK (on_device_added), manager, 0);
