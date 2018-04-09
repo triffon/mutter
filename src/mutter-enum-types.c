@@ -599,6 +599,7 @@ meta_preference_get_type (void)
         { META_PREF_ACTION_RIGHT_CLICK_TITLEBAR, "META_PREF_ACTION_RIGHT_CLICK_TITLEBAR", "action-right-click-titlebar" },
         { META_PREF_AUTO_RAISE, "META_PREF_AUTO_RAISE", "auto-raise" },
         { META_PREF_AUTO_RAISE_DELAY, "META_PREF_AUTO_RAISE_DELAY", "auto-raise-delay" },
+        { META_PREF_FOCUS_CHANGE_ON_POINTER_REST, "META_PREF_FOCUS_CHANGE_ON_POINTER_REST", "focus-change-on-pointer-rest" },
         { META_PREF_THEME, "META_PREF_THEME", "theme" },
         { META_PREF_TITLEBAR_FONT, "META_PREF_TITLEBAR_FONT", "titlebar-font" },
         { META_PREF_NUM_WORKSPACES, "META_PREF_NUM_WORKSPACES", "num-workspaces" },
