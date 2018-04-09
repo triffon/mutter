@@ -84,8 +84,6 @@ static void     set_net_wm_state          (MetaWindow     *window);
 static void     meta_window_set_above     (MetaWindow     *window,
                                            gboolean        new_value);
 
-static void     meta_window_force_placement (MetaWindow     *window);
-
 static void     meta_window_show          (MetaWindow     *window);
 static void     meta_window_hide          (MetaWindow     *window);
 
@@ -255,6 +253,12 @@ meta_window_real_update_icon (MetaWindow       *window,
   return FALSE;
 }
 
+static uint32_t
+meta_window_real_get_client_pid (MetaWindow *window)
+{
+  return 0;
+}
+
 static void
 meta_window_finalize (GObject *object)
 {
@@ -289,6 +293,7 @@ meta_window_finalize (GObject *object)
   g_free (window->res_name);
   g_free (window->title);
   g_free (window->desc);
+  g_free (window->flatpak_id);
   g_free (window->gtk_theme_variant);
   g_free (window->gtk_application_id);
   g_free (window->gtk_unique_bus_name);
@@ -296,6 +301,7 @@ meta_window_finalize (GObject *object)
   g_free (window->gtk_window_object_path);
   g_free (window->gtk_app_menu_object_path);
   g_free (window->gtk_menubar_object_path);
+  g_free (window->placement_rule);
 
   G_OBJECT_CLASS (meta_window_parent_class)->finalize (object);
 }
@@ -421,6 +427,7 @@ meta_window_class_init (MetaWindowClass *klass)
   klass->update_struts = meta_window_real_update_struts;
   klass->get_default_skip_hints = meta_window_real_get_default_skip_hints;
   klass->update_icon = meta_window_real_update_icon;
+  klass->get_client_pid = meta_window_real_get_client_pid;
 
   obj_props[PROP_TITLE] =
     g_param_spec_string ("title",
@@ -759,6 +766,27 @@ sync_client_window_mapped (MetaWindow *window)
 }
 
 static void
+meta_window_update_flatpak_id (MetaWindow *window)
+{
+  uint32_t pid = meta_window_get_client_pid (window);
+  g_autoptr(GKeyFile) key_file = NULL;
+  g_autofree char *info_filename = NULL;
+
+  g_clear_pointer (&window->flatpak_id, g_free);
+
+  if (pid == 0)
+    return;
+
+  key_file = g_key_file_new ();
+  info_filename = g_strdup_printf ("/proc/%u/root/.flatpak-info", pid);
+
+  if (!g_key_file_load_from_file (key_file, info_filename, G_KEY_FILE_NONE, NULL))
+    return;
+
+  window->flatpak_id = g_key_file_get_string (key_file, "Application", "name", NULL);
+}
+
+static void
 meta_window_update_desc (MetaWindow *window)
 {
   g_autofree gchar *title = NULL;
@@ -857,6 +885,7 @@ _meta_window_shared_new (MetaDisplay         *display,
 
   window->screen = screen;
 
+  meta_window_update_flatpak_id (window);
   meta_window_update_desc (window);
 
   window->override_redirect = attrs->override_redirect;
@@ -2168,7 +2197,7 @@ window_would_be_covered (const MetaWindow *newbie)
   return FALSE; /* none found */
 }
 
-static void
+void
 meta_window_force_placement (MetaWindow *window)
 {
   if (window->placed)
@@ -3180,7 +3209,6 @@ meta_window_make_fullscreen_internal (MetaWindow  *window)
       window->fullscreen = TRUE;
 
       meta_stack_freeze (window->screen->stack);
-      meta_window_update_layer (window);
 
       meta_window_raise (window);
       meta_stack_thaw (window->screen->stack);
@@ -3265,7 +3293,7 @@ meta_window_unmake_fullscreen (MetaWindow  *window)
                                           window, META_SIZE_CHANGE_UNFULLSCREEN,
                                           &old_frame_rect, &old_buffer_rect);
 
-      meta_window_update_layer (window);
+      meta_screen_queue_check_fullscreen (window->screen);
 
       g_object_notify_by_pspec (G_OBJECT (window), obj_props[PROP_FULLSCREEN]);
     }
@@ -4255,6 +4283,17 @@ get_modal_transient (MetaWindow *window)
   return modal_transient;
 }
 
+static gboolean
+meta_window_transient_can_focus (MetaWindow *window)
+{
+#ifdef HAVE_WAYLAND
+  if (window->client_type == META_WINDOW_CLIENT_TYPE_WAYLAND)
+    return meta_wayland_surface_get_buffer (window->surface) != NULL;
+#endif
+
+  return TRUE;
+}
+
 /* XXX META_EFFECT_FOCUS */
 void
 meta_window_focus (MetaWindow  *window,
@@ -4280,7 +4319,8 @@ meta_window_focus (MetaWindow  *window,
 
   modal_transient = get_modal_transient (window);
   if (modal_transient != NULL &&
-      !modal_transient->unmanaging)
+      !modal_transient->unmanaging &&
+      meta_window_transient_can_focus (modal_transient))
     {
       meta_topic (META_DEBUG_FOCUS,
                   "%s has %s as a modal transient, so focusing it instead.\n",
@@ -4301,6 +4341,13 @@ meta_window_focus (MetaWindow  *window,
     }
 
   META_WINDOW_GET_CLASS (window)->focus (window, timestamp);
+
+  if (window->display->event_route == META_EVENT_ROUTE_NORMAL)
+    {
+      MetaBackend *backend = meta_get_backend ();
+      ClutterStage *stage = CLUTTER_STAGE (meta_backend_get_stage (backend));
+      clutter_stage_set_key_focus (stage, NULL);
+    }
 
   if (window->wm_state_demands_attention)
     meta_window_unset_demands_attention(window);
@@ -4783,9 +4830,6 @@ meta_window_set_focused_internal (MetaWindow *window,
       if (window->frame)
         meta_frame_queue_draw (window->frame);
 
-      /* move into FOCUSED_WINDOW layer */
-      meta_window_update_layer (window);
-
       /* Ungrab click to focus button since the sync grab can interfere
        * with some things you might do inside the focused window, by
        * causing the client to get funky enter/leave events.
@@ -4820,9 +4864,6 @@ meta_window_set_focused_internal (MetaWindow *window,
 
       if (!window->attached_focus_window)
         meta_window_appears_focused_changed (window);
-
-      /* move out of FOCUSED_WINDOW layer */
-      meta_window_update_layer (window);
 
       /* Re-grab for click to focus and raise-on-click, if necessary */
       if (meta_prefs_get_focus_mode () == G_DESKTOP_FOCUS_MODE_CLICK ||
@@ -6880,6 +6921,18 @@ meta_window_get_wm_class_instance (MetaWindow *window)
 }
 
 /**
+ * meta_window_get_flatpak_id:
+ * @window: a #MetaWindow
+ *
+ * Return value: (transfer none): the Flatpak application ID or %NULL
+ **/
+const char *
+meta_window_get_flatpak_id (MetaWindow *window)
+{
+  return window->flatpak_id;
+}
+
+/**
  * meta_window_get_gtk_theme_variant:
  * @window: a #MetaWindow
  *
@@ -7042,6 +7095,21 @@ meta_window_get_transient_for (MetaWindow *window)
                                          window->xtransient_for);
   else
     return NULL;
+}
+
+/**
+ * meta_window_get_client_pid:
+ * @window: a #MetaWindow
+ *
+ * Returns the pid of the process that created this window, if available
+ * to the windowing system.
+ *
+ * Return value: the pid, or 0 if not known.
+ */
+uint32_t
+meta_window_get_client_pid (MetaWindow *window)
+{
+  return META_WINDOW_GET_CLASS (window)->get_client_pid (window);
 }
 
 /**
@@ -7423,23 +7491,26 @@ meta_window_set_transient_for (MetaWindow *window,
 
   /* may now be a dialog */
   if (window->client_type == META_WINDOW_CLIENT_TYPE_X11)
-    meta_window_x11_recalc_window_type (window);
-
-  if (!window->constructing)
     {
-      /* If the window attaches, detaches, or changes attached
-       * parents, we need to destroy the MetaWindow and let a new one
-       * be created (which happens as a side effect of
-       * meta_window_unmanage()). The condition below is correct
-       * because we know window->transient_for has changed.
-       */
-      if (window->attached || meta_window_should_attach_to_parent (window))
-        {
-          guint32 timestamp;
+      meta_window_x11_recalc_window_type (window);
 
-          timestamp = meta_display_get_current_time_roundtrip (window->display);
-          meta_window_unmanage (window, timestamp);
-          return;
+      if (!window->constructing)
+        {
+          /* If the window attaches, detaches, or changes attached
+           * parents, we need to destroy the MetaWindow and let a new one
+           * be created (which happens as a side effect of
+           * meta_window_unmanage()). The condition below is correct
+           * because we know window->transient_for has changed.
+           */
+          if (window->attached || meta_window_should_attach_to_parent (window))
+            {
+              guint32 timestamp;
+
+              timestamp =
+                meta_display_get_current_time_roundtrip (window->display);
+              meta_window_unmanage (window, timestamp);
+              return;
+            }
         }
     }
 
@@ -7501,6 +7572,9 @@ mouse_mode_focus (MetaWindow  *window,
                   guint32      timestamp)
 {
   MetaDisplay *display = window->display;
+
+  if (window->override_redirect)
+    return;
 
   if (window->type != META_WINDOW_DESKTOP)
     {
@@ -7928,4 +8002,10 @@ void
 meta_window_emit_size_changed (MetaWindow *window)
 {
   g_signal_emit (window, window_signals[SIZE_CHANGED], 0);
+}
+
+MetaPlacementRule *
+meta_window_get_placement_rule (MetaWindow *window)
+{
+  return window->placement_rule;
 }

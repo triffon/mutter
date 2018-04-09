@@ -13,6 +13,7 @@ AM_CPPFLAGS = \
 	-DCLUTTER_ENABLE_EXPERIMENTAL_API				\
 	-DCOGL_ENABLE_EXPERIMENTAL_API					\
 	-DCOGL_ENABLE_EXPERIMENTAL_2_0_API                              \
+	-DCOGL_ENABLE_MUTTER_API					\
 	-DCLUTTER_DISABLE_DEPRECATION_WARNINGS				\
 	-DCOGL_DISABLE_DEPRECATION_WARNINGS				\
 	$(MUTTER_CFLAGS)						\
@@ -23,6 +24,15 @@ AM_CPPFLAGS = \
 	-I$(srcdir)/core						\
 	-I$(srcdir)/ui							\
 	-I$(srcdir)/compositor						\
+	-I$(top_srcdir)/cogl						\
+	-I$(top_srcdir)/cogl/cogl					\
+	-I$(top_srcdir)/cogl/cogl/winsys				\
+	-I$(top_builddir)/cogl/cogl					\
+	-I$(top_builddir)/cogl						\
+	-I$(top_srcdir)/clutter						\
+	-I$(top_srcdir)/clutter/clutter					\
+	-I$(top_builddir)/clutter					\
+	-I$(top_builddir)/clutter/clutter				\
 	-DMUTTER_LIBEXECDIR=\"$(libexecdir)\"				\
 	-DMUTTER_LOCALEDIR=\"$(localedir)\"				\
 	-DMUTTER_PKGDATADIR=\"$(pkgdatadir)\"				\
@@ -51,12 +61,16 @@ mutter_built_sources += \
 	gtk-shell-server-protocol.h		\
 	gtk-primary-selection-protocol.c				\
 	gtk-primary-selection-server-protocol.h				\
-	xdg-shell-unstable-v5-protocol.c				\
-	xdg-shell-unstable-v5-server-protocol.h				\
+	xdg-shell-unstable-v6-protocol.c				\
+	xdg-shell-unstable-v6-server-protocol.h				\
 	relative-pointer-unstable-v1-protocol.c				\
 	relative-pointer-unstable-v1-server-protocol.h			\
 	pointer-constraints-unstable-v1-protocol.c			\
 	pointer-constraints-unstable-v1-server-protocol.h		\
+	tablet-unstable-v2-protocol.c					\
+	tablet-unstable-v2-server-protocol.h				\
+	xdg-foreign-unstable-v1-protocol.c				\
+	xdg-foreign-unstable-v1-server-protocol.h			\
 	$(NULL)
 endif
 
@@ -95,12 +109,18 @@ libmutter_la_SOURCES =				\
 	backends/meta-pointer-constraint.h	\
 	backends/meta-stage.h			\
 	backends/meta-stage.c			\
+	backends/meta-renderer.c		\
+	backends/meta-renderer.h		\
+	backends/meta-renderer-view.c		\
+	backends/meta-renderer-view.h		\
 	backends/edid-parse.c			\
 	backends/edid.h				\
 	backends/x11/meta-backend-x11.c			\
 	backends/x11/meta-backend-x11.h			\
 	backends/x11/meta-barrier-x11.c			\
 	backends/x11/meta-barrier-x11.h			\
+	backends/x11/meta-clutter-backend-x11.c		\
+	backends/x11/meta-clutter-backend-x11.h		\
 	backends/x11/meta-cursor-renderer-x11.c		\
 	backends/x11/meta-cursor-renderer-x11.h		\
 	backends/x11/nested/meta-cursor-renderer-x11-nested.c		\
@@ -111,6 +131,10 @@ libmutter_la_SOURCES =				\
 	backends/x11/meta-input-settings-x11.h		\
 	backends/x11/meta-monitor-manager-xrandr.c	\
 	backends/x11/meta-monitor-manager-xrandr.h	\
+	backends/x11/meta-renderer-x11.c		\
+	backends/x11/meta-renderer-x11.h		\
+	backends/x11/meta-stage-x11-nested.c		\
+	backends/x11/meta-stage-x11-nested.h		\
 	core/meta-accel-parse.c			\
 	core/meta-accel-parse.h			\
 	meta/barrier.h				\
@@ -267,6 +291,8 @@ libmutter_la_SOURCES +=				\
 	wayland/meta-wayland-data-device.c      \
 	wayland/meta-wayland-data-device.h      \
 	wayland/meta-wayland-data-device-private.h	\
+	wayland/meta-wayland-input-device.c	\
+	wayland/meta-wayland-input-device.h	\
 	wayland/meta-wayland-pointer-gestures.c	\
 	wayland/meta-wayland-pointer-gestures.h	\
 	wayland/meta-wayland-pointer-gesture-swipe.c	\
@@ -287,16 +313,44 @@ libmutter_la_SOURCES +=				\
 	wayland/meta-wayland-popup.h		\
 	wayland/meta-wayland-seat.c		\
 	wayland/meta-wayland-seat.h		\
+	wayland/meta-wayland-tablet.c		\
+	wayland/meta-wayland-tablet.h		\
+	wayland/meta-wayland-tablet-manager.c	\
+	wayland/meta-wayland-tablet-manager.h	\
+	wayland/meta-wayland-tablet-seat.c	\
+	wayland/meta-wayland-tablet-seat.h	\
+	wayland/meta-wayland-tablet-tool.c	\
+	wayland/meta-wayland-tablet-tool.h	\
+	wayland/meta-wayland-tablet-pad.c	\
+	wayland/meta-wayland-tablet-pad.h	\
+	wayland/meta-wayland-tablet-pad-group.c	\
+	wayland/meta-wayland-tablet-pad-group.h	\
+	wayland/meta-wayland-tablet-pad-ring.c	\
+	wayland/meta-wayland-tablet-pad-ring.h	\
+	wayland/meta-wayland-tablet-pad-strip.c	\
+	wayland/meta-wayland-tablet-pad-strip.h	\
 	wayland/meta-wayland-touch.c		\
 	wayland/meta-wayland-touch.h		\
 	wayland/meta-wayland-surface.c		\
 	wayland/meta-wayland-surface.h		\
+	wayland/meta-wayland-surface-role-cursor.c	\
+	wayland/meta-wayland-surface-role-cursor.h	\
+	wayland/meta-wayland-surface-role-tablet-cursor.c	\
+	wayland/meta-wayland-surface-role-tablet-cursor.h	\
 	wayland/meta-wayland-types.h		\
 	wayland/meta-wayland-versions.h		\
 	wayland/meta-wayland-outputs.c		\
 	wayland/meta-wayland-outputs.h		\
+	wayland/meta-wayland-xdg-foreign.c     	\
+	wayland/meta-wayland-xdg-foreign.h     	\
 	wayland/meta-window-wayland.c		\
 	wayland/meta-window-wayland.h		\
+	wayland/meta-wayland-xdg-shell.c	\
+	wayland/meta-wayland-xdg-shell.h	\
+	wayland/meta-wayland-wl-shell.c		\
+	wayland/meta-wayland-wl-shell.h		\
+	wayland/meta-wayland-gtk-shell.c	\
+	wayland/meta-wayland-gtk-shell.h	\
 	$(NULL)
 endif
 
@@ -307,8 +361,11 @@ libmutter_la_SOURCES +=					\
 	backends/native/meta-backend-native-private.h	\
 	backends/native/meta-barrier-native.c		\
 	backends/native/meta-barrier-native.h		\
+	backends/native/meta-clutter-backend-native.c	\
+	backends/native/meta-clutter-backend-native.h	\
 	backends/native/meta-cursor-renderer-native.c	\
 	backends/native/meta-cursor-renderer-native.h	\
+	backends/native/meta-default-modes.h		\
 	backends/native/meta-idle-monitor-native.c	\
 	backends/native/meta-idle-monitor-native.h	\
 	backends/native/meta-input-settings-native.c	\
@@ -317,6 +374,10 @@ libmutter_la_SOURCES +=					\
 	backends/native/meta-monitor-manager-kms.h	\
 	backends/native/meta-launcher.c			\
 	backends/native/meta-launcher.h			\
+	backends/native/meta-renderer-native.c		\
+	backends/native/meta-renderer-native.h		\
+	backends/native/meta-stage-native.c		\
+	backends/native/meta-stage-native.h		\
 	backends/native/dbus-utils.c			\
 	backends/native/dbus-utils.h			\
 	$(NULL)
@@ -325,7 +386,11 @@ endif
 nodist_libmutter_la_SOURCES = $(mutter_built_sources)
 
 libmutter_la_LDFLAGS = -no-undefined -export-symbols-regex "^(meta|ag)_.*"
-libmutter_la_LIBADD  = $(MUTTER_LIBS) $(MUTTER_NATIVE_BACKEND_LIBS)
+libmutter_la_LIBADD  = \
+	$(MUTTER_LIBS) \
+	$(MUTTER_NATIVE_BACKEND_LIBS)	\
+	$(top_builddir)/clutter/clutter/libmutter-clutter-1.0.la \
+	$(NULL)
 
 # Headers installed for plugins; introspected information will
 # be extracted into Mutter-<version>.gir
@@ -410,6 +475,8 @@ typelibdir = $(pkglibdir)
 typelib_DATA = Meta-$(api_version).typelib
 
 INTROSPECTION_GIRS = Meta-$(api_version).gir
+INTROSPECTION_SCANNER_ARGS = --add-include-path=$(top_builddir)/clutter/clutter --add-include-path=$(top_builddir)/cogl/cogl --add-include-path=$(top_builddir)/cogl/cogl-pango
+INTROSPECTION_COMPILER_ARGS = --includedir=$(top_builddir)/clutter/clutter --includedir=$(top_builddir)/cogl/cogl --includedir=$(top_builddir)/cogl/cogl-pango
 
 Meta-$(api_version).gir: libmutter.la
 @META_GIR@_INCLUDES = GObject-2.0 GDesktopEnums-3.0 Gdk-3.0 Gtk-3.0 Clutter-1.0 xlib-2.0 xfixes-4.0 Cogl-1.0
@@ -444,6 +511,7 @@ EXTRA_DIST +=					\
 	org.freedesktop.login1.xml		\
 	org.gnome.Mutter.DisplayConfig.xml	\
 	org.gnome.Mutter.IdleMonitor.xml	\
+	backends/native/gen-default-modes.py	\
 	$(NULL)
 
 BUILT_SOURCES =					\
@@ -479,6 +547,7 @@ $(dbus_display_config_built_sources) : Makefile.am org.gnome.Mutter.DisplayConfi
 		--interface-prefix org.gnome.Mutter					\
 		--c-namespace MetaDBus							\
 		--generate-c-code meta-dbus-display-config				\
+		--c-generate-autocleanup all						\
 		$(srcdir)/org.gnome.Mutter.DisplayConfig.xml
 
 $(dbus_idle_built_sources) : Makefile.am org.gnome.Mutter.IdleMonitor.xml
@@ -487,6 +556,7 @@ $(dbus_idle_built_sources) : Makefile.am org.gnome.Mutter.IdleMonitor.xml
 		--c-namespace MetaDBus							\
 		--generate-c-code meta-dbus-idle-monitor				\
 		--c-generate-object-manager						\
+		--c-generate-autocleanup all						\
 		$(srcdir)/org.gnome.Mutter.IdleMonitor.xml
 
 dbus_login1_built_sources = meta-dbus-login1.c meta-dbus-login1.h
@@ -496,7 +566,14 @@ $(dbus_login1_built_sources) : Makefile.am org.freedesktop.login1.xml
 		--interface-prefix org.freedesktop.login1				\
 		--c-namespace Login1							\
 		--generate-c-code meta-dbus-login1					\
+		--c-generate-autocleanup all						\
 		$(srcdir)/org.freedesktop.login1.xml
+
+backends/native/meta-default-modes.h: backends/native/gen-default-modes.py Makefile.am
+	@if test -n "$(CVT)"; then \
+		if $(AM_V_P); then PS4= set -x; else echo "  GEN      $@"; fi; \
+		python $< > $@; \
+	fi
 
 .SECONDEXPANSION:
 
@@ -509,10 +586,10 @@ $(shell echo $1 | sed 's/\([a-z\-]\+\)-[a-z]\+-v[0-9]\+/\1/')
 endef
 
 %-protocol.c : $(WAYLAND_PROTOCOLS_DATADIR)/$$(call protostability,$$*)/$$(call protoname,$$*)/$$*.xml
-	$(AM_V_GEN)$(WAYLAND_SCANNER) code < $< > $@
+	$(AM_V_GEN)$(WAYLAND_SCANNER) code $< $@
 %-server-protocol.h : $(WAYLAND_PROTOCOLS_DATADIR)/$$(call protostability,$$*)/$$(call protoname,$$*)/$$*.xml
-	$(AM_V_GEN)$(WAYLAND_SCANNER) server-header < $< > $@
+	$(AM_V_GEN)$(WAYLAND_SCANNER) server-header $< $@
 %-protocol.c : $(srcdir)/wayland/protocol/%.xml
-	$(AM_V_GEN)$(WAYLAND_SCANNER) code < $< > $@
+	$(AM_V_GEN)$(WAYLAND_SCANNER) code $< $@
 %-server-protocol.h : $(srcdir)/wayland/protocol/%.xml
-	$(AM_V_GEN)$(WAYLAND_SCANNER) server-header < $< > $@
+	$(AM_V_GEN)$(WAYLAND_SCANNER) server-header $< $@

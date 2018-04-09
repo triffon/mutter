@@ -11,7 +11,7 @@
 #include <math.h>
 
 #include <clutter/x11/clutter-x11.h>
-#include <cogl/cogl-texture-pixmap-x11.h>
+#include <cogl/winsys/cogl-texture-pixmap-x11.h>
 #include <gdk/gdk.h> /* for gdk_rectangle_union() */
 #include <string.h>
 
@@ -23,6 +23,7 @@
 #include <meta/meta-enum-types.h>
 #include <meta/meta-shadow-factory.h>
 
+#include "clutter/clutter-mutter.h"
 #include "compositor-private.h"
 #include "meta-shaped-texture-private.h"
 #include "meta-window-actor-private.h"
@@ -349,6 +350,21 @@ meta_window_actor_freeze (MetaWindowActor *self)
 }
 
 static void
+meta_window_actor_sync_thawed_state (MetaWindowActor *self)
+{
+  MetaWindowActorPrivate *priv = self->priv;
+
+  if (priv->first_frame_state == INITIALLY_FROZEN)
+    priv->first_frame_state = DRAWING_FIRST_FRAME;
+
+  if (priv->surface)
+    meta_surface_actor_set_frozen (priv->surface, FALSE);
+
+  /* We sometimes ignore moves and resizes on frozen windows */
+  meta_window_actor_sync_actor_geometry (self, FALSE);
+}
+
+static void
 meta_window_actor_thaw (MetaWindowActor *self)
 {
   MetaWindowActorPrivate *priv = self->priv;
@@ -360,14 +376,11 @@ meta_window_actor_thaw (MetaWindowActor *self)
   if (priv->freeze_count > 0)
     return;
 
-  if (priv->first_frame_state == INITIALLY_FROZEN)
-    priv->first_frame_state = DRAWING_FIRST_FRAME;
+  /* We still might be frozen due to lack of a MetaSurfaceActor */
+  if (is_frozen (self))
+    return;
 
-  if (priv->surface)
-    meta_surface_actor_set_frozen (priv->surface, FALSE);
-
-  /* We sometimes ignore moves and resizes on frozen windows */
-  meta_window_actor_sync_actor_geometry (self, FALSE);
+  meta_window_actor_sync_thawed_state (self);
 
   /* We do this now since we might be going right back into the
    * frozen state */
@@ -400,14 +413,12 @@ set_surface (MetaWindowActor  *self,
                                                 G_CALLBACK (surface_size_changed), self);
       clutter_actor_add_child (CLUTTER_ACTOR (self), CLUTTER_ACTOR (priv->surface));
 
-      /* If the previous surface actor was frozen, start out
-       * frozen as well... */
-      meta_surface_actor_set_frozen (priv->surface, priv->freeze_count > 0);
-
-      if (!is_frozen (self) && priv->first_frame_state == INITIALLY_FROZEN)
-        priv->first_frame_state = DRAWING_FIRST_FRAME;
-
       meta_window_actor_update_shape (self);
+
+      if (is_frozen (self))
+        meta_surface_actor_set_frozen (priv->surface, TRUE);
+      else
+        meta_window_actor_sync_thawed_state (self);
     }
 }
 
@@ -612,20 +623,6 @@ meta_window_actor_get_shape_bounds (MetaWindowActor       *self,
   MetaWindowActorPrivate *priv = self->priv;
 
   cairo_region_get_extents (priv->shape_region, bounds);
-
-#ifdef HAVE_WAYLAND
-  if (META_IS_SURFACE_ACTOR_WAYLAND (priv->surface))
-    {
-      MetaSurfaceActorWayland *surface_actor =
-        META_SURFACE_ACTOR_WAYLAND (priv->surface);
-      double scale = meta_surface_actor_wayland_get_scale (surface_actor);
-
-      bounds->x *= scale;
-      bounds->y *= scale;
-      bounds->width *= scale;
-      bounds->height *= scale;
-    }
-#endif
 }
 
 static void
@@ -673,6 +670,8 @@ static void
 assign_frame_counter_to_frames (MetaWindowActor *self)
 {
   MetaWindowActorPrivate *priv = self->priv;
+  MetaCompositor *compositor = priv->compositor;
+  ClutterStage *stage = CLUTTER_STAGE (compositor->stage);
   GList *l;
 
   /* If the window is obscured, then we're expecting to deal with sending
@@ -686,10 +685,7 @@ assign_frame_counter_to_frames (MetaWindowActor *self)
       FrameData *frame = l->data;
 
       if (frame->frame_counter == -1)
-        {
-          CoglOnscreen *onscreen = COGL_ONSCREEN (cogl_get_draw_framebuffer());
-          frame->frame_counter = cogl_onscreen_get_frame_counter (onscreen);
-        }
+        frame->frame_counter = clutter_stage_get_frame_counter (stage);
     }
 }
 
@@ -2043,13 +2039,13 @@ do_send_frame_timings (MetaWindowActor  *self,
 static void
 send_frame_timings (MetaWindowActor  *self,
                     FrameData        *frame,
-                    CoglFrameInfo    *frame_info,
+                    ClutterFrameInfo *frame_info,
                     gint64            presentation_time)
 {
   float refresh_rate;
   int refresh_interval;
 
-  refresh_rate = cogl_frame_info_get_refresh_rate (frame_info);
+  refresh_rate = frame_info->refresh_rate;
   /* 0.0 is a flag for not known, but sanity-check against other odd numbers */
   if (refresh_rate >= 1.0)
     refresh_interval = (int) (0.5 + 1000000 / refresh_rate);
@@ -2060,9 +2056,9 @@ send_frame_timings (MetaWindowActor  *self,
 }
 
 void
-meta_window_actor_frame_complete (MetaWindowActor *self,
-                                  CoglFrameInfo   *frame_info,
-                                  gint64           presentation_time)
+meta_window_actor_frame_complete (MetaWindowActor  *self,
+                                  ClutterFrameInfo *frame_info,
+                                  gint64            presentation_time)
 {
   MetaWindowActorPrivate *priv = self->priv;
   GList *l;
@@ -2074,7 +2070,7 @@ meta_window_actor_frame_complete (MetaWindowActor *self,
     {
       GList *l_next = l->next;
       FrameData *frame = l->data;
-      gint64 frame_counter = cogl_frame_info_get_frame_counter (frame_info);
+      gint64 frame_counter = frame_info->frame_counter;
 
       if (frame->frame_counter != -1 && frame->frame_counter <= frame_counter)
         {

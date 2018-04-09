@@ -88,6 +88,47 @@ typedef enum
   META_MOVE_RESIZE_RESULT_FRAME_SHAPE_CHANGED = 1 << 2,
 } MetaMoveResizeResultFlags;
 
+typedef enum
+{
+  META_PLACEMENT_GRAVITY_NONE   = 0,
+  META_PLACEMENT_GRAVITY_TOP    = 1 << 0,
+  META_PLACEMENT_GRAVITY_BOTTOM = 1 << 1,
+  META_PLACEMENT_GRAVITY_LEFT   = 1 << 2,
+  META_PLACEMENT_GRAVITY_RIGHT  = 1 << 3,
+} MetaPlacementGravity;
+
+typedef enum
+{
+  META_PLACEMENT_ANCHOR_NONE   = 0,
+  META_PLACEMENT_ANCHOR_TOP    = 1 << 0,
+  META_PLACEMENT_ANCHOR_BOTTOM = 1 << 1,
+  META_PLACEMENT_ANCHOR_LEFT   = 1 << 2,
+  META_PLACEMENT_ANCHOR_RIGHT  = 1 << 3,
+} MetaPlacementAnchor;
+
+typedef enum
+{
+  META_PLACEMENT_CONSTRAINT_ADJUSTMENT_NONE     = 0,
+  META_PLACEMENT_CONSTRAINT_ADJUSTMENT_SLIDE_X  = 1 << 0,
+  META_PLACEMENT_CONSTRAINT_ADJUSTMENT_SLIDE_Y  = 1 << 1,
+  META_PLACEMENT_CONSTRAINT_ADJUSTMENT_FLIP_X   = 1 << 2,
+  META_PLACEMENT_CONSTRAINT_ADJUSTMENT_FLIP_Y   = 1 << 3,
+  META_PLACEMENT_CONSTRAINT_ADJUSTMENT_RESIZE_X = 1 << 4,
+  META_PLACEMENT_CONSTRAINT_ADJUSTMENT_RESIZE_Y = 1 << 5,
+} MetaPlacementConstraintAdjustment;
+
+typedef struct _MetaPlacementRule
+{
+  MetaRectangle anchor_rect;
+  MetaPlacementGravity gravity;
+  MetaPlacementAnchor anchor;
+  MetaPlacementConstraintAdjustment constraint_adjustment;
+  int offset_x;
+  int offset_y;
+  int width;
+  int height;
+} MetaPlacementRule;
+
 struct _MetaWindow
 {
   GObject parent_instance;
@@ -123,6 +164,7 @@ struct _MetaWindow
 
   char *startup_id;
   char *mutter_hints;
+  char *flatpak_id;
   char *gtk_theme_variant;
   char *gtk_application_id;
   char *gtk_unique_bus_name;
@@ -416,8 +458,10 @@ struct _MetaWindow
    *
    * For X11 windows, this matches XGetGeometry of the toplevel.
    *
-   * For Wayland windows, this matches the buffer size and where
-   * the surface actor is positioned. */
+   * For Wayland windows, the position matches the position of the
+   * surface associated with shell surface (wl_shell_surface, xdg_surface
+   * etc). The size matches the size surface size as displayed in the stage.
+   */
   MetaRectangle buffer_rect;
 
   /* Cached net_wm_icon_geometry */
@@ -446,6 +490,8 @@ struct _MetaWindow
 
   /* Bypass compositor hints */
   guint bypass_compositor;
+
+  MetaPlacementRule *placement_rule;
 };
 
 struct _MetaWindowClass
@@ -479,6 +525,7 @@ struct _MetaWindowClass
   gboolean (*update_icon)        (MetaWindow       *window,
                                   cairo_surface_t **icon,
                                   cairo_surface_t **mini_icon);
+  uint32_t (*get_client_pid)     (MetaWindow *window);
   void (*update_main_monitor)    (MetaWindow *window);
   void (*main_monitor_changed)   (MetaWindow *window,
                                   const MetaMonitorInfo *old);
@@ -660,6 +707,8 @@ void meta_window_handle_leave (MetaWindow  *window);
 void meta_window_handle_ungrabbed_event (MetaWindow         *window,
                                          const ClutterEvent *event);
 
+uint32_t meta_window_get_client_pid (MetaWindow *window);
+
 void meta_window_get_client_area_rect (const MetaWindow      *window,
                                        cairo_rectangle_int_t *rect);
 void meta_window_get_titlebar_rect (MetaWindow    *window,
@@ -694,5 +743,9 @@ void meta_window_set_alive (MetaWindow *window, gboolean is_alive);
 gboolean meta_window_has_pointer (MetaWindow *window);
 
 void meta_window_emit_size_changed (MetaWindow *window);
+
+MetaPlacementRule *meta_window_get_placement_rule (MetaWindow *window);
+
+void meta_window_force_placement (MetaWindow *window);
 
 #endif

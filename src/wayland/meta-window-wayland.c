@@ -34,6 +34,7 @@
 #include "stack-tracker.h"
 #include "meta-wayland-private.h"
 #include "meta-wayland-surface.h"
+#include "meta-wayland-xdg-shell.h"
 #include "compositor/meta-surface-actor-wayland.h"
 
 struct _MetaWindowWayland
@@ -45,6 +46,8 @@ struct _MetaWindowWayland
   int pending_move_x;
   int pending_move_y;
 
+  int last_sent_x;
+  int last_sent_y;
   int last_sent_width;
   int last_sent_height;
 };
@@ -69,15 +72,7 @@ meta_window_wayland_manage (MetaWindow *window)
                                    0);
   }
 
-  if (META_IS_WAYLAND_SURFACE_ROLE_XDG_POPUP (window->surface->role))
-    {
-      MetaWaylandSurface *parent = window->surface->popup.parent;
-
-      g_assert (parent);
-
-      meta_window_set_transient_for (window, parent->window);
-      meta_window_set_type (window, META_WINDOW_DROPDOWN_MENU);
-    }
+  meta_wayland_surface_window_managed (window->surface, window);
 }
 
 static void
@@ -111,24 +106,6 @@ meta_window_wayland_kill (MetaWindow *window)
 {
   MetaWaylandSurface *surface = window->surface;
   struct wl_resource *resource = surface->resource;
-  pid_t pid;
-  uid_t uid;
-  gid_t gid;
-
-  wl_client_get_credentials (wl_resource_get_client (resource), &pid, &uid, &gid);
-  if (pid > 0)
-    {
-      meta_topic (META_DEBUG_WINDOW_OPS,
-                  "Killing %s with kill()\n",
-                  window->desc);
-
-      if (kill (pid, 9) == 0)
-        return;
-
-      meta_topic (META_DEBUG_WINDOW_OPS,
-                  "Failed to signal %s: %s\n",
-                  window->desc, strerror (errno));
-    }
 
   /* Send the client an unrecoverable error to kill the client. */
   wl_resource_post_error (resource,
@@ -156,6 +133,8 @@ surface_state_changed (MetaWindow *window)
     return;
 
   meta_wayland_surface_configure_notify (window->surface,
+                                         wl_window->last_sent_x,
+                                         wl_window->last_sent_y,
                                          wl_window->last_sent_width,
                                          wl_window->last_sent_height,
                                          &wl_window->pending_configure_serial);
@@ -191,6 +170,8 @@ meta_window_wayland_move_resize_internal (MetaWindow                *window,
 {
   MetaWindowWayland *wl_window = META_WINDOW_WAYLAND (window);
   gboolean can_move_now;
+  int configured_x;
+  int configured_y;
   int configured_width;
   int configured_height;
   int monitor_scale;
@@ -200,6 +181,9 @@ meta_window_wayland_move_resize_internal (MetaWindow                *window,
   /* don't do anything if we're dropping the window, see #751847 */
   if (window->unmanaging)
     return;
+
+  configured_x = constrained_rect.x;
+  configured_y = constrained_rect.y;
 
   /* The scale the window is drawn in might change depending on what monitor it
    * is mainly on. Scale the configured rectangle to be in logical pixel
@@ -263,6 +247,8 @@ meta_window_wayland_move_resize_internal (MetaWindow                *window,
             return;
 
           meta_wayland_surface_configure_notify (window->surface,
+                                                 configured_x,
+                                                 configured_y,
                                                  configured_width,
                                                  configured_height,
                                                  &wl_window->pending_configure_serial);
@@ -278,6 +264,8 @@ meta_window_wayland_move_resize_internal (MetaWindow                *window,
         }
     }
 
+  wl_window->last_sent_x = configured_x;
+  wl_window->last_sent_y = configured_y;
   wl_window->last_sent_width = configured_width;
   wl_window->last_sent_height = configured_height;
 
@@ -319,10 +307,28 @@ meta_window_wayland_move_resize_internal (MetaWindow                *window,
 }
 
 static void
-scale_rect_size (MetaRectangle *rect, float scale)
+scale_size (int  *width,
+            int  *height,
+            float scale)
 {
-  rect->width = (int)(rect->width * scale);
-  rect->height = (int)(rect->height * scale);
+  if (*width < G_MAXINT)
+    {
+      float new_width = (*width * scale);
+      *width = (int) MIN (new_width, G_MAXINT);
+    }
+
+  if (*height < G_MAXINT)
+    {
+      float new_height = (*height * scale);
+      *height = (int) MIN (new_height, G_MAXINT);
+    }
+}
+
+static void
+scale_rect_size (MetaRectangle *rect,
+                 float          scale)
+{
+  scale_size (&rect->width, &rect->height, scale);
 }
 
 static void
@@ -393,6 +399,9 @@ meta_window_wayland_main_monitor_changed (MetaWindow *window,
   scale_rect_size (&window->rect, scale_factor);
   scale_rect_size (&window->unconstrained_rect, scale_factor);
   scale_rect_size (&window->saved_rect, scale_factor);
+  scale_size (&window->size_hints.min_width, &window->size_hints.min_height, scale_factor);
+  scale_size (&window->size_hints.max_width, &window->size_hints.max_height, scale_factor);
+
 
   /* Window geometry offset (XXX: Need a better place, see
    * meta_window_wayland_move_resize). */
@@ -424,6 +433,17 @@ meta_window_wayland_main_monitor_changed (MetaWindow *window,
     }
 
   meta_window_emit_size_changed (window);
+}
+
+static uint32_t
+meta_window_wayland_get_client_pid (MetaWindow *window)
+{
+  MetaWaylandSurface *surface = window->surface;
+  struct wl_resource *resource = surface->resource;
+  pid_t pid;
+
+  wl_client_get_credentials (wl_resource_get_client (resource), &pid, NULL, NULL);
+  return (uint32_t)pid;
 }
 
 static void
@@ -460,39 +480,29 @@ meta_window_wayland_class_init (MetaWindowWaylandClass *klass)
   window_class->move_resize_internal = meta_window_wayland_move_resize_internal;
   window_class->update_main_monitor = meta_window_wayland_update_main_monitor;
   window_class->main_monitor_changed = meta_window_wayland_main_monitor_changed;
+  window_class->get_client_pid = meta_window_wayland_get_client_pid;
 }
 
 MetaWindow *
 meta_window_wayland_new (MetaDisplay        *display,
                          MetaWaylandSurface *surface)
 {
-  XWindowAttributes attrs;
+  XWindowAttributes attrs = { 0 };
   MetaScreen *scr = display->screen;
   MetaWindow *window;
 
+  /*
+   * Set attributes used by _meta_window_shared_new, don't bother trying to fake
+   * X11 window attributes with the rest, since they'll be ignored anyway.
+   */
   attrs.x = 0;
   attrs.y = 0;
   attrs.width = 0;
   attrs.height = 0;
-  attrs.border_width = 0;
   attrs.depth = 24;
   attrs.visual = NULL;
-  attrs.root = scr->xroot;
-  attrs.class = InputOutput;
-  attrs.bit_gravity = NorthWestGravity;
-  attrs.win_gravity = NorthWestGravity;
-  attrs.backing_store = 0;
-  attrs.backing_planes = ~0;
-  attrs.backing_pixel = 0;
-  attrs.save_under = 0;
-  attrs.colormap = 0;
-  attrs.map_installed = 1;
   attrs.map_state = IsUnmapped;
-  attrs.all_event_masks = ~0;
-  attrs.your_event_mask = 0;
-  attrs.do_not_propagate_mask = 0;
-  attrs.override_redirect = 0;
-  attrs.screen = scr->xscreen;
+  attrs.override_redirect = False;
 
   /* XXX: Note: In the Wayland case we currently still trap X errors while
    * creating a MetaWindow because we will still be making various redundant
@@ -642,3 +652,152 @@ meta_window_wayland_place_relative_to (MetaWindow *window,
                           other->buffer_rect.y + (y * monitor_scale));
   window->placed = TRUE;
 }
+
+void
+meta_window_place_with_placement_rule (MetaWindow        *window,
+                                       MetaPlacementRule *placement_rule)
+{
+  g_clear_pointer (&window->placement_rule, g_free);
+  window->placement_rule = g_new0 (MetaPlacementRule, 1);
+  *window->placement_rule = *placement_rule;
+
+  window->unconstrained_rect.width = placement_rule->width;
+  window->unconstrained_rect.height = placement_rule->height;
+  meta_window_force_placement (window);
+}
+
+void
+meta_window_wayland_set_min_size (MetaWindow *window,
+                                  int         width,
+                                  int         height)
+{
+  gint64 new_width, new_height;
+  float scale;
+
+  meta_topic (META_DEBUG_GEOMETRY, "Window %s sets min size %d x %d\n",
+              window->desc, width, height);
+
+  if (width == 0 && height == 0)
+    {
+      window->size_hints.min_width = 0;
+      window->size_hints.min_height = 0;
+      window->size_hints.flags &= ~PMinSize;
+
+      return;
+    }
+
+  scale = (float) meta_window_wayland_get_main_monitor_scale (window);
+  scale_size (&width, &height, scale);
+
+  new_width = width + (window->custom_frame_extents.left +
+                       window->custom_frame_extents.right);
+  new_height = height + (window->custom_frame_extents.top +
+                         window->custom_frame_extents.bottom);
+
+  window->size_hints.min_width = (int) MIN (new_width, G_MAXINT);
+  window->size_hints.min_height = (int) MIN (new_height, G_MAXINT);
+  window->size_hints.flags |= PMinSize;
+}
+
+void
+meta_window_wayland_set_max_size (MetaWindow *window,
+                                  int         width,
+                                  int         height)
+
+{
+  gint64 new_width, new_height;
+  float scale;
+
+  meta_topic (META_DEBUG_GEOMETRY, "Window %s sets max size %d x %d\n",
+              window->desc, width, height);
+
+  if (width == 0 && height == 0)
+    {
+      window->size_hints.max_width = G_MAXINT;
+      window->size_hints.max_height = G_MAXINT;
+      window->size_hints.flags &= ~PMaxSize;
+
+      return;
+    }
+
+  scale = (float) meta_window_wayland_get_main_monitor_scale (window);
+  scale_size (&width, &height, scale);
+
+  new_width = width + (window->custom_frame_extents.left +
+                       window->custom_frame_extents.right);
+  new_height = height + (window->custom_frame_extents.top +
+                         window->custom_frame_extents.bottom);
+
+  window->size_hints.max_width = (int) ((new_width > 0 && new_width < G_MAXINT) ?
+                                        new_width : G_MAXINT);
+  window->size_hints.max_height = (int)  ((new_height > 0 && new_height < G_MAXINT) ?
+                                          new_height : G_MAXINT);
+  window->size_hints.flags |= PMaxSize;
+}
+
+void
+meta_window_wayland_get_min_size (MetaWindow *window,
+                                  int        *width,
+                                  int        *height)
+{
+  gint64 current_width, current_height;
+  float scale;
+
+  if (!(window->size_hints.flags & PMinSize))
+    {
+      /* Zero means unlimited */
+      *width = 0;
+      *height = 0;
+
+      return;
+    }
+
+  current_width = window->size_hints.min_width -
+                  (window->custom_frame_extents.left +
+                   window->custom_frame_extents.right);
+  current_height = window->size_hints.min_height -
+                   (window->custom_frame_extents.top +
+                    window->custom_frame_extents.bottom);
+
+  *width = MAX (current_width, 0);
+  *height = MAX (current_height, 0);
+
+  scale = 1.0 / (float) meta_window_wayland_get_main_monitor_scale (window);
+  scale_size (width, height, scale);
+}
+
+void
+meta_window_wayland_get_max_size (MetaWindow *window,
+                                  int        *width,
+                                  int        *height)
+{
+  gint64 current_width = 0;
+  gint64 current_height = 0;
+  float scale;
+
+  if (!(window->size_hints.flags & PMaxSize))
+    {
+      /* Zero means unlimited */
+      *width = 0;
+      *height = 0;
+
+      return;
+    }
+
+  if (window->size_hints.max_width < G_MAXINT)
+    current_width = window->size_hints.max_width -
+                    (window->custom_frame_extents.left +
+                     window->custom_frame_extents.right);
+
+  if (window->size_hints.max_height < G_MAXINT)
+    current_height = window->size_hints.max_height -
+                     (window->custom_frame_extents.top +
+                      window->custom_frame_extents.bottom);
+
+  *width = CLAMP (current_width, 0, G_MAXINT);
+  *height = CLAMP (current_height, 0, G_MAXINT);
+
+  scale = 1.0 / (float) meta_window_wayland_get_main_monitor_scale (window);
+  scale_size (width, height, scale);
+}
+

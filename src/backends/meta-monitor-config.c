@@ -273,6 +273,8 @@ meta_monitor_config_finalize (GObject *object)
   MetaMonitorConfig *self = META_MONITOR_CONFIG (object);
 
   g_hash_table_destroy (self->configs);
+
+  G_OBJECT_CLASS (meta_monitor_config_parent_class)->finalize (object);
 }
 
 static void
@@ -1800,19 +1802,6 @@ crtc_can_drive_output (MetaCRTC   *crtc,
 }
 
 static gboolean
-output_supports_mode (MetaOutput      *output,
-                      MetaMonitorMode *mode)
-{
-  unsigned int i;
-
-  for (i = 0; i < output->n_modes; i++)
-    if (output->modes[i] == mode)
-      return TRUE;
-
-  return FALSE;
-}
-
-static gboolean
 crtc_assignment_assign (CrtcAssignment       *assign,
 			MetaCRTC             *crtc,
 			MetaMonitorMode      *mode,
@@ -1824,9 +1813,6 @@ crtc_assignment_assign (CrtcAssignment       *assign,
   MetaCRTCInfo *info = g_hash_table_lookup (assign->info, crtc);
 
   if (!crtc_can_drive_output (crtc, output))
-    return FALSE;
-
-  if (!output_supports_mode (output, mode))
     return FALSE;
 
   if ((crtc->all_transforms & (1 << transform)) == 0)
@@ -1915,10 +1901,9 @@ static gboolean
 real_assign_crtcs (CrtcAssignment     *assignment,
                    unsigned int        output_num)
 {
-  MetaMonitorMode *modes;
   MetaCRTC *crtcs;
   MetaOutput *outputs;
-  unsigned int n_crtcs, n_modes, n_outputs;
+  unsigned int n_crtcs, n_outputs;
   MetaOutputKey *output_key;
   MetaOutputConfig *output_config;
   unsigned int i;
@@ -1934,7 +1919,7 @@ real_assign_crtcs (CrtcAssignment     *assignment,
     return real_assign_crtcs (assignment, output_num + 1);
 
   meta_monitor_manager_get_resources (assignment->manager,
-                                      &modes, &n_modes,
+                                      NULL, NULL,
                                       &crtcs, &n_crtcs,
                                       &outputs, &n_outputs);
 
@@ -1951,9 +1936,9 @@ real_assign_crtcs (CrtcAssignment     *assignment,
           MetaOutput *output = find_output_by_key (outputs, n_outputs, output_key);
           unsigned int j;
 
-          for (j = 0; j < n_modes; j++)
+          for (j = 0; j < output->n_modes; j++)
 	    {
-              MetaMonitorMode *mode = &modes[j];
+              MetaMonitorMode *mode = output->modes[j];
               int width, height;
 
               if (meta_monitor_transform_is_rotated (output_config->transform))
@@ -1978,7 +1963,7 @@ real_assign_crtcs (CrtcAssignment     *assignment,
                                 output_config->transform,
                                 pass);
 
-                  if (crtc_assignment_assign (assignment, crtc, &modes[j],
+                  if (crtc_assignment_assign (assignment, crtc, mode,
                                               output_config->rect.x, output_config->rect.y,
                                               output_config->transform,
                                               output))

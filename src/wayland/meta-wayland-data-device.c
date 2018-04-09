@@ -51,6 +51,8 @@ struct _MetaWaylandDataOffer
   struct wl_resource *resource;
   MetaWaylandDataSource *source;
   struct wl_listener source_destroy_listener;
+  gboolean accepted;
+  gboolean action_sent;
   uint32_t dnd_actions;
   enum wl_data_device_manager_dnd_action preferred_dnd_action;
 };
@@ -169,7 +171,10 @@ data_offer_update_action (MetaWaylandDataOffer *offer)
   if (!meta_wayland_source_get_in_ask (source) &&
       wl_resource_get_version (offer->resource) >=
       WL_DATA_OFFER_ACTION_SINCE_VERSION)
-    wl_data_offer_send_action (offer->resource, action);
+    {
+      wl_data_offer_send_action (offer->resource, action);
+      offer->action_sent = TRUE;
+    }
 }
 
 static void
@@ -353,6 +358,8 @@ data_offer_accept (struct wl_client *client,
       meta_wayland_data_source_set_has_target (offer->source,
                                                mime_type != NULL);
     }
+
+  offer->accepted = mime_type != NULL;
 }
 
 static void
@@ -385,8 +392,7 @@ data_offer_finish (struct wl_client   *client,
       offer != meta_wayland_data_source_get_current_offer (offer->source))
     return;
 
-  if (meta_wayland_data_source_get_seat (offer->source) ||
-      !meta_wayland_data_source_has_target (offer->source))
+  if (!offer->accepted || !offer->action_sent)
     {
       wl_resource_post_error (offer->resource,
                               WL_DATA_OFFER_ERROR_INVALID_FINISH,
@@ -465,7 +471,7 @@ primary_offer_receive (struct wl_client *client, struct wl_resource *resource,
   seat = meta_wayland_data_source_get_seat (source);
 
   if (wl_resource_get_client (offer->resource) !=
-      meta_wayland_keyboard_get_focus_client (&seat->keyboard))
+      meta_wayland_keyboard_get_focus_client (seat->keyboard))
     {
       close (fd);
       return;
@@ -979,7 +985,7 @@ drag_grab_button (MetaWaylandPointerGrab *grab,
       drag_grab->feedback_actor = NULL;
     }
 
-  if (seat->pointer.button_count == 0 &&
+  if (seat->pointer->button_count == 0 &&
       event_type == CLUTTER_BUTTON_RELEASE)
     data_device_end_drag_grab (drag_grab);
 }
@@ -1073,10 +1079,10 @@ meta_wayland_data_device_start_drag (MetaWaylandDataDevice                 *data
   data_device->current_grab = drag_grab = g_slice_new0 (MetaWaylandDragGrab);
 
   drag_grab->generic.interface = funcs;
-  drag_grab->generic.pointer = &seat->pointer;
+  drag_grab->generic.pointer = seat->pointer;
 
   drag_grab->keyboard_grab.interface = &keyboard_drag_grab_interface;
-  drag_grab->keyboard_grab.keyboard = &seat->keyboard;
+  drag_grab->keyboard_grab.keyboard = seat->keyboard;
 
   drag_grab->drag_client = client;
   drag_grab->seat = seat;
@@ -1087,15 +1093,15 @@ meta_wayland_data_device_start_drag (MetaWaylandDataDevice                 *data
                                     &drag_grab->drag_origin_listener);
 
   clutter_actor_transform_stage_point (CLUTTER_ACTOR (meta_surface_actor_get_texture (surface->surface_actor)),
-                                       seat->pointer.grab_x,
-                                       seat->pointer.grab_y,
+                                       seat->pointer->grab_x,
+                                       seat->pointer->grab_y,
                                        &surface_pos.x, &surface_pos.y);
   drag_grab->drag_start_x = surface_pos.x;
   drag_grab->drag_start_y = surface_pos.y;
 
   drag_grab->need_initial_focus = TRUE;
 
-  modifiers = clutter_input_device_get_modifier_state (seat->pointer.device);
+  modifiers = clutter_input_device_get_modifier_state (seat->pointer->device);
   drag_grab->buttons = modifiers &
     (CLUTTER_BUTTON1_MASK | CLUTTER_BUTTON2_MASK | CLUTTER_BUTTON3_MASK |
      CLUTTER_BUTTON4_MASK | CLUTTER_BUTTON5_MASK);
@@ -1121,12 +1127,13 @@ meta_wayland_data_device_start_drag (MetaWaylandDataDevice                 *data
       clutter_actor_add_child (drag_grab->feedback_actor,
                                CLUTTER_ACTOR (drag_grab->drag_surface->surface_actor));
 
-      clutter_input_device_get_coords (seat->pointer.device, NULL, &pos);
+      clutter_input_device_get_coords (seat->pointer->device, NULL, &pos);
       meta_feedback_actor_set_position (META_FEEDBACK_ACTOR (drag_grab->feedback_actor),
                                         pos.x, pos.y);
     }
 
-  meta_wayland_pointer_start_grab (&seat->pointer, (MetaWaylandPointerGrab*) drag_grab);
+  meta_wayland_pointer_start_grab (seat->pointer,
+                                   (MetaWaylandPointerGrab*) drag_grab);
   meta_wayland_data_source_set_seat (source, seat);
 }
 
@@ -1155,16 +1162,16 @@ data_device_start_drag (struct wl_client *client,
   if (!surface)
     return;
 
-  if (seat->pointer.button_count == 0 ||
-      seat->pointer.grab_serial != serial ||
-      !seat->pointer.focus_surface ||
-      seat->pointer.focus_surface != surface)
+  if (seat->pointer->button_count == 0 ||
+      seat->pointer->grab_serial != serial ||
+      !seat->pointer->focus_surface ||
+      seat->pointer->focus_surface != surface)
     return;
 
   /* FIXME: Check that the data source type array isn't empty. */
 
   if (data_device->current_grab ||
-      seat->pointer.grab != &seat->pointer.default_grab)
+      seat->pointer->grab != &seat->pointer->default_grab)
     return;
 
   if (icon_resource)
@@ -1174,7 +1181,8 @@ data_device_start_drag (struct wl_client *client,
 
   if (icon_resource &&
       !meta_wayland_surface_assign_role (icon_surface,
-                                         META_TYPE_WAYLAND_SURFACE_ROLE_DND))
+                                         META_TYPE_WAYLAND_SURFACE_ROLE_DND,
+                                         NULL))
     {
       wl_resource_post_error (resource, WL_DATA_DEVICE_ERROR_ROLE,
                               "wl_surface@%d already has a different role",
@@ -1182,13 +1190,13 @@ data_device_start_drag (struct wl_client *client,
       return;
     }
 
-  meta_wayland_pointer_set_focus (&seat->pointer, NULL);
+  meta_wayland_pointer_set_focus (seat->pointer, NULL);
   meta_wayland_data_device_start_drag (data_device, client,
                                        &drag_grab_interface,
                                        surface, drag_source, icon_surface);
 
-  meta_wayland_keyboard_set_focus (&seat->keyboard, NULL);
-  meta_wayland_keyboard_start_grab (&seat->keyboard,
+  meta_wayland_keyboard_set_focus (seat->keyboard, NULL);
+  meta_wayland_keyboard_start_grab (seat->keyboard,
                                     &seat->data_device.current_grab->keyboard_grab);
 }
 
@@ -1202,7 +1210,7 @@ selection_data_source_destroyed (gpointer data, GObject *object_was_here)
 
   data_device->selection_data_source = NULL;
 
-  focus_client = meta_wayland_keyboard_get_focus_client (&seat->keyboard);
+  focus_client = meta_wayland_keyboard_get_focus_client (seat->keyboard);
   if (focus_client)
     {
       data_device_resource = wl_resource_find_for_client (&data_device->resource_list, focus_client);
@@ -1528,7 +1536,7 @@ meta_wayland_data_device_set_selection (MetaWaylandDataDevice *data_device,
   data_device->selection_data_source = source;
   data_device->selection_serial = serial;
 
-  focus_client = meta_wayland_keyboard_get_focus_client (&seat->keyboard);
+  focus_client = meta_wayland_keyboard_get_focus_client (seat->keyboard);
   if (focus_client)
     {
       data_device_resource = wl_resource_find_for_client (&data_device->resource_list, focus_client);
@@ -1605,7 +1613,7 @@ primary_source_destroyed (gpointer  data,
 
   data_device->primary_data_source = NULL;
 
-  focus_client = meta_wayland_keyboard_get_focus_client (&seat->keyboard);
+  focus_client = meta_wayland_keyboard_get_focus_client (seat->keyboard);
   if (focus_client)
     {
       struct wl_resource *data_device_resource;
@@ -1634,7 +1642,7 @@ meta_wayland_data_device_set_primary (MetaWaylandDataDevice *data_device,
       resource = META_WAYLAND_DATA_SOURCE_PRIMARY (source)->resource;
 
       if (wl_resource_get_client (resource) !=
-          meta_wayland_keyboard_get_focus_client (&seat->keyboard))
+          meta_wayland_keyboard_get_focus_client (seat->keyboard))
         return;
     }
 
@@ -1653,7 +1661,7 @@ meta_wayland_data_device_set_primary (MetaWaylandDataDevice *data_device,
   data_device->primary_data_source = source;
   data_device->primary_serial = serial;
 
-  focus_client = meta_wayland_keyboard_get_focus_client (&seat->keyboard);
+  focus_client = meta_wayland_keyboard_get_focus_client (seat->keyboard);
   if (focus_client)
     {
       data_device_resource = wl_resource_find_for_client (&data_device->primary_resource_list, focus_client);
@@ -1839,7 +1847,7 @@ meta_wayland_data_device_set_keyboard_focus (MetaWaylandDataDevice *data_device)
   struct wl_resource *data_device_resource, *offer;
   MetaWaylandDataSource *source;
 
-  focus_client = meta_wayland_keyboard_get_focus_client (&seat->keyboard);
+  focus_client = meta_wayland_keyboard_get_focus_client (seat->keyboard);
 
   if (focus_client == data_device->focus_client)
     return;

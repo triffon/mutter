@@ -40,11 +40,26 @@ struct _MetaCursorRendererPrivate
   int current_x, current_y;
 
   MetaCursorSprite *displayed_cursor;
+  MetaOverlay *stage_overlay;
   gboolean handled_by_backend;
+  guint post_paint_func_id;
 };
 typedef struct _MetaCursorRendererPrivate MetaCursorRendererPrivate;
 
+enum {
+  CURSOR_PAINTED,
+  LAST_SIGNAL
+};
+static guint signals[LAST_SIGNAL];
+
 G_DEFINE_TYPE_WITH_PRIVATE (MetaCursorRenderer, meta_cursor_renderer, G_TYPE_OBJECT);
+
+void
+meta_cursor_renderer_emit_painted (MetaCursorRenderer *renderer,
+                                   MetaCursorSprite   *cursor_sprite)
+{
+  g_signal_emit (renderer, signals[CURSOR_PAINTED], 0, cursor_sprite);
+}
 
 static void
 queue_redraw (MetaCursorRenderer *renderer,
@@ -63,30 +78,85 @@ queue_redraw (MetaCursorRenderer *renderer,
   if (!stage)
     return;
 
+  if (!priv->stage_overlay)
+    priv->stage_overlay = meta_stage_create_cursor_overlay (META_STAGE (stage));
+
   if (cursor_sprite && !priv->handled_by_backend)
     texture = meta_cursor_sprite_get_cogl_texture (cursor_sprite);
   else
     texture = NULL;
 
-  meta_stage_set_cursor (META_STAGE (stage), texture, &rect);
+  meta_stage_update_cursor_overlay (META_STAGE (stage), priv->stage_overlay,
+                                    texture, &rect);
+}
+
+static gboolean
+meta_cursor_renderer_post_paint (gpointer data)
+{
+  MetaCursorRenderer *renderer = META_CURSOR_RENDERER (data);
+  MetaCursorRendererPrivate *priv =
+    meta_cursor_renderer_get_instance_private (renderer);
+
+  if (priv->displayed_cursor && !priv->handled_by_backend)
+    meta_cursor_renderer_emit_painted (renderer, priv->displayed_cursor);
+
+  return TRUE;
 }
 
 static gboolean
 meta_cursor_renderer_real_update_cursor (MetaCursorRenderer *renderer,
                                          MetaCursorSprite   *cursor_sprite)
 {
+  if (cursor_sprite)
+    meta_cursor_sprite_realize_texture (cursor_sprite);
+
   return FALSE;
+}
+
+static void
+meta_cursor_renderer_finalize (GObject *object)
+{
+  MetaCursorRenderer *renderer = META_CURSOR_RENDERER (object);
+  MetaCursorRendererPrivate *priv = meta_cursor_renderer_get_instance_private (renderer);
+  MetaBackend *backend = meta_get_backend ();
+  ClutterActor *stage = meta_backend_get_stage (backend);
+
+  if (priv->stage_overlay)
+    meta_stage_remove_cursor_overlay (META_STAGE (stage), priv->stage_overlay);
+
+  clutter_threads_remove_repaint_func (priv->post_paint_func_id);
+
+  G_OBJECT_CLASS (meta_cursor_renderer_parent_class)->finalize (object);
 }
 
 static void
 meta_cursor_renderer_class_init (MetaCursorRendererClass *klass)
 {
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
+
+  object_class->finalize = meta_cursor_renderer_finalize;
   klass->update_cursor = meta_cursor_renderer_real_update_cursor;
+
+  signals[CURSOR_PAINTED] = g_signal_new ("cursor-painted",
+                                          G_TYPE_FROM_CLASS (klass),
+                                          G_SIGNAL_RUN_LAST,
+                                          0,
+                                          NULL, NULL, NULL,
+                                          G_TYPE_NONE, 1,
+                                          G_TYPE_POINTER);
 }
 
 static void
 meta_cursor_renderer_init (MetaCursorRenderer *renderer)
 {
+  MetaCursorRendererPrivate *priv =
+    meta_cursor_renderer_get_instance_private (renderer);
+
+  priv->post_paint_func_id =
+    clutter_threads_add_repaint_func_full (CLUTTER_REPAINT_FLAGS_POST_PAINT,
+                                           meta_cursor_renderer_post_paint,
+                                           renderer,
+                                           NULL);
 }
 
 MetaRectangle

@@ -47,6 +47,18 @@
                              (e)->type == CLUTTER_TOUCH_END || \
                              (e)->type == CLUTTER_TOUCH_CANCEL)
 
+#define IS_KEY_EVENT(e) ((e)->type == CLUTTER_KEY_PRESS || \
+                         (e)->type == CLUTTER_KEY_RELEASE)
+
+static gboolean
+stage_has_key_focus (void)
+{
+  MetaBackend *backend = meta_get_backend ();
+  ClutterActor *stage = meta_backend_get_stage (backend);
+
+  return clutter_stage_get_key_focus (CLUTTER_STAGE (stage)) == stage;
+}
+
 static MetaWindow *
 get_window_for_event (MetaDisplay        *display,
                       const ClutterEvent *event)
@@ -58,14 +70,8 @@ get_window_for_event (MetaDisplay        *display,
         ClutterActor *source;
 
         /* Always use the key focused window for key events. */
-        switch (event->type)
-          {
-          case CLUTTER_KEY_PRESS:
-          case CLUTTER_KEY_RELEASE:
-            return display->focus_window;
-          default:
-            break;
-          }
+        if (IS_KEY_EVENT (event))
+            return stage_has_key_focus () ? display->focus_window : NULL;
 
         source = clutter_event_get_source (event);
         if (META_IS_SURFACE_ACTOR (source))
@@ -219,12 +225,26 @@ meta_display_handle_event (MetaDisplay        *display,
                                        clutter_input_device_get_device_id (source));
     }
 
+#ifdef HAVE_WAYLAND
   if (meta_is_wayland_compositor () && event->type == CLUTTER_MOTION)
     {
-      meta_cursor_tracker_update_position (meta_cursor_tracker_get_for_screen (NULL),
-                                           event->motion.x, event->motion.y);
+      MetaWaylandCompositor *compositor;
+
+      compositor = meta_wayland_compositor_get_default ();
+
+      if (meta_wayland_tablet_manager_consumes_event (compositor->tablet_manager, event))
+        {
+          meta_wayland_tablet_manager_update_cursor_position (compositor->tablet_manager, event);
+        }
+      else
+        {
+          MetaCursorTracker *tracker = meta_cursor_tracker_get_for_screen (NULL);
+          meta_cursor_tracker_update_position (tracker, event->motion.x, event->motion.y);
+        }
+
       display->monitor_cache_invalidated = TRUE;
     }
+#endif
 
   handle_idletime_for_event (event);
 
@@ -281,6 +301,24 @@ meta_display_handle_event (MetaDisplay        *display,
   if (meta_keybindings_process_event (display, window, event))
     {
       bypass_clutter = TRUE;
+      bypass_wayland = TRUE;
+      goto out;
+    }
+
+  /* Do not pass keyboard events to Wayland if key focus is not on the
+   * stage in normal mode (e.g. during keynav in the panel)
+   */
+  if (display->event_route == META_EVENT_ROUTE_NORMAL)
+    {
+      if (IS_KEY_EVENT (event) && !stage_has_key_focus ())
+        {
+          bypass_wayland = TRUE;
+          goto out;
+        }
+    }
+
+  if (display->current_pad_osd)
+    {
       bypass_wayland = TRUE;
       goto out;
     }

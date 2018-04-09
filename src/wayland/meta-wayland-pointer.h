@@ -25,6 +25,7 @@
 #include <glib.h>
 
 #include "meta-wayland-types.h"
+#include "meta-wayland-seat.h"
 #include "meta-wayland-pointer-gesture-swipe.h"
 #include "meta-wayland-pointer-gesture-pinch.h"
 #include "meta-wayland-surface.h"
@@ -32,11 +33,10 @@
 
 #include <meta/meta-cursor-tracker.h>
 
-#define META_TYPE_WAYLAND_SURFACE_ROLE_CURSOR (meta_wayland_surface_role_cursor_get_type ())
-G_DECLARE_FINAL_TYPE (MetaWaylandSurfaceRoleCursor,
-                      meta_wayland_surface_role_cursor,
-                      META, WAYLAND_SURFACE_ROLE_CURSOR,
-                      MetaWaylandSurfaceRole);
+#define META_TYPE_WAYLAND_POINTER (meta_wayland_pointer_get_type ())
+G_DECLARE_FINAL_TYPE (MetaWaylandPointer, meta_wayland_pointer,
+                      META, WAYLAND_POINTER,
+                      MetaWaylandInputDevice)
 
 struct _MetaWaylandPointerGrabInterface
 {
@@ -64,7 +64,7 @@ struct _MetaWaylandPointerClient
 
 struct _MetaWaylandPointer
 {
-  struct wl_display *display;
+  MetaWaylandInputDevice parent;
 
   MetaWaylandPointerClient *focus_client;
   GHashTable *pointer_clients;
@@ -75,6 +75,7 @@ struct _MetaWaylandPointer
   guint32 click_serial;
 
   MetaWaylandSurface *cursor_surface;
+  guint cursor_surface_destroy_id;
 
   MetaWaylandPointerGrab *grab;
   MetaWaylandPointerGrab default_grab;
@@ -89,10 +90,9 @@ struct _MetaWaylandPointer
   guint32 button_count;
 };
 
-void meta_wayland_pointer_init (MetaWaylandPointer *pointer,
-                                struct wl_display  *display);
+void meta_wayland_pointer_enable (MetaWaylandPointer *pointer);
 
-void meta_wayland_pointer_release (MetaWaylandPointer *pointer);
+void meta_wayland_pointer_disable (MetaWaylandPointer *pointer);
 
 void meta_wayland_pointer_update (MetaWaylandPointer *pointer,
                                   const ClutterEvent *event);
@@ -109,6 +109,8 @@ void meta_wayland_pointer_send_relative_motion (MetaWaylandPointer *pointer,
 void meta_wayland_pointer_send_button (MetaWaylandPointer *pointer,
                                        const ClutterEvent *event);
 
+void meta_wayland_pointer_broadcast_frame (MetaWaylandPointer *pointer);
+
 void meta_wayland_pointer_set_focus (MetaWaylandPointer *pointer,
                                      MetaWaylandSurface *surface);
 
@@ -117,8 +119,8 @@ void meta_wayland_pointer_start_grab (MetaWaylandPointer *pointer,
 
 void meta_wayland_pointer_end_grab (MetaWaylandPointer *pointer);
 
-MetaWaylandPopup *meta_wayland_pointer_start_popup_grab (MetaWaylandPointer *pointer,
-                                                         MetaWaylandSurface *popup);
+MetaWaylandPopup *meta_wayland_pointer_start_popup_grab (MetaWaylandPointer      *pointer,
+                                                         MetaWaylandPopupSurface *popup_surface);
 
 void meta_wayland_pointer_end_popup_grab (MetaWaylandPointer *pointer);
 
@@ -150,5 +152,9 @@ void meta_wayland_pointer_unbind_pointer_client_resource (struct wl_resource *re
 void meta_wayland_relative_pointer_init (MetaWaylandCompositor *compositor);
 
 MetaWaylandSeat *meta_wayland_pointer_get_seat (MetaWaylandPointer *pointer);
+
+void meta_wayland_surface_cursor_update (MetaWaylandSurface *cursor_surface);
+
+void meta_wayland_pointer_update_cursor_surface (MetaWaylandPointer *pointer);
 
 #endif /* META_WAYLAND_POINTER_H */

@@ -21,8 +21,6 @@
  * Author: Carlos Garnacho <carlosg@gnome.org>
  */
 
-#define _GNU_SOURCE
-
 #include "config.h"
 
 #include <glib.h>
@@ -35,6 +33,9 @@
 #ifdef HAVE_NATIVE_BACKEND
 #include "backends/native/meta-backend-native.h"
 #endif
+
+G_DEFINE_TYPE (MetaWaylandTouch, meta_wayland_touch,
+               META_TYPE_WAYLAND_INPUT_DEVICE)
 
 struct _MetaWaylandTouchSurface
 {
@@ -454,9 +455,11 @@ touch_info_free (MetaWaylandTouchInfo *touch_info)
 void
 meta_wayland_touch_cancel (MetaWaylandTouch *touch)
 {
+  MetaWaylandInputDevice *input_device = META_WAYLAND_INPUT_DEVICE (touch);
+  MetaWaylandSeat *seat = meta_wayland_input_device_get_seat (input_device);
   GList *surfaces, *s;
 
-  if (touch->display == NULL)
+  if (!meta_wayland_seat_has_touch (seat))
     return;
 
   surfaces = s = touch_get_surfaces (touch, FALSE);
@@ -516,14 +519,10 @@ evdev_filter_func (struct libinput_event *event,
 #endif
 
 void
-meta_wayland_touch_init (MetaWaylandTouch  *touch,
-                         struct wl_display *display)
+meta_wayland_touch_enable (MetaWaylandTouch *touch)
 {
   ClutterDeviceManager *manager;
 
-  memset (touch, 0, sizeof *touch);
-
-  touch->display = display;
   touch->touch_surfaces = g_hash_table_new_full (NULL, NULL, NULL,
                                                  (GDestroyNotify) touch_surface_free);
   touch->touches = g_hash_table_new_full (NULL, NULL, NULL,
@@ -542,7 +541,7 @@ meta_wayland_touch_init (MetaWaylandTouch  *touch,
 }
 
 void
-meta_wayland_touch_release (MetaWaylandTouch *touch)
+meta_wayland_touch_disable (MetaWaylandTouch *touch)
 {
 #ifdef HAVE_NATIVE_BACKEND
   MetaBackend *backend = meta_get_backend ();
@@ -552,7 +551,6 @@ meta_wayland_touch_release (MetaWaylandTouch *touch)
 
   g_clear_pointer (&touch->touch_surfaces, (GDestroyNotify) g_hash_table_unref);
   g_clear_pointer (&touch->touches, (GDestroyNotify) g_hash_table_unref);
-  touch->display = NULL;
 }
 
 void
@@ -561,9 +559,10 @@ meta_wayland_touch_create_new_resource (MetaWaylandTouch   *touch,
                                         struct wl_resource *seat_resource,
                                         uint32_t            id)
 {
+  MetaWaylandSeat *seat = wl_resource_get_user_data (seat_resource);
   struct wl_resource *cr;
 
-  if (touch->display == NULL)
+  if (!meta_wayland_seat_has_touch (seat))
     {
       wl_resource_post_error (seat_resource, WL_DISPLAY_ERROR_INVALID_METHOD,
                               "Cannot retrieve touch interface without touch capability");
@@ -642,4 +641,14 @@ meta_wayland_touch_get_press_coords (MetaWaylandTouch     *touch,
     *y = touch_info->start_y;
 
   return TRUE;
+}
+
+static void
+meta_wayland_touch_init (MetaWaylandTouch *touch)
+{
+}
+
+static void
+meta_wayland_touch_class_init (MetaWaylandTouchClass *klass)
+{
 }

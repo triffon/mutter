@@ -39,6 +39,8 @@
 #include "meta-wayland-seat.h"
 #include "meta-wayland-outputs.h"
 #include "meta-wayland-data-device.h"
+#include "meta-wayland-tablet-manager.h"
+#include "meta-wayland-xdg-foreign.h"
 
 static MetaWaylandCompositor _meta_wayland_compositor;
 
@@ -167,7 +169,10 @@ void
 meta_wayland_compositor_update (MetaWaylandCompositor *compositor,
                                 const ClutterEvent    *event)
 {
-  meta_wayland_seat_update (compositor->seat, event);
+  if (meta_wayland_tablet_manager_consumes_event (compositor->tablet_manager, event))
+    meta_wayland_tablet_manager_update (compositor->tablet_manager, event);
+  else
+    meta_wayland_seat_update (compositor->seat, event);
 }
 
 void
@@ -196,6 +201,10 @@ gboolean
 meta_wayland_compositor_handle_event (MetaWaylandCompositor *compositor,
                                       const ClutterEvent    *event)
 {
+  if (meta_wayland_tablet_manager_handle_event (compositor->tablet_manager,
+                                                event))
+    return TRUE;
+
   return meta_wayland_seat_handle_event (compositor->seat, event);
 }
 
@@ -217,7 +226,7 @@ meta_wayland_compositor_update_key_state (MetaWaylandCompositor *compositor,
                                           int                    key_vector_len,
                                           int                    offset)
 {
-  meta_wayland_keyboard_update_key_state (&compositor->seat->keyboard,
+  meta_wayland_keyboard_update_key_state (compositor->seat->keyboard,
                                           key_vector, key_vector_len, offset);
 }
 
@@ -327,9 +336,11 @@ meta_wayland_init (void)
   meta_wayland_data_device_manager_init (compositor);
   meta_wayland_shell_init (compositor);
   meta_wayland_pointer_gestures_init (compositor);
+  meta_wayland_tablet_manager_init (compositor);
   meta_wayland_seat_init (compositor);
   meta_wayland_relative_pointer_init (compositor);
   meta_wayland_pointer_constraints_init (compositor);
+  meta_wayland_xdg_foreign_init (compositor);
 
   if (!meta_xwayland_start (&compositor->xwayland_manager, compositor->wayland_display))
     g_error ("Failed to start X Wayland");
