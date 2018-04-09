@@ -64,7 +64,6 @@ typedef enum
   META_PREF_RESIZE_WITH_RIGHT_BUTTON,
   META_PREF_EDGE_TILING,
   META_PREF_FORCE_FULLSCREEN,
-  META_PREF_LIVE_HIDDEN_WINDOWS,
   META_PREF_WORKSPACES_ONLY_ON_PRIMARY,
   META_PREF_NO_TAB_POPUP,
   META_PREF_DRAGGABLE_BORDER_WIDTH
@@ -105,12 +104,6 @@ gboolean                    meta_prefs_get_gnome_accessibility (void);
 gboolean                    meta_prefs_get_gnome_animations   (void);
 gboolean                    meta_prefs_get_edge_tiling        (void);
 
-const char*                 meta_prefs_get_screenshot_command (void);
-
-const char*                 meta_prefs_get_window_screenshot_command (void);
-
-const char*                 meta_prefs_get_terminal_command   (void);
-
 void                        meta_prefs_get_button_layout (MetaButtonLayout *button_layout);
 
 /* Double, right, middle click can be configured to any titlebar meta-action */
@@ -129,17 +122,7 @@ int         meta_prefs_get_cursor_size       (void);
 gboolean    meta_prefs_get_compositing_manager (void);
 gboolean    meta_prefs_get_force_fullscreen  (void);
 
-/**
- * Sets whether the compositor is turned on.
- *
- * \param whether   TRUE to turn on, FALSE to turn off
- */
-void meta_prefs_set_compositing_manager (gboolean whether);
-
 void meta_prefs_set_force_fullscreen (gboolean whether);
-
-gboolean meta_prefs_get_live_hidden_windows (void);
-void     meta_prefs_set_live_hidden_windows (gboolean whether);
 
 gboolean meta_prefs_get_workspaces_only_on_primary (void);
 
@@ -276,7 +259,7 @@ typedef struct
 
   MetaKeyBindingAction action;
 
-  /**
+  /*
    * A list of MetaKeyCombos. Each of them is bound to
    * this keypref. If one has keysym==modifiers==0, it is
    * ignored.
