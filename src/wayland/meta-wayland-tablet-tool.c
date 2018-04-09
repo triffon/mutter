@@ -572,9 +572,15 @@ meta_wayland_tablet_tool_account_button (MetaWaylandTabletTool *tool,
                                          const ClutterEvent    *event)
 {
   if (event->type == CLUTTER_BUTTON_PRESS)
-    tool->pressed_buttons |= 1 << (event->button.button - 1);
+    {
+      tool->pressed_buttons |= 1 << (event->button.button - 1);
+      tool->button_count++;
+    }
   else if (event->type == CLUTTER_BUTTON_RELEASE)
-    tool->pressed_buttons &= ~(1 << (event->button.button - 1));
+    {
+      tool->pressed_buttons &= ~(1 << (event->button.button - 1));
+      tool->button_count--;
+    }
 }
 
 static void
@@ -621,17 +627,16 @@ repick_for_event (MetaWaylandTabletTool *tool,
 
 static void
 meta_wayland_tablet_tool_get_relative_coordinates (MetaWaylandTabletTool *tool,
-                                                   ClutterInputDevice    *device,
+                                                   const ClutterEvent    *event,
                                                    MetaWaylandSurface    *surface,
                                                    wl_fixed_t            *sx,
                                                    wl_fixed_t            *sy)
 {
-  float xf = 0.0f, yf = 0.0f;
-  ClutterPoint pos;
+  float xf, yf;
 
-  clutter_input_device_get_coords (device, NULL, &pos);
+  clutter_event_get_coords (event, &xf, &yf);
   clutter_actor_transform_stage_point (CLUTTER_ACTOR (meta_surface_actor_get_texture (surface->surface_actor)),
-                                       pos.x, pos.y, &xf, &yf);
+                                       xf, yf, &xf, &yf);
 
   *sx = wl_fixed_from_double (xf) / surface->scale;
   *sy = wl_fixed_from_double (yf) / surface->scale;
@@ -642,11 +647,9 @@ broadcast_motion (MetaWaylandTabletTool *tool,
                   const ClutterEvent    *event)
 {
   struct wl_resource *resource;
-  ClutterInputDevice *device;
   wl_fixed_t sx, sy;
 
-  device = clutter_event_get_source_device (event);
-  meta_wayland_tablet_tool_get_relative_coordinates (tool, device,
+  meta_wayland_tablet_tool_get_relative_coordinates (tool, event,
                                                      tool->focus_surface,
                                                      &sx, &sy);
 
@@ -798,6 +801,38 @@ broadcast_rotation (MetaWaylandTabletTool *tool,
 }
 
 static void
+broadcast_wheel (MetaWaylandTabletTool *tool,
+                 const ClutterEvent    *event)
+{
+  struct wl_resource *resource;
+  ClutterInputDevice *source;
+  gdouble angle;
+  gint32 clicks = 0;
+
+  source = clutter_event_get_source_device (event);
+
+  if (!clutter_input_device_get_axis_value (source, event->motion.axes,
+                                            CLUTTER_INPUT_AXIS_WHEEL,
+                                            &angle))
+    return;
+
+  /* FIXME: Perform proper angle-to-clicks accumulation elsewhere */
+  if (angle > 0.01)
+    clicks = 1;
+  else if (angle < -0.01)
+    clicks = -1;
+  else
+    return;
+
+  wl_resource_for_each (resource, &tool->focus_resource_list)
+    {
+      zwp_tablet_tool_v2_send_wheel (resource,
+                                     wl_fixed_from_double (angle),
+                                     clicks);
+    }
+}
+
+static void
 broadcast_axes (MetaWaylandTabletTool *tool,
                 const ClutterEvent    *event)
 {
@@ -820,8 +855,8 @@ broadcast_axes (MetaWaylandTabletTool *tool,
     broadcast_rotation (tool, event);
   if (capabilities & (1 << ZWP_TABLET_TOOL_V2_CAPABILITY_SLIDER))
     broadcast_axis (tool, event, CLUTTER_INPUT_AXIS_SLIDER);
-
-  /* FIXME: Missing wp_tablet_tool.wheel */
+  if (capabilities & (1 << ZWP_TABLET_TOOL_V2_CAPABILITY_WHEEL))
+    broadcast_wheel (tool, event);
 }
 
 static void
@@ -842,6 +877,9 @@ handle_button_event (MetaWaylandTabletTool *tool,
 {
   if (!tool->focus_surface)
     return;
+
+  if (event->type == CLUTTER_BUTTON_PRESS && tool->button_count == 1)
+    clutter_event_get_coords (event, &tool->grab_x, &tool->grab_y);
 
   if (event->type == CLUTTER_BUTTON_PRESS && event->button.button == 1)
     broadcast_down (tool, event);
@@ -920,4 +958,33 @@ meta_wayland_tablet_tool_set_cursor_position (MetaWaylandTabletTool *tool,
 {
   if (tool->cursor_renderer)
     meta_cursor_renderer_set_position (tool->cursor_renderer, new_x, new_y);
+}
+
+static gboolean
+tablet_tool_can_grab_surface (MetaWaylandTabletTool *tool,
+                              MetaWaylandSurface    *surface)
+{
+  GList *l;
+
+  if (tool->focus_surface == surface)
+    return TRUE;
+
+  for (l = surface->subsurfaces; l; l = l->next)
+    {
+      MetaWaylandSurface *subsurface = l->data;
+
+      if (tablet_tool_can_grab_surface (tool, subsurface))
+        return TRUE;
+    }
+
+  return FALSE;
+}
+
+gboolean
+meta_wayland_tablet_tool_can_grab_surface (MetaWaylandTabletTool *tool,
+                                           MetaWaylandSurface    *surface,
+                                           uint32_t               serial)
+{
+  return ((tool->down_serial == serial || tool->button_serial == serial) &&
+          tablet_tool_can_grab_surface (tool, surface));
 }
