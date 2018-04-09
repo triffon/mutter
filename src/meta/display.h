@@ -14,7 +14,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 #ifndef META_DISPLAY_H
@@ -161,10 +163,6 @@ guint meta_display_get_keybinding_action (MetaDisplay  *display,
 void meta_display_set_input_focus_window   (MetaDisplay *display,
                                             MetaWindow  *window,
                                             gboolean     focus_frame,
-                                            guint32      timestamp);
-
-void meta_display_request_take_focus       (MetaDisplay *display,
-                                            MetaWindow  *window,
                                             guint32      timestamp);
 
 /* meta_display_focus_the_no_focus_window is called when the

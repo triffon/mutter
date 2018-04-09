@@ -16,7 +16,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 #include "config.h"
@@ -83,20 +85,12 @@ meta_plugin_manager_load (const gchar       *plugin_name)
   g_free (path);
 }
 
-static void
-on_confirm_display_change (MetaMonitorManager *monitors,
-                           MetaPluginManager  *plugin_mgr)
-{
-  meta_plugin_manager_confirm_display_change (plugin_mgr);
-}
-
 MetaPluginManager *
 meta_plugin_manager_new (MetaScreen *screen)
 {
   MetaPluginManager *plugin_mgr;
   MetaPluginClass *klass;
   MetaPlugin *plugin;
-  MetaMonitorManager *monitors;
 
   plugin_mgr = g_new0 (MetaPluginManager, 1);
   plugin_mgr->screen = screen;
@@ -106,10 +100,6 @@ meta_plugin_manager_new (MetaScreen *screen)
 
   if (klass->start)
     klass->start (plugin);
-
-  monitors = meta_monitor_manager_get ();
-  g_signal_connect (monitors, "confirm-display-change",
-                    G_CALLBACK (on_confirm_display_change), plugin_mgr);
 
   return plugin_mgr;
 }
@@ -304,64 +294,29 @@ meta_plugin_manager_filter_keybinding (MetaPluginManager *plugin_mgr,
   return FALSE;
 }
 
+/*
+ * The public method that the compositor hooks into for desktop switching.
+ *
+ * Returns TRUE if the plugin handled the event type (i.e.,
+ * if the return value is FALSE, there will be no subsequent call to the
+ * manager completed() callback, and the compositor must ensure that any
+ * appropriate post-effect cleanup is carried out.
+ */
 gboolean
 meta_plugin_manager_xevent_filter (MetaPluginManager *plugin_mgr,
                                    XEvent            *xev)
 {
   MetaPlugin *plugin = plugin_mgr->plugin;
-
-  return _meta_plugin_xevent_filter (plugin, xev);
-}
-
-void
-meta_plugin_manager_confirm_display_change (MetaPluginManager *plugin_mgr)
-{
-  MetaPlugin *plugin = plugin_mgr->plugin;
   MetaPluginClass *klass = META_PLUGIN_GET_CLASS (plugin);
 
-  if (klass->confirm_display_change)
-    return klass->confirm_display_change (plugin);
+  /* We need to make sure that clutter gets certain events, like
+   * ConfigureNotify on the stage window. If there is a plugin that
+   * provides an xevent_filter function, then it's the responsibility
+   * of that plugin to pass events to Clutter. Otherwise, we send the
+   * event directly to Clutter ourselves.
+   */
+  if (klass->xevent_filter)
+    return klass->xevent_filter (plugin, xev);
   else
-    return meta_plugin_complete_display_change (plugin, TRUE);
-}
-
-gboolean
-meta_plugin_manager_show_tile_preview (MetaPluginManager *plugin_mgr,
-                                       MetaWindow        *window,
-                                       MetaRectangle     *tile_rect,
-                                       int                tile_monitor_number)
-{
-  MetaPlugin *plugin = plugin_mgr->plugin;
-  MetaPluginClass *klass = META_PLUGIN_GET_CLASS (plugin);
-  MetaDisplay *display  = meta_screen_get_display (plugin_mgr->screen);
-
-  if (display->display_opening)
-    return FALSE;
-
-  if (klass->show_tile_preview)
-    {
-      klass->show_tile_preview (plugin, window, tile_rect, tile_monitor_number);
-      return TRUE;
-    }
-
-  return FALSE;
-}
-
-gboolean
-meta_plugin_manager_hide_tile_preview (MetaPluginManager *plugin_mgr)
-{
-  MetaPlugin *plugin = plugin_mgr->plugin;
-  MetaPluginClass *klass = META_PLUGIN_GET_CLASS (plugin);
-  MetaDisplay *display  = meta_screen_get_display (plugin_mgr->screen);
-
-  if (display->display_opening)
-    return FALSE;
-
-  if (klass->hide_tile_preview)
-    {
-      klass->hide_tile_preview (plugin);
-      return TRUE;
-    }
-
-  return FALSE;
+    return clutter_x11_handle_event (xev) != CLUTTER_X11_FILTER_CONTINUE;
 }

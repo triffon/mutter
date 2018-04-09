@@ -13,7 +13,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 /**
@@ -121,12 +123,12 @@ static guint signals[LAST_SIGNAL] = { 0 };
 /* The first element in this array also defines the default parameters
  * for newly created classes */
 MetaShadowClassInfo default_shadow_classes[] = {
-  { "normal",       { 6, -1, 0, 3, 128 }, { 3, -1, 0, 3, 32 } },
-  { "dialog",       { 6, -1, 0, 3, 128 }, { 3, -1, 0, 3, 32 } },
-  { "modal_dialog", { 6, -1, 0, 1, 128 }, { 3, -1, 0, 3, 32 } },
-  { "utility",      { 3, -1, 0, 1, 128 }, { 3, -1, 0, 1, 32 } },
-  { "border",       { 6, -1, 0, 3, 128 }, { 3, -1, 0, 3, 32 } },
-  { "menu",         { 6, -1, 0, 3, 128 }, { 3, -1, 0, 0, 32 } },
+  { "normal",       { 6, -1, 0, 3, 255 }, { 3, -1, 0, 3, 128 } },
+  { "dialog",       { 6, -1, 0, 3, 255 }, { 3, -1, 0, 3, 128 } },
+  { "modal_dialog", { 6, -1, 0, 1, 255 }, { 3, -1, 0, 3, 128 } },
+  { "utility",      { 3, -1, 0, 1, 255 }, { 3, -1, 0, 1, 128 } },
+  { "border",       { 6, -1, 0, 3, 255 }, { 3, -1, 0, 3, 128 } },
+  { "menu",         { 6, -1, 0, 3, 255 }, { 3, -1, 0, 0, 128 } },
 
   { "popup-menu",    { 1, -1, 0, 1, 128 }, { 1, -1, 0, 1, 128 } },
 

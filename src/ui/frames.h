@@ -16,7 +16,9 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 #ifndef META_FRAMES_H
@@ -138,11 +140,12 @@ cairo_region_t *meta_frames_get_frame_bounds (MetaFrames *frames,
                                               int         window_width,
                                               int         window_height);
 
-void meta_frames_get_mask (MetaFrames *frames,
-                           Window      xwindow,
-                           guint       width,
-                           guint       height,
-                           cairo_t    *cr);
+void meta_frames_get_corner_radiuses (MetaFrames *frames,
+                                      Window      xwindow,
+                                      float      *top_left,
+                                      float      *top_right,
+                                      float      *bottom_left,
+                                      float      *bottom_right);
 
 void meta_frames_move_resize_frame (MetaFrames *frames,
 				    Window      xwindow,

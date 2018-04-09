@@ -16,7 +16,9 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 #ifndef META_UI_H
@@ -64,13 +66,6 @@ void meta_ui_theme_get_frame_borders (MetaUI *ui,
 void meta_ui_get_frame_borders (MetaUI *ui,
                                 Window frame_xwindow,
                                 MetaFrameBorders *borders);
-
-void meta_ui_get_frame_mask (MetaUI *ui,
-                             Window frame_xwindow,
-                             guint width,
-                             guint height,
-                             cairo_t *cr);
-
 Window meta_ui_create_frame_window (MetaUI *ui,
                                     Display *xdisplay,
                                     Visual *xvisual,
@@ -106,6 +101,13 @@ cairo_region_t *meta_ui_get_frame_bounds (MetaUI  *ui,
                                           Window   xwindow,
                                           int      window_width,
                                           int      window_height);
+
+void meta_ui_get_corner_radiuses (MetaUI *ui,
+                                  Window  xwindow,
+                                  float  *top_left,
+                                  float  *top_right,
+                                  float  *bottom_left,
+                                  float  *bottom_right);
 
 void meta_ui_queue_frame_draw (MetaUI *ui,
                                Window xwindow);
@@ -152,7 +154,8 @@ gboolean  meta_ui_window_should_not_cause_focus (Display *xdisplay,
 char*     meta_text_property_to_utf8 (Display             *xdisplay,
                                       const XTextProperty *prop);
 
-void     meta_ui_set_current_theme (const char *name);
+void     meta_ui_set_current_theme (const char *name,
+                                    gboolean    force_reload);
 gboolean meta_ui_have_a_theme      (void);
 
 /* Not a real key symbol but means "key above the tab key"; this is
@@ -177,5 +180,8 @@ gboolean meta_ui_window_is_widget (MetaUI *ui,
 int      meta_ui_get_drag_threshold       (MetaUI *ui);
 
 MetaUIDirection meta_ui_get_direction (void);
+
+#include "tabpopup.h"
+#include "tile-preview.h"
 
 #endif

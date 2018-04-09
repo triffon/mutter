@@ -16,12 +16,14 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 #include <config.h>
 #include "theme-private.h"
-#include "util-private.h"
+#include <meta/util.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -428,11 +430,7 @@ locate_attributes (GMarkupParseContext *context,
 
   while (name != NULL)
     {
-      if (retloc == NULL)
-        {
-          retval = FALSE;
-          goto out;
-        }
+      g_return_val_if_fail (retloc != NULL, FALSE);
 
       g_assert (n_attrs < MAX_ATTRS);
       
@@ -3211,6 +3209,9 @@ parse_style_set_element (GMarkupParseContext  *context,
                          state, focus);
               return;
             }
+          meta_frame_style_ref (frame_style);
+          info->style_set->tiled_right_styles[frame_focus] = frame_style;
+          break;
           meta_frame_style_ref (frame_style);
           info->style_set->tiled_right_styles[frame_focus] = frame_style;
           break;

@@ -17,7 +17,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 #ifndef META_WINDOW_ACTOR_H_
@@ -58,8 +60,12 @@ struct _MetaWindowActor
 GType meta_window_actor_get_type (void);
 
 Window             meta_window_actor_get_x_window         (MetaWindowActor *self);
+gint               meta_window_actor_get_workspace        (MetaWindowActor *self);
 MetaWindow *       meta_window_actor_get_meta_window      (MetaWindowActor *self);
 ClutterActor *     meta_window_actor_get_texture          (MetaWindowActor *self);
+gboolean           meta_window_actor_is_override_redirect (MetaWindowActor *self);
+const char *       meta_window_actor_get_description      (MetaWindowActor *self);
+gboolean       meta_window_actor_showing_on_its_workspace (MetaWindowActor *self);
 gboolean       meta_window_actor_is_destroyed (MetaWindowActor *self);
 
 #endif /* META_WINDOW_ACTOR_H */

@@ -17,7 +17,9 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 /**
@@ -32,7 +34,7 @@
 
 #include <config.h>
 #include "display-private.h"
-#include "util-private.h"
+#include <meta/util.h>
 #include <meta/main.h>
 #include "screen-private.h"
 #include "window-private.h"
@@ -49,8 +51,8 @@
 #include <meta/compositor.h>
 #include <meta/compositor-mutter.h>
 #include <X11/Xatom.h>
+#include <X11/cursorfont.h>
 #include "mutter-enum-types.h"
-#include "meta-idle-monitor-private.h"
 
 #ifdef HAVE_RANDR
 #include <X11/extensions/Xrandr.h>
@@ -71,6 +73,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#define GRAB_OP_IS_WINDOW_SWITCH(g)                     \
+        (g == META_GRAB_OP_KEYBOARD_TABBING_NORMAL  ||  \
+         g == META_GRAB_OP_KEYBOARD_TABBING_DOCK    ||  \
+         g == META_GRAB_OP_KEYBOARD_TABBING_GROUP   ||  \
+         g == META_GRAB_OP_KEYBOARD_ESCAPING_NORMAL ||  \
+         g == META_GRAB_OP_KEYBOARD_ESCAPING_DOCK   ||  \
+         g == META_GRAB_OP_KEYBOARD_ESCAPING_GROUP)
 
 /*
  * SECTION:pings
@@ -106,6 +116,12 @@ typedef struct
   void        *user_data;
   guint        ping_timeout_id;
 } MetaPingData;
+
+typedef struct 
+{
+  MetaDisplay *display;
+  Window xwindow;
+} MetaAutoRaiseData;
 
 typedef struct
 {
@@ -238,7 +254,7 @@ meta_display_class_init (MetaDisplayClass *klass)
                   G_SIGNAL_RUN_LAST,
                   0,
                   NULL, NULL, NULL,
-                  G_TYPE_NONE, 3, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT);
+                  G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_UINT);
 
   /**
    * MetaDisplay::modifiers-accelerator-activated:
@@ -523,9 +539,7 @@ meta_display_open (void)
   the_display->autoraise_timeout_id = 0;
   the_display->autoraise_window = NULL;
   the_display->focus_window = NULL;
-  the_display->focus_serial = 0;
-  the_display->server_focus_window = None;
-  the_display->server_focus_serial = 0;
+  the_display->expected_focus_window = NULL;
   the_display->grab_old_window_stacking = NULL;
 
   the_display->mouse_mode = TRUE; /* Only relevant for mouse or sloppy focus */
@@ -908,6 +922,8 @@ meta_display_open (void)
 
   enable_compositor (the_display);
    
+  meta_display_grab (the_display);
+  
   /* Now manage all existing windows */
   tmp = the_display->screens;
   while (tmp != NULL)
@@ -956,8 +972,8 @@ meta_display_open (void)
 
     meta_error_trap_pop (the_display);
   }
-
-  meta_idle_monitor_init_dbus ();
+  
+  meta_display_ungrab (the_display);  
 
   /* Done opening new display */
   the_display->display_opening = FALSE;
@@ -1203,18 +1219,7 @@ meta_display_screen_for_x_screen (MetaDisplay *display,
   return NULL;
 }
 
-/* Grab/ungrab routines taken from fvwm.
- * Calling this function will cause X to ignore all other clients until
- * you ungrab. This may not be quite as bad as it sounds, yet there is
- * agreement that avoiding server grabs except when they are clearly needed
- * is a good thing.
- *
- * If you do use such grabs, please clearly explain the necessity for their
- * usage in a comment. Try to keep their scope extremely limited. In
- * particular, try to avoid emitting any signals or notifications while
- * a grab is active (if the signal receiver tries to block on an X request
- * from another client at this point, you will have a deadlock).
- */
+/* Grab/ungrab routines taken from fvwm */
 void
 meta_display_grab (MetaDisplay *display)
 {
@@ -1358,6 +1363,13 @@ grab_op_is_keyboard (MetaGrabOp op)
     case META_GRAB_OP_KEYBOARD_RESIZING_NE:
     case META_GRAB_OP_KEYBOARD_RESIZING_SW:
     case META_GRAB_OP_KEYBOARD_RESIZING_NW:
+    case META_GRAB_OP_KEYBOARD_TABBING_NORMAL:
+    case META_GRAB_OP_KEYBOARD_TABBING_DOCK:
+    case META_GRAB_OP_KEYBOARD_TABBING_GROUP:
+    case META_GRAB_OP_KEYBOARD_ESCAPING_NORMAL:
+    case META_GRAB_OP_KEYBOARD_ESCAPING_DOCK:
+    case META_GRAB_OP_KEYBOARD_ESCAPING_GROUP:
+    case META_GRAB_OP_KEYBOARD_WORKSPACE_SWITCHING:
     case META_GRAB_OP_COMPOSITOR:
       return TRUE;
 
@@ -1453,17 +1465,6 @@ meta_display_get_current_time (MetaDisplay *display)
   return display->current_time;
 }
 
-static Bool
-find_timestamp_predicate (Display  *xdisplay,
-                          XEvent   *ev,
-                          XPointer  arg)
-{
-  MetaDisplay *display = (MetaDisplay *) arg;
-
-  return (ev->type == PropertyNotify &&
-          ev->xproperty.atom == display->atom__MUTTER_TIMESTAMP_PING);
-}
-
 /* Get a timestamp, even if it means a roundtrip */
 guint32
 meta_display_get_current_time_roundtrip (MetaDisplay *display)
@@ -1475,13 +1476,17 @@ meta_display_get_current_time_roundtrip (MetaDisplay *display)
     {
       XEvent property_event;
 
-      XChangeProperty (display->xdisplay, display->timestamp_pinging_window,
-                       display->atom__MUTTER_TIMESTAMP_PING,
-                       XA_STRING, 8, PropModeAppend, NULL, 0);
-      XIfEvent (display->xdisplay,
-                &property_event,
-                find_timestamp_predicate,
-                (XPointer) display);
+      /* Using the property XA_PRIMARY because it's safe; nothing
+       * would use it as a property. The type doesn't matter.
+       */
+      XChangeProperty (display->xdisplay,
+                       display->timestamp_pinging_window,
+                       XA_PRIMARY, XA_STRING, 8,
+                       PropModeAppend, NULL, 0);
+      XWindowEvent (display->xdisplay,
+                    display->timestamp_pinging_window,
+                    PropertyChangeMask,
+                    &property_event);
       timestamp = property_event.xproperty.time;
     }
 
@@ -1569,10 +1574,23 @@ reset_ignored_crossing_serials (MetaDisplay *display)
 static gboolean 
 window_raise_with_delay_callback (void *data)
 {
-  MetaWindow *window = data;
+  MetaWindow *window;
+  MetaAutoRaiseData *auto_raise;
 
-  window->display->autoraise_timeout_id = 0;
-  window->display->autoraise_window = NULL;
+  auto_raise = data;
+
+  meta_topic (META_DEBUG_FOCUS, 
+	      "In autoraise callback for window 0x%lx\n", 
+	      auto_raise->xwindow);
+
+  auto_raise->display->autoraise_timeout_id = 0;
+  auto_raise->display->autoraise_window = NULL;
+
+  window  = meta_display_lookup_x_window (auto_raise->display, 
+					  auto_raise->xwindow);
+  
+  if (window == NULL) 
+    return FALSE;
 
   /* If we aren't already on top, check whether the pointer is inside
    * the window and raise the window if so.
@@ -1581,7 +1599,6 @@ window_raise_with_delay_callback (void *data)
     {
       int x, y, root_x, root_y;
       Window root, child;
-      MetaRectangle frame_rect;
       unsigned int mask;
       gboolean same_screen;
       gboolean point_in_window;
@@ -1593,8 +1610,9 @@ window_raise_with_delay_callback (void *data)
 				   &root_x, &root_y, &x, &y, &mask);
       meta_error_trap_pop (window->display);
 
-      meta_window_get_frame_rect (window, &frame_rect);
-      point_in_window = POINT_IN_RECT (root_x, root_y, frame_rect);
+      point_in_window = 
+        (window->frame && POINT_IN_RECT (root_x, root_y, window->frame->rect)) ||
+        (window->frame == NULL && POINT_IN_RECT (root_x, root_y, window->rect));
       if (same_screen && point_in_window)
 	meta_window_raise (window);
       else
@@ -1609,8 +1627,7 @@ window_raise_with_delay_callback (void *data)
 static void
 meta_display_mouse_mode_focus (MetaDisplay *display,
                                MetaWindow  *window,
-                               guint32      timestamp)
-{
+                               guint32      timestamp) {
   if (window->type != META_WINDOW_DESKTOP)
     {
       meta_topic (META_DEBUG_FOCUS,
@@ -1635,12 +1652,12 @@ meta_display_mouse_mode_focus (MetaDisplay *display,
        * alternative mechanism works great.
        */
       if (meta_prefs_get_focus_mode() == G_DESKTOP_FOCUS_MODE_MOUSE &&
-          display->focus_window != NULL)
+          display->expected_focus_window != NULL)
         {
           meta_topic (META_DEBUG_FOCUS,
                       "Unsetting focus from %s due to mouse entering "
                       "the DESKTOP window\n",
-                      display->focus_window->desc);
+                      display->expected_focus_window->desc);
           meta_display_focus_the_no_focus_window (display,
                                                   window->screen,
                                                   timestamp);
@@ -1649,8 +1666,7 @@ meta_display_mouse_mode_focus (MetaDisplay *display,
 }
 
 static gboolean
-window_focus_on_pointer_rest_callback (gpointer data)
-{
+window_focus_on_pointer_rest_callback (gpointer data) {
   MetaFocusData *focus_data;
   MetaDisplay *display;
   MetaScreen *screen;
@@ -1695,9 +1711,9 @@ window_focus_on_pointer_rest_callback (gpointer data)
     goto out;
 
   window =
-    meta_stack_get_default_focus_window_at_point (screen->stack,
-                                                  screen->active_workspace,
-                                                  None, root_x, root_y);
+      meta_stack_get_default_focus_window_at_point (screen->stack,
+                                                    screen->active_workspace,
+                                                    None, root_x, root_y);
 
   if (window == NULL)
     goto out;
@@ -1705,7 +1721,7 @@ window_focus_on_pointer_rest_callback (gpointer data)
   timestamp = meta_display_get_current_time_roundtrip (display);
   meta_display_mouse_mode_focus (display, window, timestamp);
 
- out:
+out:
   display->focus_timeout_id = 0;
   return FALSE;
 }
@@ -1714,10 +1730,16 @@ void
 meta_display_queue_autoraise_callback (MetaDisplay *display,
                                        MetaWindow  *window)
 {
+  MetaAutoRaiseData *auto_raise_data;
+
   meta_topic (META_DEBUG_FOCUS, 
               "Queuing an autoraise timeout for %s with delay %d\n", 
               window->desc, 
               meta_prefs_get_auto_raise_delay ());
+  
+  auto_raise_data = g_new (MetaAutoRaiseData, 1);
+  auto_raise_data->display = window->display;
+  auto_raise_data->xwindow = window->xwindow;
   
   if (display->autoraise_timeout_id != 0)
     g_source_remove (display->autoraise_timeout_id);
@@ -1726,7 +1748,8 @@ meta_display_queue_autoraise_callback (MetaDisplay *display,
     g_timeout_add_full (G_PRIORITY_DEFAULT,
                         meta_prefs_get_auto_raise_delay (),
                         window_raise_with_delay_callback,
-                        window, NULL);
+                        auto_raise_data,
+                        g_free);
   display->autoraise_window = window;
 }
 
@@ -1815,25 +1838,19 @@ get_input_event (MetaDisplay *display,
 
       switch (input_event->evtype)
         {
-        case XI_TouchBegin:
-        case XI_TouchUpdate:
-        case XI_TouchEnd:
         case XI_Motion:
         case XI_ButtonPress:
         case XI_ButtonRelease:
           if (((XIDeviceEvent *) input_event)->deviceid == META_VIRTUAL_CORE_POINTER_ID)
             return input_event;
-          break;
         case XI_KeyPress:
         case XI_KeyRelease:
           if (((XIDeviceEvent *) input_event)->deviceid == META_VIRTUAL_CORE_KEYBOARD_ID)
             return input_event;
-          break;
         case XI_FocusIn:
         case XI_FocusOut:
           if (((XIEnterEvent *) input_event)->deviceid == META_VIRTUAL_CORE_KEYBOARD_ID)
             return input_event;
-          break;
         case XI_Enter:
         case XI_Leave:
           if (((XIEnterEvent *) input_event)->deviceid == META_VIRTUAL_CORE_POINTER_ID)
@@ -1852,270 +1869,6 @@ get_input_event (MetaDisplay *display,
     }
 
   return NULL;
-}
-
-static void
-update_focus_window (MetaDisplay *display,
-                     MetaWindow  *window,
-                     Window       xwindow,
-                     gulong       serial,
-                     gboolean     focused_by_us)
-{
-  display->focus_serial = serial;
-  display->focused_by_us = focused_by_us;
-
-  if (display->focus_xwindow == xwindow)
-    return;
-
-  if (display->focus_window)
-    {
-      MetaWindow *previous;
-
-      meta_topic (META_DEBUG_FOCUS,
-                  "%s is now the previous focus window due to being focused out or unmapped\n",
-                  display->focus_window->desc);
-
-      /* Make sure that signals handlers invoked by
-       * meta_window_set_focused_internal() don't see
-       * display->focus_window->has_focus == FALSE
-       */
-      previous = display->focus_window;
-      display->focus_window = NULL;
-      display->focus_xwindow = None;
-
-      meta_window_set_focused_internal (previous, FALSE);
-    }
-
-  display->focus_window = window;
-  display->focus_xwindow = xwindow;
-
-  if (display->focus_window)
-    {
-      meta_topic (META_DEBUG_FOCUS, "* Focus --> %s with serial %lu\n",
-                  display->focus_window->desc, serial);
-      meta_window_set_focused_internal (display->focus_window, TRUE);
-    }
-  else
-    meta_topic (META_DEBUG_FOCUS, "* Focus --> NULL with serial %lu\n", serial);
-
-  g_object_notify (G_OBJECT (display), "focus-window");
-  meta_display_update_active_window_hint (display);
-}
-
-static gboolean
-timestamp_too_old (MetaDisplay *display,
-                   guint32     *timestamp)
-{
-  /* FIXME: If Soeren's suggestion in bug 151984 is implemented, it will allow
-   * us to sanity check the timestamp here and ensure it doesn't correspond to
-   * a future time (though we would want to rename to
-   * timestamp_too_old_or_in_future).
-   */
-
-  if (*timestamp == CurrentTime)
-    {
-      *timestamp = meta_display_get_current_time_roundtrip (display);
-      return FALSE;
-    }
-  else if (XSERVER_TIME_IS_BEFORE (*timestamp, display->last_focus_time))
-    {
-      if (XSERVER_TIME_IS_BEFORE (*timestamp, display->last_user_time))
-        return TRUE;
-      else
-        {
-          *timestamp = display->last_focus_time;
-          return FALSE;
-        }
-    }
-
-  return FALSE;
-}
-
-static void
-request_xserver_input_focus_change (MetaDisplay *display,
-                                    MetaScreen  *screen,
-                                    Window       xwindow,
-                                    guint32      timestamp)
-{
-  MetaWindow *meta_window;
-  gulong serial;
-
-  if (timestamp_too_old (display, &timestamp))
-    return;
-
-  meta_window = meta_display_lookup_x_window (display, xwindow);
-
-  meta_error_trap_push (display);
-
-  /* In order for mutter to know that the focus request succeeded, we track
-   * the serial of the "focus request" we made, but if we take the serial
-   * of the XSetInputFocus request, then there's no way to determine the
-   * difference between focus events as a result of the SetInputFocus and
-   * focus events that other clients send around the same time. Ensure that
-   * we know which is which by making two requests that the server will
-   * process at the same time.
-   */
-  meta_display_grab (display);
-
-  serial = XNextRequest (display->xdisplay);
-
-  XSetInputFocus (display->xdisplay,
-                  xwindow,
-                  RevertToPointerRoot,
-                  timestamp);
-
-  XChangeProperty (display->xdisplay, display->timestamp_pinging_window,
-                   display->atom__MUTTER_FOCUS_SET,
-                   XA_STRING, 8, PropModeAppend, NULL, 0);
-
-  meta_display_ungrab (display);
-
-  update_focus_window (display,
-                       meta_window,
-                       xwindow,
-                       serial,
-                       TRUE);
-
-  meta_error_trap_pop (display);
-
-  display->last_focus_time = timestamp;
-  display->active_screen = screen;
-
-  if (meta_window == NULL || meta_window != display->autoraise_window)
-    meta_display_remove_autoraise_callback (display);
-}
-
-static void
-handle_window_focus_event (MetaDisplay  *display,
-                           MetaWindow   *window,
-                           XIEnterEvent *event,
-                           unsigned long serial)
-{
-  MetaWindow *focus_window;
-#ifdef WITH_VERBOSE_MODE
-  const char *window_type;
-
-  /* Note the event can be on either the window or the frame,
-   * we focus the frame for shaded windows
-   */
-  if (window)
-    {
-      if (event->event == window->xwindow)
-        window_type = "client window";
-      else if (window->frame && event->event == window->frame->xwindow)
-        window_type = "frame window";
-      else
-        window_type = "unknown client window";
-    }
-  else if (meta_display_xwindow_is_a_no_focus_window (display, event->event))
-    window_type = "no_focus_window";
-  else if (meta_display_screen_for_root (display, event->event))
-    window_type = "root window";
-  else
-    window_type = "unknown window";
-
-  meta_topic (META_DEBUG_FOCUS,
-              "Focus %s event received on %s 0x%lx (%s) "
-              "mode %s detail %s serial %lu\n",
-              event->evtype == XI_FocusIn ? "in" :
-              event->evtype == XI_FocusOut ? "out" :
-              "???",
-              window ? window->desc : "",
-              event->event, window_type,
-              meta_event_mode_to_string (event->mode),
-              meta_event_detail_to_string (event->mode),
-              event->serial);
-#endif
-
-  /* FIXME our pointer tracking is broken; see how
-   * gtk+/gdk/x11/gdkevents-x11.c or XFree86/xc/programs/xterm/misc.c
-   * for how to handle it the correct way.  In brief you need to track
-   * pointer focus and regular focus, and handle EnterNotify in
-   * PointerRoot mode with no window manager.  However as noted above,
-   * accurate focus tracking will break things because we want to keep
-   * windows "focused" when using keybindings on them, and also we
-   * sometimes "focus" a window by focusing its frame or
-   * no_focus_window; so this all needs rethinking massively.
-   *
-   * My suggestion is to change it so that we clearly separate
-   * actual keyboard focus tracking using the xterm algorithm,
-   * and mutter's "pretend" focus window, and go through all
-   * the code and decide which one should be used in each place;
-   * a hard bit is deciding on a policy for that.
-   *
-   * http://bugzilla.gnome.org/show_bug.cgi?id=90382
-   */
-
-  /* We ignore grabs, though this is questionable. It may be better to
-   * increase the intelligence of the focus window tracking.
-   *
-   * The problem is that keybindings for windows are done with
-   * XGrabKey, which means focus_window disappears and the front of
-   * the MRU list gets confused from what the user expects once a
-   * keybinding is used.
-   */
-
-  if (event->mode == XINotifyGrab ||
-      event->mode == XINotifyUngrab ||
-      /* From WindowMaker, ignore all funky pointer root events */
-      event->detail > XINotifyNonlinearVirtual)
-    {
-      meta_topic (META_DEBUG_FOCUS,
-                  "Ignoring focus event generated by a grab or other weirdness\n");
-      return;
-    }
-
-  if (event->evtype == XI_FocusIn)
-    {
-      display->server_focus_window = event->event;
-      display->server_focus_serial = serial;
-      focus_window = window;
-    }
-  else if (event->evtype == XI_FocusOut)
-    {
-      if (event->detail == XINotifyInferior)
-        {
-          /* This event means the client moved focus to a subwindow */
-          meta_topic (META_DEBUG_FOCUS,
-                      "Ignoring focus out with NotifyInferior\n");
-          return;
-        }
-
-      display->server_focus_window = None;
-      display->server_focus_serial = serial;
-      focus_window = NULL;
-    }
-  else
-    g_return_if_reached ();
-
-  /* If display->focused_by_us, then the focus_serial will be used only
-   * for a focus change we made and have already accounted for.
-   * (See request_xserver_input_focus_change().) Otherwise, we can get
-   * multiple focus events with the same serial.
-   */
-  if (display->server_focus_serial > display->focus_serial ||
-      (!display->focused_by_us &&
-       display->server_focus_serial == display->focus_serial))
-    {
-      update_focus_window (display,
-                           focus_window,
-                           focus_window ? focus_window->xwindow : None,
-                           display->server_focus_serial,
-                           FALSE);
-    }
-}
-
-static gboolean
-window_has_xwindow (MetaWindow *window,
-                    Window      xwindow)
-{
-  if (window->xwindow == xwindow)
-    return TRUE;
-
-  if (window->frame && window->frame->xwindow == xwindow)
-    return TRUE;
-
-  return FALSE;
 }
 
 /**
@@ -2144,8 +1897,6 @@ event_callback (XEvent   *event,
   gboolean bypass_compositor;
   gboolean filter_out_event;
   XIEvent *input_event;
-  MetaMonitorManager *monitor;
-  MetaScreen *screen;
 
   display = data;
   
@@ -2157,41 +1908,12 @@ event_callback (XEvent   *event,
 #ifdef HAVE_STARTUP_NOTIFICATION
   sn_display_process_event (display->sn_display, event);
 #endif
-
-  /* Intercept XRandR events early and don't attempt any
-     processing for them. We still let them through to Gdk though,
-     so it can update its own internal state.
-  */
-  monitor = meta_monitor_manager_get ();
-  if (meta_monitor_manager_handle_xevent (monitor, event))
-    return FALSE;
   
   bypass_compositor = FALSE;
   filter_out_event = FALSE;
   display->current_time = event_get_time (display, event);
   display->monitor_cache_invalidated = TRUE;
-
-  if (display->focused_by_us &&
-      event->xany.serial > display->focus_serial &&
-      display->focus_window &&
-      !window_has_xwindow (display->focus_window, display->server_focus_window))
-    {
-      meta_topic (META_DEBUG_FOCUS, "Earlier attempt to focus %s failed\n",
-                  display->focus_window->desc);
-      update_focus_window (display,
-                           meta_display_lookup_x_window (display, display->server_focus_window),
-                           display->server_focus_window,
-                           display->server_focus_serial,
-                           FALSE);
-    }
-
-  screen = meta_display_screen_for_root (display, event->xany.window);
-  if (screen)
-    {
-      if (meta_screen_handle_xevent (screen, event))
-        return TRUE;
-    }
-
+  
   modified = event_get_modified_window (display, event);
 
   input_event = get_input_event (display, event);
@@ -2264,8 +1986,6 @@ event_callback (XEvent   *event,
           meta_window_update_sync_request_counter (alarm_window, new_counter_value);
           filter_out_event = TRUE; /* GTK doesn't want to see this really */
         }
-      else
-        meta_idle_monitor_handle_xevent_all (event);
     }
 #endif /* HAVE_XSYNC */
 
@@ -2280,7 +2000,32 @@ event_callback (XEvent   *event,
           XShapeEvent *sev = (XShapeEvent*) event;
 
           if (sev->kind == ShapeBounding)
-            meta_window_update_shape_region_x11 (window);
+            {
+              if (sev->shaped && !window->has_shape)
+                {
+                  window->has_shape = TRUE;                  
+                  meta_topic (META_DEBUG_SHAPES,
+                              "Window %s now has a shape\n",
+                              window->desc);
+                }
+              else if (!sev->shaped && window->has_shape)
+                {
+                  window->has_shape = FALSE;
+                  meta_topic (META_DEBUG_SHAPES,
+                              "Window %s no longer has a shape\n",
+                              window->desc);
+                }
+              else
+                {
+                  meta_topic (META_DEBUG_SHAPES,
+                              "Window %s shape changed\n",
+                              window->desc);
+                }
+
+              if (display->compositor)
+                meta_compositor_window_shape_changed (display->compositor,
+                                                      window);
+            }
         }
       else
         {
@@ -2296,10 +2041,9 @@ event_callback (XEvent   *event,
     {
       XIDeviceEvent *device_event = (XIDeviceEvent *) input_event;
       XIEnterEvent *enter_event = (XIEnterEvent *) input_event;
-      gint button = 0;
 
       if (window && !window->override_redirect &&
-          ((input_event->evtype == XI_KeyPress) || (input_event->evtype == XI_ButtonPress)))
+          ((input_event->type == XI_KeyPress) || (input_event->type == XI_ButtonPress)))
         {
           if (CurrentTime == display->current_time)
             {
@@ -2332,33 +2076,19 @@ event_callback (XEvent   *event,
           if (meta_display_process_key_event (display, window, (XIDeviceEvent *) input_event))
             filter_out_event = bypass_compositor = TRUE;
           break;
-        case XI_TouchBegin:
-          /* Filter out non-pointer-emulating touches */
-          if ((((XIDeviceEvent *) input_event)->flags & XITouchEmulatingPointer) == 0)
-            break;
-
-          /* Fall through */
         case XI_ButtonPress:
           if (display->grab_op == META_GRAB_OP_COMPOSITOR)
             break;
 
           display->overlay_key_only_pressed = FALSE;
 
-          if (input_event->evtype == XI_ButtonPress)
-            {
-              if (device_event->detail == 4 || device_event->detail == 5)
-                /* Scrollwheel event, do nothing and deliver event to compositor below */
-                break;
-              else
-                button = device_event->detail;
-            }
-          else if (input_event->evtype == XI_TouchBegin)
-            button = 1;
+          if (device_event->detail == 4 || device_event->detail == 5)
+            /* Scrollwheel event, do nothing and deliver event to compositor below */
+            break;
 
           if ((window &&
                meta_grab_op_is_mouse (display->grab_op) &&
-               (device_event->mods.effective & display->window_grab_modifiers) &&
-               display->grab_button != button &&
+               display->grab_button != device_event->detail &&
                display->grab_window == window) ||
               grab_op_is_keyboard (display->grab_op))
             {
@@ -2368,6 +2098,18 @@ event_callback (XEvent   *event,
                           (display->grab_window ?
                            display->grab_window->desc : 
                            "none"));
+              if (GRAB_OP_IS_WINDOW_SWITCH (display->grab_op))
+                {
+                  MetaScreen *screen;
+                  meta_topic (META_DEBUG_WINDOW_OPS, 
+                              "Syncing to old stack positions.\n");
+                  screen = 
+                    meta_display_screen_for_root (display, device_event->event);
+
+                  if (screen!=NULL)
+                    meta_stack_set_positions (screen->stack,
+                                              display->grab_old_window_stacking);
+                }
               meta_display_end_grab_op (display,
                                         device_event->time);
             }
@@ -2388,7 +2130,8 @@ event_callback (XEvent   *event,
                */
               unmodified = (device_event->mods.effective & grab_mask) == 0;
           
-              if (unmodified || button == 1)
+              if (unmodified ||
+                  device_event->detail == 1)
                 {
                   /* don't focus if frame received, will be lowered in
                    * frames.c or special-cased if the click was on a
@@ -2409,7 +2152,7 @@ event_callback (XEvent   *event,
                         {
                           meta_topic (META_DEBUG_FOCUS,
                                       "Focusing %s due to unmodified button %u press (display.c)\n",
-                                      window->desc, button);
+                                      window->desc, device_event->detail);
                           meta_window_focus (window, device_event->time);
                         }
                       else
@@ -2425,21 +2168,21 @@ event_callback (XEvent   *event,
                   if (!unmodified)
                     begin_move = TRUE;
                 }
-              else if (!unmodified && button == meta_prefs_get_mouse_button_resize())
+              else if (!unmodified && device_event->detail == meta_prefs_get_mouse_button_resize())
                 {
                   if (window->has_resize_func)
                     {
                       gboolean north, south;
                       gboolean west, east;
-                      MetaRectangle frame_rect;
+                      int root_x, root_y;
                       MetaGrabOp op;
 
-                      meta_window_get_frame_rect (window, &frame_rect);
+                      meta_window_get_position (window, &root_x, &root_y);
 
-                      west = device_event->root_x <  (frame_rect.x + 1 * frame_rect.width  / 3);
-                      east = device_event->root_x >  (frame_rect.x + 2 * frame_rect.width  / 3);
-                      north = device_event->root_y < (frame_rect.y + 1 * frame_rect.height / 3);
-                      south = device_event->root_y > (frame_rect.y + 2 * frame_rect.height / 3);
+                      west = device_event->root_x <  (root_x + 1 * window->rect.width  / 3);
+                      east = device_event->root_x >  (root_x + 2 * window->rect.width  / 3);
+                      north = device_event->root_y < (root_y + 1 * window->rect.height / 3);
+                      south = device_event->root_y > (root_y + 2 * window->rect.height / 3);
 
                       if (north && west)
                         op = META_GRAB_OP_RESIZING_NW;
@@ -2467,21 +2210,21 @@ event_callback (XEvent   *event,
                                                     op,
                                                     TRUE,
                                                     FALSE,
-                                                    button,
+                                                    device_event->detail,
                                                     0,
                                                     device_event->time,
                                                     device_event->root_x,
                                                     device_event->root_y);
                     }
                 }
-              else if (button == meta_prefs_get_mouse_button_menu())
+              else if (device_event->detail == meta_prefs_get_mouse_button_menu())
                 {
                   if (meta_prefs_get_raise_on_click ())
                     meta_window_raise (window);
                   meta_window_show_menu (window,
                                          device_event->root_x,
                                          device_event->root_y,
-                                         button,
+                                         device_event->detail,
                                          device_event->time);
                 }
 
@@ -2490,12 +2233,30 @@ event_callback (XEvent   *event,
                   /* This is from our synchronous grab since
                    * it has no modifiers and was on the client window
                    */
+                  int mode;
+              
+                  /* When clicking a different app in click-to-focus
+                   * in application-based mode, and the different
+                   * app is not a dock or desktop, eat the focus click.
+                   */
+                  if (meta_prefs_get_focus_mode () == G_DESKTOP_FOCUS_MODE_CLICK &&
+                      meta_prefs_get_application_based () &&
+                      !window->has_focus &&
+                      window->type != META_WINDOW_DOCK &&
+                      window->type != META_WINDOW_DESKTOP &&
+                      (display->focus_window == NULL ||
+                       !meta_window_same_application (window,
+                                                      display->focus_window)))
+                    mode = XIAsyncDevice; /* eat focus click */
+                  else
+                    mode = XIReplayDevice; /* give event back */
 
-                  meta_verbose ("Allowing events time %u\n",
+                  meta_verbose ("Allowing events mode %s time %u\n",
+                                mode == AsyncPointer ? "AsyncPointer" : "ReplayPointer",
                                 (unsigned int)device_event->time);
 
                   XIAllowEvents (display->xdisplay, device_event->deviceid,
-                                 XIReplayDevice, device_event->time);
+                                 mode, device_event->time);
                 }
 
               if (begin_move && window->has_move_func)
@@ -2506,7 +2267,7 @@ event_callback (XEvent   *event,
                                               META_GRAB_OP_MOVING,
                                               TRUE,
                                               FALSE,
-                                              button,
+                                              device_event->detail,
                                               0,
                                               device_event->time,
                                               device_event->root_x,
@@ -2609,19 +2370,40 @@ event_callback (XEvent   *event,
           break;
         case XI_FocusIn:
         case XI_FocusOut:
-          /* libXi does not properly copy the serial to the XIEnterEvent, so pull it
-           * from the parent XAnyEvent.
-           * See: https://bugs.freedesktop.org/show_bug.cgi?id=64687
-           */
-          handle_window_focus_event (display, window, enter_event, event->xany.serial);
-          if (!window)
+          if (window)
             {
-              /* Check if the window is a root window. */
+              meta_window_notify_focus (window, enter_event);
+            }
+          else if (meta_display_xwindow_is_a_no_focus_window (display,
+                                                              enter_event->event))
+            {
+              meta_topic (META_DEBUG_FOCUS,
+                          "Focus %s event received on no_focus_window 0x%lx "
+                          "mode %s detail %s\n",
+                          enter_event->evtype == XI_FocusIn ? "in" :
+                          enter_event->evtype == XI_FocusOut ? "out" :
+                          "???",
+                          enter_event->event,
+                          meta_event_mode_to_string (enter_event->mode),
+                          meta_event_detail_to_string (enter_event->detail));
+            }
+          else
+            {
               MetaScreen *screen =
                 meta_display_screen_for_root(display,
                                              enter_event->event);
               if (screen == NULL)
                 break;
+
+              meta_topic (META_DEBUG_FOCUS,
+                          "Focus %s event received on root window 0x%lx "
+                          "mode %s detail %s\n",
+                          enter_event->evtype == XI_FocusIn ? "in" :
+                          enter_event->evtype == XI_FocusOut ? "out" :
+                          "???",
+                          enter_event->event,
+                          meta_event_mode_to_string (enter_event->mode),
+                          meta_event_detail_to_string (enter_event->detail));
           
               if (enter_event->evtype == XI_FocusIn &&
                   enter_event->mode == XINotifyDetailNone)
@@ -2656,18 +2438,6 @@ event_callback (XEvent   *event,
             filter_out_event = bypass_compositor = TRUE;
           break;
 #endif /* HAVE_XI23 */
-        case XI_TouchUpdate:
-        case XI_TouchEnd:
-          /* Filter out non-pointer-emulating touches */
-          if ((((XIDeviceEvent *) input_event)->flags & XITouchEmulatingPointer) == 0)
-            break;
-
-          /* Currently unhandled, if any grab_op is started through XI_TouchBegin,
-           * the XIGrabDevice() evmask drops touch events, so only emulated
-           * XI_Motions and XI_ButtonRelease will follow.
-           */
-          g_assert_not_reached ();
-          break;
         }
     }
   else
@@ -2747,7 +2517,7 @@ event_callback (XEvent   *event,
 
               if (display->grab_op != META_GRAB_OP_NONE &&
                   display->grab_window == window &&
-                  window->frame == NULL)
+                  ((window->frame == NULL) || !window->frame->mapped))
                 meta_display_end_grab_op (display, timestamp);
       
               if (!frame_was_receiver)
@@ -2771,6 +2541,13 @@ event_callback (XEvent   *event,
                                   window->unmaps_pending);
                     }
                 }
+
+              /* Unfocus on UnmapNotify, do this after the possible
+               * window_free above so that window_free can see if window->has_focus
+               * and move focus to another window
+               */
+              if (window)
+                meta_window_lost_focus (window);
             }
           break;
         case MapNotify:
@@ -2781,14 +2558,14 @@ event_callback (XEvent   *event,
               && meta_display_screen_for_root (display, event->xmap.event))
             {
               window = meta_window_new (display, event->xmap.window,
-                                        FALSE, META_COMP_EFFECT_CREATE);
+                                        FALSE);
             }
           break;
         case MapRequest:
           if (window == NULL)
             {
               window = meta_window_new (display, event->xmaprequest.window,
-                                        FALSE, META_COMP_EFFECT_CREATE);
+                                        FALSE);
             }
           /* if frame was receiver it's some malicious send event or something */
           else if (!frame_was_receiver && window)        
@@ -2830,10 +2607,32 @@ event_callback (XEvent   *event,
                 meta_stack_tracker_configure_event (screen->stack_tracker,
                                                     &event->xconfigure);
             }
-
           if (window && window->override_redirect)
             meta_window_configure_notify (window, &event->xconfigure);
+          else
+            /* Handle screen resize */
+            {
+              MetaScreen *screen;
 
+              screen = meta_display_screen_for_root (display,
+                                                     event->xconfigure.window);
+
+              if (screen != NULL)
+                {
+#ifdef HAVE_RANDR
+                  /* do the resize the official way */
+                  XRRUpdateConfiguration (event);
+#else
+                  /* poke around in Xlib */
+                  screen->xscreen->width   = event->xconfigure.width;
+                  screen->xscreen->height  = event->xconfigure.height;
+#endif
+	      
+                  meta_screen_resize (screen, 
+                                      event->xconfigure.width,
+                                      event->xconfigure.height);
+                }
+            }
           break;
         case ConfigureRequest:
           /* This comment and code is found in both twm and fvwm */
@@ -3029,6 +2828,27 @@ event_callback (XEvent   *event,
                         }
                     }
                   else if (event->xclient.message_type ==
+                           display->atom__MUTTER_RELOAD_THEME_MESSAGE)
+                    {
+                      meta_verbose ("Received reload theme request\n");
+                      meta_ui_set_current_theme (meta_prefs_get_theme (),
+                                                 TRUE);
+                      meta_display_retheme_all ();
+                    }
+                  else if (event->xclient.message_type ==
+                           display->atom__MUTTER_SET_KEYBINDINGS_MESSAGE)
+                    {
+                      meta_verbose ("Received set keybindings request = %d\n",
+                                    (int) event->xclient.data.l[0]);
+                      meta_set_keybindings_disabled (!event->xclient.data.l[0]);
+                    }
+                  else if (event->xclient.message_type ==
+                           display->atom__MUTTER_TOGGLE_VERBOSE)
+                    {
+                      meta_verbose ("Received toggle verbose message\n");
+                      meta_set_verbose (!meta_is_verbose ());
+                    }
+                  else if (event->xclient.message_type ==
                            display->atom_WM_PROTOCOLS) 
                     {
                       meta_verbose ("Received WM_PROTOCOLS message\n");
@@ -3143,9 +2963,6 @@ event_get_modified_window (MetaDisplay *display,
         case XI_ButtonRelease:
         case XI_KeyPress:
         case XI_KeyRelease:
-        case XI_TouchBegin:
-        case XI_TouchUpdate:
-        case XI_TouchEnd:
           return ((XIDeviceEvent *) input_event)->event;
         case XI_FocusIn:
         case XI_FocusOut:
@@ -3432,15 +3249,6 @@ meta_spew_xi2_event (MetaDisplay *display,
     case XI_Leave:
       name = "XI_Leave";
       break;
-    case XI_TouchBegin:
-      name = "XI_TouchBegin";
-      break;
-    case XI_TouchUpdate:
-      name = "XI_TouchUpdate";
-      break;
-    case XI_TouchEnd:
-      name = "XI_TouchEnd";
-      break;
 #ifdef HAVE_XI23
     case XI_BarrierHit:
       name = "XI_BarrierHit";
@@ -3497,18 +3305,6 @@ meta_spew_xi2_event (MetaDisplay *display,
                                enter_event->focus,
                                enter_event->root_x,
                                enter_event->root_y);
-      break;
-    case XI_TouchBegin:
-    case XI_TouchUpdate:
-    case XI_TouchEnd:
-      extra = g_strdup_printf ("win: 0x%lx root: 0x%lx touch sequence: %d x: %g y: %g state: 0x%x flags: 0x%x",
-                               device_event->event,
-                               device_event->root,
-                               device_event->detail,
-                               device_event->root_x,
-                               device_event->root_y,
-                               device_event->mods.effective,
-                               device_event->flags);
       break;
     }
 
@@ -3890,6 +3686,60 @@ meta_display_xwindow_is_a_no_focus_window (MetaDisplay *display,
   return is_a_no_focus_window;
 }
 
+Cursor
+meta_display_create_x_cursor (MetaDisplay *display,
+                              MetaCursor cursor)
+{
+  Cursor xcursor;
+  guint glyph;
+
+  switch (cursor)
+    {
+    case META_CURSOR_DEFAULT:
+      glyph = XC_left_ptr;
+      break;
+    case META_CURSOR_NORTH_RESIZE:
+      glyph = XC_top_side;
+      break;
+    case META_CURSOR_SOUTH_RESIZE:
+      glyph = XC_bottom_side;
+      break;
+    case META_CURSOR_WEST_RESIZE:
+      glyph = XC_left_side;
+      break;
+    case META_CURSOR_EAST_RESIZE:
+      glyph = XC_right_side;
+      break;
+    case META_CURSOR_SE_RESIZE:
+      glyph = XC_bottom_right_corner;
+      break;
+    case META_CURSOR_SW_RESIZE:
+      glyph = XC_bottom_left_corner;
+      break;
+    case META_CURSOR_NE_RESIZE:
+      glyph = XC_top_right_corner;
+      break;
+    case META_CURSOR_NW_RESIZE:
+      glyph = XC_top_left_corner;
+      break;
+    case META_CURSOR_MOVE_OR_RESIZE_WINDOW:
+      glyph = XC_fleur;
+      break;
+    case META_CURSOR_BUSY:
+      glyph = XC_watch;
+      break;
+      
+    default:
+      g_assert_not_reached ();
+      glyph = 0; /* silence compiler */
+      break;
+    }
+  
+  xcursor = XCreateFontCursor (display->xdisplay, glyph);
+
+  return xcursor;
+}
+
 static Cursor
 xcursor_for_op (MetaDisplay *display,
                 MetaGrabOp   op)
@@ -4051,7 +3901,7 @@ meta_display_begin_grab_op (MetaDisplay *display,
    *   key grab on the RootWindow.
    */
   if (grab_window)
-    grab_xwindow = meta_window_get_toplevel_xwindow (grab_window);
+    grab_xwindow = grab_window->frame ? grab_window->frame->xwindow : grab_window->xwindow;
   else
     grab_xwindow = screen->xroot;
 
@@ -4149,6 +3999,16 @@ meta_display_begin_grab_op (MetaDisplay *display,
   g_assert (display->grab_window != NULL || display->grab_screen != NULL);
   g_assert (display->grab_op != META_GRAB_OP_NONE);
 
+  /* Save the old stacking */
+  if (GRAB_OP_IS_WINDOW_SWITCH (display->grab_op))
+    {
+      meta_topic (META_DEBUG_WINDOW_OPS,
+                  "Saving old stack positions; old pointer was %p.\n",
+                  display->grab_old_window_stacking);
+      display->grab_old_window_stacking = 
+        meta_stack_get_positions (screen->stack);
+    }
+
   if (display->grab_window)
     {
       meta_window_refresh_resize_popup (display->grab_window);
@@ -4189,6 +4049,20 @@ meta_display_end_grab_op (MetaDisplay *display,
        */
       if (!display->grab_threshold_movement_reached)
         meta_window_raise (display->grab_window);
+    }
+
+  if (GRAB_OP_IS_WINDOW_SWITCH (display->grab_op) ||
+      display->grab_op == META_GRAB_OP_KEYBOARD_WORKSPACE_SWITCHING)
+    {
+      if (GRAB_OP_IS_WINDOW_SWITCH (display->grab_op))
+        meta_screen_tab_popup_destroy (display->grab_screen);
+      else
+        meta_screen_workspace_popup_destroy (display->grab_screen);
+
+      /* If the ungrab here causes an EnterNotify, ignore it for
+       * sloppy focus
+       */
+      display->ungrab_should_not_cause_focus_window = display->grab_xwindow;
     }
   
   /* If this was a move or resize clear out the edge cache */
@@ -4555,7 +4429,6 @@ meta_display_queue_retheme_all_windows (MetaDisplay *display)
       MetaWindow *window = tmp->data;
       
       meta_window_queue (window, META_QUEUE_MOVE_RESIZE);
-      meta_window_frame_size_changed (window);
       if (window->frame)
         {
           meta_frame_queue_draw (window->frame);
@@ -5714,55 +5587,98 @@ sanity_check_timestamps (MetaDisplay *display,
     }
 }
 
+static gboolean
+timestamp_too_old (MetaDisplay *display,
+                   MetaWindow  *window,
+                   guint32     *timestamp)
+{
+  /* FIXME: If Soeren's suggestion in bug 151984 is implemented, it will allow
+   * us to sanity check the timestamp here and ensure it doesn't correspond to
+   * a future time (though we would want to rename to 
+   * timestamp_too_old_or_in_future).
+   */
+
+  if (*timestamp == CurrentTime)
+    {
+      meta_warning ("Got a request to focus %s with a timestamp of 0.  This "
+                    "shouldn't happen!\n",
+                    window ? window->desc : "the no_focus_window");
+      *timestamp = meta_display_get_current_time_roundtrip (display);
+      return FALSE;
+    }
+  else if (XSERVER_TIME_IS_BEFORE (*timestamp, display->last_focus_time))
+    {
+      if (XSERVER_TIME_IS_BEFORE (*timestamp, display->last_user_time))
+        {
+          meta_topic (META_DEBUG_FOCUS,
+                      "Ignoring focus request for %s since %u "
+                      "is less than %u and %u.\n",
+                      window ? window->desc : "the no_focus_window",
+                      *timestamp,
+                      display->last_user_time,
+                      display->last_focus_time);
+          return TRUE;
+        }
+      else
+        {
+          meta_topic (META_DEBUG_FOCUS,
+                      "Received focus request for %s which is newer than most "
+                      "recent user_time, but less recent than "
+                      "last_focus_time (%u < %u < %u); adjusting "
+                      "accordingly.  (See bug 167358)\n",
+                      window ? window->desc : "the no_focus_window",
+                      display->last_user_time,
+                      *timestamp,
+                      display->last_focus_time);
+          *timestamp = display->last_focus_time;
+          return FALSE;
+        }
+    }
+
+  return FALSE;
+}
+
 void
 meta_display_set_input_focus_window (MetaDisplay *display, 
                                      MetaWindow  *window,
                                      gboolean     focus_frame,
                                      guint32      timestamp)
 {
-  request_xserver_input_focus_change (display,
-                                      window->screen,
-                                      focus_frame ? window->frame->xwindow : window->xwindow,
-                                      timestamp);
-}
-
-void
-meta_display_request_take_focus (MetaDisplay *display,
-                                 MetaWindow  *window,
-                                 guint32      timestamp)
-{
-  if (timestamp_too_old (display, &timestamp))
+  if (timestamp_too_old (display, window, &timestamp))
     return;
 
-  meta_topic (META_DEBUG_FOCUS, "WM_TAKE_FOCUS(%s, %u)\n",
-              window->desc, timestamp);
+  meta_error_trap_push (display);
+  XSetInputFocus (display->xdisplay,
+                  focus_frame ? window->frame->xwindow : window->xwindow,
+                  RevertToPointerRoot,
+                  timestamp);
+  meta_error_trap_pop (display);
 
-  meta_window_send_icccm_message (window,
-                                  display->atom_WM_TAKE_FOCUS,
-                                  timestamp);
+  display->expected_focus_window = window;
+  display->last_focus_time = timestamp;
+  display->active_screen = window->screen;
+
+  if (window != display->autoraise_window)
+    meta_display_remove_autoraise_callback (window->display);
 }
 
 void
-meta_display_set_input_focus_xwindow (MetaDisplay *display,
-                                      MetaScreen  *screen,
-                                      Window       window,
-                                      guint32      timestamp)
-{
-  request_xserver_input_focus_change (display,
-                                      screen,
-                                      window,
-                                      timestamp);
-}
-
-void
-meta_display_focus_the_no_focus_window (MetaDisplay *display,
+meta_display_focus_the_no_focus_window (MetaDisplay *display, 
                                         MetaScreen  *screen,
                                         guint32      timestamp)
 {
-  request_xserver_input_focus_change (display,
-                                      screen,
-                                      screen->no_focus_window,
-                                      timestamp);
+  if (timestamp_too_old (display, NULL, &timestamp))
+    return;
+
+  XSetInputFocus (display->xdisplay,
+                  screen->no_focus_window,
+                  RevertToPointerRoot,
+                  timestamp);
+  display->expected_focus_window = NULL;
+  display->last_focus_time = timestamp;
+  display->active_screen = screen;
+
+  meta_display_remove_autoraise_callback (display);
 }
 
 void
@@ -5785,11 +5701,10 @@ meta_display_overlay_key_activate (MetaDisplay *display)
 void
 meta_display_accelerator_activate (MetaDisplay *display,
                                    guint        action,
-                                   guint        deviceid,
-                                   guint        timestamp)
+                                   guint        deviceid)
 {
   g_signal_emit (display, display_signals[ACCELERATOR_ACTIVATED],
-                 0, action, deviceid, timestamp);
+                 0, action, deviceid);
 }
 
 gboolean
@@ -5883,9 +5798,11 @@ meta_display_has_shape (MetaDisplay *display)
  * meta_display_get_focus_window:
  * @display: a #MetaDisplay
  *
- * Get our best guess as to the "currently" focused window (that is,
- * the window that we expect will be focused at the point when the X
- * server processes our next request).
+ * Get the window that, according to events received from X server,
+ * currently has the input focus. We may have already sent a request
+ * to the X server to move the focus window elsewhere. (The
+ * expected_focus_window records where we've last set the input
+ * focus.)
  *
  * Return Value: (transfer none): The current focus window
  */

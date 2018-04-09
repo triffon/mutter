@@ -19,7 +19,9 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 #ifndef META_COMMON_H
@@ -213,6 +215,21 @@ typedef enum
   META_GRAB_OP_KEYBOARD_RESIZING_SW,
   META_GRAB_OP_KEYBOARD_RESIZING_NW,
 
+  /* Alt+Tab */
+  META_GRAB_OP_KEYBOARD_TABBING_NORMAL,
+  META_GRAB_OP_KEYBOARD_TABBING_DOCK,
+
+  /* Alt+Esc */
+  META_GRAB_OP_KEYBOARD_ESCAPING_NORMAL,
+  META_GRAB_OP_KEYBOARD_ESCAPING_DOCK,
+
+  META_GRAB_OP_KEYBOARD_ESCAPING_GROUP,
+  
+  /* Alt+F6 */
+  META_GRAB_OP_KEYBOARD_TABBING_GROUP,
+  
+  META_GRAB_OP_KEYBOARD_WORKSPACE_SWITCHING,
+  
   /* Frame button ops */
   META_GRAB_OP_CLICKING_MINIMIZE,
   META_GRAB_OP_CLICKING_MAXIMIZE,
@@ -243,13 +260,6 @@ typedef enum
  * @META_CURSOR_NW_RESIZE: Resize north-western corner cursor
  * @META_CURSOR_MOVE_OR_RESIZE_WINDOW: Move or resize cursor
  * @META_CURSOR_BUSY: Busy cursor
- * @META_CURSOR_DND_IN_DRAG: DND in drag cursor
- * @META_CURSOR_DND_MOVE: DND move cursor
- * @META_CURSOR_DND_COPY: DND copy cursor
- * @META_CURSOR_DND_UNSUPPORTED_TARGET: DND unsupported target
- * @META_CURSOR_POINTING_HAND: pointing hand
- * @META_CURSOR_CROSSHAIR: crosshair (action forbidden)
- * @META_CURSOR_IBEAM: I-beam (text input)
  */
 typedef enum
 {
@@ -263,15 +273,8 @@ typedef enum
   META_CURSOR_NE_RESIZE,
   META_CURSOR_NW_RESIZE,
   META_CURSOR_MOVE_OR_RESIZE_WINDOW,
-  META_CURSOR_BUSY,
-  META_CURSOR_DND_IN_DRAG,
-  META_CURSOR_DND_MOVE,
-  META_CURSOR_DND_COPY,
-  META_CURSOR_DND_UNSUPPORTED_TARGET,
-  META_CURSOR_POINTING_HAND,
-  META_CURSOR_CROSSHAIR,
-  META_CURSOR_IBEAM,
-  META_CURSOR_LAST
+  META_CURSOR_BUSY
+
 } MetaCursor;
 
 /**

@@ -16,7 +16,9 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 /**
@@ -76,7 +78,6 @@ static void
 meta_workspace_finalize (GObject *object)
 {
   /* Actual freeing done in meta_workspace_remove() for now */
-  G_OBJECT_CLASS (meta_workspace_parent_class)->finalize (object);
 }
 
 static void

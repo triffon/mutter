@@ -42,17 +42,28 @@
  * the call, so it may be necessary to readjust the display based on the
  * old_rect to start the animation.
  *
+ * meta_compositor_window_mapped() and meta_compositor_window_unmapped() are
+ * notifications when the toplevel window (frame or client window) is mapped or
+ * unmapped. That is, when the result of meta_window_toplevel_is_mapped()
+ * changes. The main use of this is to drop resources when a window is unmapped.
+ * A window will always be mapped before meta_compositor_show_window()
+ * is called and will not be unmapped until after meta_compositor_hide_window()
+ * is called. If the live_hidden_windows preference is set, windows will never
+ * be unmapped.
+ *
  * # Containers #
  *
- * There's two containers in the stage that are used to place window actors, here
+ * There's three containers in the stage that can be used to place actors, here
  * are listed in the order in which they are painted:
  *
  * - window group, accessible with meta_get_window_group_for_screen()
  * - top window group, accessible with meta_get_top_window_group_for_screen()
+ * - overlay group, accessible with meta_get_overlay_group_for_screen()
  *
  * Mutter will place actors representing windows in the window group, except for
  * override-redirect windows (ie. popups and menus) which will be placed in the
- * top window group.
+ * top window group. Mutter won't put any actors in the overlay group, but it's
+ * intended for compositors to place there panel, dashes, status bars, etc.
  */
 
 #include <config.h>
@@ -75,7 +86,6 @@
 #include "meta-window-group.h"
 #include "window-private.h" /* to check window->hidden */
 #include "display-private.h" /* for meta_display_lookup_x_window() */
-#include "util-private.h"
 #include <X11/extensions/shape.h>
 #include <X11/extensions/Xcomposite.h>
 
@@ -167,6 +177,31 @@ process_damage (MetaCompositor     *compositor,
   meta_window_actor_process_damage (window_actor, event);
 }
 
+static void
+process_property_notify (MetaCompositor	*compositor,
+                         XPropertyEvent *event,
+                         MetaWindow     *window)
+{
+  MetaWindowActor *window_actor;
+
+  if (window == NULL)
+    return;
+
+  window_actor = META_WINDOW_ACTOR (meta_window_get_compositor_private (window));
+  if (window_actor == NULL)
+    return;
+
+  /* Check for the opacity changing */
+  if (event->atom == compositor->atom_net_wm_window_opacity)
+    {
+      meta_window_actor_update_opacity (window_actor);
+      DEBUG_TRACE ("process_property_notify: net_wm_window_opacity\n");
+      return;
+    }
+
+  DEBUG_TRACE ("process_property_notify: unknown\n");
+}
+
 static Window
 get_output_window (MetaScreen *screen)
 {
@@ -221,6 +256,23 @@ meta_get_stage_for_screen (MetaScreen *screen)
 }
 
 /**
+ * meta_get_overlay_group_for_screen:
+ * @screen: a #MetaScreen
+ *
+ * Returns: (transfer none): The overlay group corresponding to @screen
+ */
+ClutterActor *
+meta_get_overlay_group_for_screen (MetaScreen *screen)
+{
+  MetaCompScreen *info = meta_screen_get_compositor_data (screen);
+
+  if (!info)
+    return NULL;
+
+  return info->overlay_group;
+}
+
+/**
  * meta_get_window_group_for_screen:
  * @screen: a #MetaScreen
  *
@@ -271,14 +323,14 @@ meta_get_window_actors (MetaScreen *screen)
   return info->windows;
 }
 
-void
-meta_set_stage_input_region (MetaScreen   *screen,
-                             XserverRegion region)
+static void
+do_set_stage_input_region (MetaScreen   *screen,
+                           XserverRegion region)
 {
-  MetaCompScreen *info    = meta_screen_get_compositor_data (screen);
-  MetaDisplay    *display = meta_screen_get_display (screen);
-  Display        *xdpy    = meta_display_get_xdisplay (display);
-  Window          xstage  = clutter_x11_get_stage_window (CLUTTER_STAGE (info->stage));
+  MetaCompScreen *info = meta_screen_get_compositor_data (screen);
+  MetaDisplay *display = meta_screen_get_display (screen);
+  Display        *xdpy = meta_display_get_xdisplay (display);
+  Window        xstage = clutter_x11_get_stage_window (CLUTTER_STAGE (info->stage));
 
   XFixesSetWindowShapeRegion (xdpy, xstage, ShapeInput, 0, 0, region);
 
@@ -288,6 +340,35 @@ meta_set_stage_input_region (MetaScreen   *screen,
    */
   meta_display_add_ignored_crossing_serial (display, XNextRequest (xdpy));
   XFixesSetWindowShapeRegion (xdpy, info->output, ShapeInput, 0, 0, region);
+}
+
+void
+meta_set_stage_input_region (MetaScreen   *screen,
+                             XserverRegion region)
+{
+  MetaCompScreen *info = meta_screen_get_compositor_data (screen);
+  MetaDisplay  *display = meta_screen_get_display (screen);
+  Display      *xdpy    = meta_display_get_xdisplay (display);
+
+  if (info->stage && info->output)
+    {
+      do_set_stage_input_region (screen, region);
+    }
+  else 
+    {
+      /* Reset info->pending_input_region if one existed before and set the new
+       * one to use it later. */ 
+      if (info->pending_input_region)
+        {
+          XFixesDestroyRegion (xdpy, info->pending_input_region);
+          info->pending_input_region = None;
+        }
+      if (region != None)
+        {
+          info->pending_input_region = XFixesCreateRegion (xdpy, NULL, 0);
+          XFixesCopyRegion (xdpy, info->pending_input_region, region);
+        }
+    } 
 }
 
 void
@@ -307,49 +388,11 @@ meta_empty_stage_input_region (MetaScreen *screen)
   meta_set_stage_input_region (screen, region);
 }
 
-void
-meta_focus_stage_window (MetaScreen *screen,
-                         guint32     timestamp)
-{
-  ClutterStage *stage;
-  Window window;
-
-  stage = CLUTTER_STAGE (meta_get_stage_for_screen (screen));
-  if (!stage)
-    return;
-
-  window = clutter_x11_get_stage_window (stage);
-
-  if (window == None)
-    return;
-
-  meta_display_set_input_focus_xwindow (screen->display,
-                                        screen,
-                                        window,
-                                        timestamp);
-}
-
-gboolean
-meta_stage_is_focused (MetaScreen *screen)
-{
-  ClutterStage *stage;
-  Window window;
-
-  stage = CLUTTER_STAGE (meta_get_stage_for_screen (screen));
-  if (!stage)
-    return FALSE;
-
-  window = clutter_x11_get_stage_window (stage);
-
-  if (window == None)
-    return FALSE;
-
-  return (screen->display->focus_xwindow == window);
-}
-
 gboolean
 meta_begin_modal_for_plugin (MetaScreen       *screen,
                              MetaPlugin       *plugin,
+                             Window            grab_window,
+                             Cursor            cursor,
                              MetaModalOptions  options,
                              guint32           timestamp)
 {
@@ -360,18 +403,9 @@ meta_begin_modal_for_plugin (MetaScreen       *screen,
   MetaDisplay    *display    = meta_screen_get_display (screen);
   Display        *xdpy       = meta_display_get_xdisplay (display);
   MetaCompositor *compositor = display->compositor;
-  ClutterStage *stage;
-  Window grab_window;
-  Cursor cursor = None;
   gboolean pointer_grabbed = FALSE;
   gboolean keyboard_grabbed = FALSE;
   int result;
-
-  stage = CLUTTER_STAGE (meta_get_stage_for_screen (screen));
-  if (!stage)
-    return FALSE;
-
-  grab_window = clutter_x11_get_stage_window (stage);
 
   if (compositor->modal_plugin != NULL || display->grab_op != META_GRAB_OP_NONE)
     return FALSE;
@@ -555,6 +589,14 @@ meta_compositor_manage_screen (MetaCompositor *compositor,
     return;
 
   info = g_new0 (MetaCompScreen, 1);
+  /*
+   * We use an empty input region for Clutter as a default because that allows
+   * the user to interact with all the windows displayed on the screen.
+   * We have to initialize info->pending_input_region to an empty region explicitly, 
+   * because None value is used to mean that the whole screen is an input region.
+   */
+  info->pending_input_region = XFixesCreateRegion (xdisplay, NULL, 0);
+
   info->screen = screen;
 
   meta_screen_set_compositor_data (screen, info);
@@ -611,10 +653,21 @@ meta_compositor_manage_screen (MetaCompositor *compositor,
 
   info->window_group = meta_window_group_new (screen);
   info->top_window_group = meta_window_group_new (screen);
+  info->overlay_group = clutter_actor_new ();
 
   clutter_actor_add_child (info->stage, info->window_group);
   clutter_actor_add_child (info->stage, info->top_window_group);
+  clutter_actor_add_child (info->stage, info->overlay_group);
 
+  info->plugin_mgr = meta_plugin_manager_new (screen);
+
+  /*
+   * Delay the creation of the overlay window as long as we can, to avoid
+   * blanking out the screen. This means that during the plugin loading, the
+   * overlay window is not accessible; if the plugin needs to access it
+   * directly, it should hook into the "show" signal on stage, and do
+   * its stuff there.
+   */
   info->output = get_output_window (screen);
   XReparentWindow (xdisplay, xwin, info->output, 0, 0);
 
@@ -628,20 +681,14 @@ meta_compositor_manage_screen (MetaCompositor *compositor,
   */
   XFixesSetWindowShapeRegion (xdisplay, info->output, ShapeBounding, 0, 0, None);
 
-  info->output = get_output_window (screen);
-  XReparentWindow (xdisplay, xwin, info->output, 0, 0);
+  do_set_stage_input_region (screen, info->pending_input_region);
+  if (info->pending_input_region != None)
+    {
+      XFixesDestroyRegion (xdisplay, info->pending_input_region);
+      info->pending_input_region = None;
+    }
 
-  meta_empty_stage_input_region (screen);
-
-  /* Make sure there isn't any left-over output shape on the 
-   * overlay window by setting the whole screen to be an
-   * output region.
-   * 
-   * Note: there doesn't seem to be any real chance of that
-   *  because the X server will destroy the overlay window
-   *  when the last client using it exits.
-   */
-  XFixesSetWindowShapeRegion (xdisplay, info->output, ShapeBounding, 0, 0, None);
+  clutter_actor_show (info->overlay_group);
 
   /* Map overlay window before redirecting windows offscreen so we catch their
    * contents until we show the stage.
@@ -649,8 +696,6 @@ meta_compositor_manage_screen (MetaCompositor *compositor,
   XMapWindow (xdisplay, info->output);
 
   redirect_windows (compositor, screen);
-
-  info->plugin_mgr = meta_plugin_manager_new (screen);
 }
 
 void
@@ -687,7 +732,7 @@ meta_shape_cow_for_window (MetaScreen *screen,
       int width, height;
       MetaRectangle rect;
 
-      meta_window_get_frame_rect (metaWindow, &rect);
+      meta_window_get_outer_rect (metaWindow, &rect);
 
       window_bounds.x = rect.x;
       window_bounds.y = rect.y;
@@ -706,30 +751,6 @@ meta_shape_cow_for_window (MetaScreen *screen,
       XFixesSetWindowShapeRegion (xdisplay, info->output, ShapeBounding, 0, 0, output_region);
       XFixesDestroyRegion (xdisplay, output_region);
     }
-}
-
-static void
-set_unredirected_window (MetaCompScreen *info,
-                         MetaWindow     *window)
-{
-  if (info->unredirected_window == window)
-    return;
-
-  if (info->unredirected_window != NULL)
-    {
-      MetaWindowActor *window_actor = META_WINDOW_ACTOR (meta_window_get_compositor_private (info->unredirected_window));
-      meta_window_actor_set_unredirected (window_actor, FALSE);
-    }
-
-  info->unredirected_window = window;
-
-  if (info->unredirected_window != NULL)
-    {
-      MetaWindowActor *window_actor = META_WINDOW_ACTOR (meta_window_get_compositor_private (info->unredirected_window));
-      meta_window_actor_set_unredirected (window_actor, TRUE);
-    }
-
-  meta_shape_cow_for_window (info->screen, info->unredirected_window);
 }
 
 void
@@ -763,8 +784,13 @@ meta_compositor_remove_window (MetaCompositor *compositor,
   screen = meta_window_get_screen (window);
   info = meta_screen_get_compositor_data (screen);
 
-  if (info->unredirected_window == window)
-    set_unredirected_window (info, NULL);
+  if (window_actor == info->unredirected_window)
+    {
+      meta_window_actor_set_redirected (window_actor, TRUE);
+      meta_shape_cow_for_window (meta_window_get_screen (meta_window_actor_get_meta_window (info->unredirected_window)),
+                                 NULL);
+      info->unredirected_window = NULL;
+    }
 
   meta_window_actor_destroy (window_actor);
 }
@@ -834,18 +860,6 @@ meta_compositor_window_shape_changed (MetaCompositor *compositor,
   meta_window_actor_update_shape (window_actor);
 }
 
-void
-meta_compositor_window_opacity_changed (MetaCompositor *compositor,
-                                        MetaWindow     *window)
-{
-  MetaWindowActor *window_actor;
-  window_actor = META_WINDOW_ACTOR (meta_window_get_compositor_private (window));
-  if (!window_actor)
-    return;
-
-  meta_window_actor_update_opacity (window_actor);
-}
-
 /* Clutter makes the assumption that there is only one X window
  * per stage, which is a valid assumption to make for a generic
  * application toolkit. As such, it will ignore any events sent
@@ -906,7 +920,10 @@ meta_compositor_process_event (MetaCompositor *compositor,
 {
   if (compositor->modal_plugin && is_grabbed_event (compositor->display, event))
     {
-      _meta_plugin_xevent_filter (compositor->modal_plugin, event);
+      MetaPluginClass *klass = META_PLUGIN_GET_CLASS (compositor->modal_plugin);
+
+      if (klass->xevent_filter)
+        klass->xevent_filter (compositor->modal_plugin, event);
 
       /* We always consume events even if the plugin says it didn't handle them;
        * exclusive is exclusive */
@@ -952,19 +969,28 @@ meta_compositor_process_event (MetaCompositor *compositor,
 	}
     }
 
-  if (event->type == meta_display_get_damage_event_base (compositor->display) + XDamageNotify)
+  switch (event->type)
     {
-      /* Core code doesn't handle damage events, so we need to extract the MetaWindow
-       * ourselves
-       */
-      if (window == NULL)
-        {
-          Window xwin = ((XDamageNotifyEvent *) event)->drawable;
-          window = meta_display_lookup_x_window (compositor->display, xwin);
-        }
+    case PropertyNotify:
+      process_property_notify (compositor, (XPropertyEvent *) event, window);
+      break;
 
-      DEBUG_TRACE ("meta_compositor_process_event (process_damage)\n");
-      process_damage (compositor, (XDamageNotifyEvent *) event, window);
+    default:
+      if (event->type == meta_display_get_damage_event_base (compositor->display) + XDamageNotify)
+        {
+          /* Core code doesn't handle damage events, so we need to extract the MetaWindow
+           * ourselves
+           */
+          if (window == NULL)
+            {
+              Window xwin = ((XDamageNotifyEvent *) event)->drawable;
+              window = meta_display_lookup_x_window (compositor->display, xwin);
+            }
+
+	  DEBUG_TRACE ("meta_compositor_process_event (process_damage)\n");
+          process_damage (compositor, (XDamageNotifyEvent *) event, window);
+        }
+      break;
     }
 
   /* Clutter needs to know about MapNotify events otherwise it will
@@ -1102,7 +1128,6 @@ sync_actor_stacking (MetaCompScreen *info)
    * we go ahead and do it */
 
   children = clutter_actor_get_children (info->window_group);
-  has_windows = FALSE;
   reordered = FALSE;
 
   /* We allow for actors in the window group other than the actors we
@@ -1265,6 +1290,30 @@ meta_compositor_sync_stack (MetaCompositor  *compositor,
 }
 
 void
+meta_compositor_window_mapped (MetaCompositor *compositor,
+                               MetaWindow     *window)
+{
+  MetaWindowActor *window_actor = META_WINDOW_ACTOR (meta_window_get_compositor_private (window));
+  DEBUG_TRACE ("meta_compositor_window_mapped\n");
+  if (!window_actor)
+    return;
+
+  meta_window_actor_mapped (window_actor);
+}
+
+void
+meta_compositor_window_unmapped (MetaCompositor *compositor,
+                                 MetaWindow     *window)
+{
+  MetaWindowActor *window_actor = META_WINDOW_ACTOR (meta_window_get_compositor_private (window));
+  DEBUG_TRACE ("meta_compositor_window_unmapped\n");
+  if (!window_actor)
+    return;
+
+  meta_window_actor_unmapped (window_actor);
+}
+
+void
 meta_compositor_sync_window_geometry (MetaCompositor *compositor,
 				      MetaWindow *window,
                                       gboolean did_placement)
@@ -1353,6 +1402,7 @@ pre_paint_windows (MetaCompScreen *info)
 {
   GList *l;
   MetaWindowActor *top_window;
+  MetaWindowActor *expected_unredirected_window = NULL;
 
   if (info->onscreen == NULL)
     {
@@ -1370,9 +1420,26 @@ pre_paint_windows (MetaCompScreen *info)
 
   if (meta_window_actor_should_unredirect (top_window) &&
       info->disable_unredirect_count == 0)
-    set_unredirected_window (info, meta_window_actor_get_meta_window (top_window));
-  else
-    set_unredirected_window (info, NULL);
+    expected_unredirected_window = top_window;
+
+  if (info->unredirected_window != expected_unredirected_window)
+    {
+      if (info->unredirected_window != NULL)
+        {
+          meta_window_actor_set_redirected (info->unredirected_window, TRUE);
+          meta_shape_cow_for_window (meta_window_get_screen (meta_window_actor_get_meta_window (info->unredirected_window)),
+                                     NULL);
+        }
+
+      if (expected_unredirected_window != NULL)
+        {
+          meta_shape_cow_for_window (meta_window_get_screen (meta_window_actor_get_meta_window (top_window)),
+                                     meta_window_actor_get_meta_window (top_window));
+          meta_window_actor_set_redirected (top_window, FALSE);
+        }
+
+      info->unredirected_window = expected_unredirected_window;
+    }
 
   for (l = info->windows; l; l = l->next)
     meta_window_actor_pre_paint (l->data);
@@ -1426,7 +1493,13 @@ on_shadow_factory_changed (MetaShadowFactory *factory,
 MetaCompositor *
 meta_compositor_new (MetaDisplay *display)
 {
+  char *atom_names[] = {
+    "_XROOTPMAP_ID",
+    "_NET_WM_WINDOW_OPACITY",
+  };
+  Atom                   atoms[G_N_ELEMENTS(atom_names)];
   MetaCompositor        *compositor;
+  Display               *xdisplay = meta_display_get_xdisplay (display);
 
   if (!composite_at_least_version (display, 0, 3))
     return NULL;
@@ -1438,10 +1511,17 @@ meta_compositor_new (MetaDisplay *display)
   if (g_getenv("META_DISABLE_MIPMAPS"))
     compositor->no_mipmaps = TRUE;
 
+  meta_verbose ("Creating %d atoms\n", (int) G_N_ELEMENTS (atom_names));
+  XInternAtoms (xdisplay, atom_names, G_N_ELEMENTS (atom_names),
+                False, atoms);
+
   g_signal_connect (meta_shadow_factory_get_default (),
                     "changed",
                     G_CALLBACK (on_shadow_factory_changed),
                     compositor);
+
+  compositor->atom_x_root_pixmap = atoms[0];
+  compositor->atom_net_wm_window_opacity = atoms[1];
 
   compositor->repaint_func_id = clutter_threads_add_repaint_func (meta_repaint_func,
                                                                   compositor,
@@ -1586,32 +1666,4 @@ meta_compositor_monotonic_time_to_server_time (MetaDisplay *display,
     return monotonic_time;
   else
     return monotonic_time + compositor->server_time_offset;
-}
-
-void
-meta_compositor_show_tile_preview (MetaCompositor *compositor,
-                                   MetaScreen     *screen,
-                                   MetaWindow     *window,
-                                   MetaRectangle  *tile_rect,
-                                   int             tile_monitor_number)
-{
-  MetaCompScreen *info = meta_screen_get_compositor_data (screen);
-
-  if (!info->plugin_mgr)
-    return;
-
-  meta_plugin_manager_show_tile_preview (info->plugin_mgr,
-                                         window, tile_rect, tile_monitor_number);
-}
-
-void
-meta_compositor_hide_tile_preview (MetaCompositor *compositor,
-                                   MetaScreen     *screen)
-{
-  MetaCompScreen *info = meta_screen_get_compositor_data (screen);
-
-  if (!info->plugin_mgr)
-    return;
-
-  meta_plugin_manager_hide_tile_preview (info->plugin_mgr);
 }

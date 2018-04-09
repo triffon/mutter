@@ -14,7 +14,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 /*
@@ -37,7 +39,7 @@
 #include <config.h>
 #include "theme-private.h"
 #include "frames.h" /* for META_TYPE_FRAMES */
-#include "util-private.h"
+#include <meta/util.h>
 #include <meta/gradient.h>
 #include <meta/prefs.h>
 #include <gtk/gtk.h>
@@ -1878,7 +1880,7 @@ debug_print_tokens (PosToken *tokens,
 /**
  * pos_tokenize:
  * @expr: The expression
- * @tokens_p: (out): The resulting tokens
+ * @tokens_p: (out) The resulting tokens
  * @n_tokens_p: (out): The number of resulting tokens
  * @err: (out):  set to the problem if there was a problem
  
@@ -5061,14 +5063,16 @@ meta_theme_get_current (void)
 }
 
 void
-meta_theme_set_current (const char *name)
+meta_theme_set_current (const char *name,
+                        gboolean    force_reload)
 {
   MetaTheme *new_theme;
   GError *err;
 
   meta_topic (META_DEBUG_THEMES, "Setting current theme to \"%s\"\n", name);
   
-  if (meta_current_theme &&
+  if (!force_reload &&
+      meta_current_theme &&
       strcmp (name, meta_current_theme->name) == 0)
     return;
   

@@ -19,7 +19,9 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 #include <config.h>
@@ -45,18 +47,34 @@ northwestcmp (gconstpointer a, gconstpointer b)
 {
   MetaWindow *aw = (gpointer) a;
   MetaWindow *bw = (gpointer) b;
-  MetaRectangle a_frame;
-  MetaRectangle b_frame;
   int from_origin_a;
   int from_origin_b;
   int ax, ay, bx, by;
 
-  meta_window_get_frame_rect (aw, &a_frame);
-  meta_window_get_frame_rect (bw, &b_frame);
-  ax = a_frame.x;
-  ay = a_frame.y;
-  bx = b_frame.x;
-  by = b_frame.y;
+  /* we're interested in the frame position for cascading,
+   * not meta_window_get_position()
+   */
+  if (aw->frame)
+    {
+      ax = aw->frame->rect.x;
+      ay = aw->frame->rect.y;
+    }
+  else
+    {
+      ax = aw->rect.x;
+      ay = aw->rect.y;
+    }
+
+  if (bw->frame)
+    {
+      bx = bw->frame->rect.x;
+      by = bw->frame->rect.y;
+    }
+  else
+    {
+      bx = bw->rect.x;
+      by = bw->rect.y;
+    }
   
   /* probably there's a fast good-enough-guess we could use here. */
   from_origin_a = sqrt (ax * ax + ay * ay);
@@ -72,6 +90,7 @@ northwestcmp (gconstpointer a, gconstpointer b)
 
 static void
 find_next_cascade (MetaWindow *window,
+                   MetaFrameBorders *borders,
                    /* visible windows on relevant workspaces */
                    GList      *windows,
                    int         x,
@@ -83,7 +102,6 @@ find_next_cascade (MetaWindow *window,
   GList *sorted;
   int cascade_x, cascade_y;
   int x_threshold, y_threshold;
-  MetaRectangle frame_rect;
   int window_width, window_height;
   int cascade_stage;
   MetaRectangle work_area;
@@ -102,13 +120,10 @@ find_next_cascade (MetaWindow *window,
    * manually cascade.
    */
 #define CASCADE_FUZZ 15
-  if (window->frame)
+  if (borders)
     {
-      MetaFrameBorders borders;
-
-      meta_frame_calc_borders (window->frame, &borders);
-      x_threshold = MAX (borders.visible.left, CASCADE_FUZZ);
-      y_threshold = MAX (borders.visible.top, CASCADE_FUZZ);
+      x_threshold = MAX (borders->visible.left, CASCADE_FUZZ);
+      y_threshold = MAX (borders->visible.top, CASCADE_FUZZ);
     }
   else
     {
@@ -128,25 +143,30 @@ find_next_cascade (MetaWindow *window,
   cascade_y = MAX (0, work_area.y);
   
   /* Find first cascade position that's not used. */
-
-  meta_window_get_frame_rect (window, &frame_rect);
-  window_width = frame_rect.width;
-  window_height = frame_rect.height;
+  
+  window_width = window->frame ? window->frame->rect.width : window->rect.width;
+  window_height = window->frame ? window->frame->rect.height : window->rect.height;
   
   cascade_stage = 0;
   tmp = sorted;
   while (tmp != NULL)
     {
       MetaWindow *w;
-      MetaRectangle w_frame_rect;
       int wx, wy;
       
       w = tmp->data;
 
       /* we want frame position, not window position */
-      meta_window_get_frame_rect (w, &w_frame_rect);
-      wx = w_frame_rect.x;
-      wy = w_frame_rect.y;
+      if (w->frame)
+        {
+          wx = w->frame->rect.x;
+          wy = w->frame->rect.y;
+        }
+      else
+        {
+          wx = w->rect.x;
+          wy = w->rect.y;
+        }
       
       if (ABS (wx - cascade_x) < x_threshold &&
           ABS (wy - cascade_y) < y_threshold)
@@ -203,12 +223,22 @@ find_next_cascade (MetaWindow *window,
   
   g_list_free (sorted);
 
-  *new_x = cascade_x;
-  *new_y = cascade_y;
+  /* Convert coords to position of window, not position of frame. */
+  if (borders == NULL)
+    {
+      *new_x = cascade_x;
+      *new_y = cascade_y;
+    }
+  else
+    {
+      *new_x = cascade_x + borders->visible.left;
+      *new_y = cascade_y + borders->visible.top;
+    }
 }
 
 static void
 find_most_freespace (MetaWindow *window,
+                     MetaFrameBorders *borders,
                      /* visible windows on relevant workspaces */
                      MetaWindow *focus_window,
                      int         x,
@@ -220,25 +250,29 @@ find_most_freespace (MetaWindow *window,
   int max_area;
   int max_width, max_height, left, right, top, bottom;
   int left_space, right_space, top_space, bottom_space;
+  int frame_size_left, frame_size_top;
   MetaRectangle work_area;
   MetaRectangle avoid;
-  MetaRectangle frame_rect;
+  MetaRectangle outer;
+
+  frame_size_left = borders ? borders->visible.left : 0;
+  frame_size_top  = borders ? borders->visible.top : 0;
 
   meta_window_get_work_area_current_monitor (focus_window, &work_area);
-  meta_window_get_frame_rect (focus_window, &avoid);
-  meta_window_get_frame_rect (window, &frame_rect);
+  meta_window_get_outer_rect (focus_window, &avoid);
+  meta_window_get_outer_rect (window, &outer);
 
   /* Find the areas of choosing the various sides of the focus window */
-  max_width  = MIN (avoid.width, frame_rect.width);
-  max_height = MIN (avoid.height, frame_rect.height);
+  max_width  = MIN (avoid.width, outer.width);
+  max_height = MIN (avoid.height, outer.height);
   left_space   = avoid.x - work_area.x;
   right_space  = work_area.width - (avoid.x + avoid.width - work_area.x);
   top_space    = avoid.y - work_area.y;
   bottom_space = work_area.height - (avoid.y + avoid.height - work_area.y);
-  left   = MIN (left_space,   frame_rect.width);
-  right  = MIN (right_space,  frame_rect.width);
-  top    = MIN (top_space,    frame_rect.height);
-  bottom = MIN (bottom_space, frame_rect.height);
+  left   = MIN (left_space,   outer.width);
+  right  = MIN (right_space,  outer.width);
+  top    = MIN (top_space,    outer.height);
+  bottom = MIN (bottom_space, outer.height);
 
   /* Find out which side of the focus_window can show the most of the window */
   side = META_LEFT;
@@ -270,56 +304,39 @@ find_most_freespace (MetaWindow *window,
   switch (side)
     {
     case META_LEFT:
-      *new_y = avoid.y;
-      if (left_space > frame_rect.width)
-        *new_x = avoid.x - frame_rect.width;
+      *new_y = avoid.y + frame_size_top;
+      if (left_space > outer.width)
+        *new_x = avoid.x - outer.width + frame_size_left;
       else
-        *new_x = work_area.x;
+        *new_x = work_area.x + frame_size_left;
       break;
     case META_RIGHT:
-      *new_y = avoid.y;
-      if (right_space > frame_rect.width)
-        *new_x = avoid.x + avoid.width;
+      *new_y = avoid.y + frame_size_top;
+      if (right_space > outer.width)
+        *new_x = avoid.x + avoid.width + frame_size_left;
       else
-        *new_x = work_area.x + work_area.width - frame_rect.width;
+        *new_x = work_area.x + work_area.width - outer.width + frame_size_left;
       break;
     case META_TOP:
-      *new_x = avoid.x;
-      if (top_space > frame_rect.height)
-        *new_y = avoid.y - frame_rect.height;
+      *new_x = avoid.x + frame_size_left;
+      if (top_space > outer.height)
+        *new_y = avoid.y - outer.height + frame_size_top;
       else
-        *new_y = work_area.y;
+        *new_y = work_area.y + frame_size_top;
       break;
     case META_BOTTOM:
-      *new_x = avoid.x;
-      if (bottom_space > frame_rect.height)
-        *new_y = avoid.y + avoid.height;
+      *new_x = avoid.x + frame_size_left;
+      if (bottom_space > outer.height)
+        *new_y = avoid.y + avoid.height + frame_size_top;
       else
-        *new_y = work_area.y + work_area.height - frame_rect.height;
+        *new_y = work_area.y + work_area.height - outer.height + frame_size_top;
       break;
     }
 }
 
-static gboolean
-window_overlaps_focus_window (MetaWindow *window)
-{
-  MetaWindow *focus_window;
-  MetaRectangle window_frame, focus_frame, overlap;
-
-  focus_window = window->display->focus_window;
-  if (focus_window == NULL)
-    return FALSE;
-
-  meta_window_get_frame_rect (window, &window_frame);
-  meta_window_get_frame_rect (focus_window, &focus_frame);
-
-  return meta_rectangle_intersect (&window_frame,
-                                   &focus_frame,
-                                   &overlap);
-}
-
 static void
 avoid_being_obscured_as_second_modal_dialog (MetaWindow *window,
+                                             MetaFrameBorders *borders,
                                              int        *x,
                                              int        *y)
 {
@@ -338,17 +355,18 @@ avoid_being_obscured_as_second_modal_dialog (MetaWindow *window,
    */
 
   MetaWindow *focus_window;
+  MetaRectangle overlap;
 
   focus_window = window->display->focus_window;
-
-  /* denied_focus_and_not_transient is only set when focus_window != NULL */
 
   if (window->denied_focus_and_not_transient &&
       window->wm_state_modal && /* FIXME: Maybe do this for all transients? */
       meta_window_same_application (window, focus_window) &&
-      window_overlaps_focus_window (window))
+      meta_rectangle_intersect (&window->rect,
+                                &focus_window->rect,
+                                &overlap))
     {
-      find_most_freespace (window, focus_window, *x, *y, x, y);
+      find_most_freespace (window, borders, focus_window, *x, *y, x, y);
       meta_topic (META_DEBUG_PLACEMENT,
                   "Dialog window %s was denied focus but may be modal "
                   "to the focus window; had to move it to avoid the "
@@ -391,7 +409,7 @@ rectangle_overlaps_some_window (MetaRectangle *rect,
         case META_WINDOW_UTILITY:
         case META_WINDOW_TOOLBAR:
         case META_WINDOW_MENU:
-          meta_window_get_frame_rect (other, &other_rect);
+          meta_window_get_outer_rect (other, &other_rect);
           
           if (meta_rectangle_intersect (rect, &other_rect, &dest))
             return TRUE;
@@ -409,14 +427,20 @@ leftmost_cmp (gconstpointer a, gconstpointer b)
 {
   MetaWindow *aw = (gpointer) a;
   MetaWindow *bw = (gpointer) b;
-  MetaRectangle a_frame;
-  MetaRectangle b_frame;
   int ax, bx;
 
-  meta_window_get_frame_rect (aw, &a_frame);
-  meta_window_get_frame_rect (bw, &b_frame);
-  ax = a_frame.x;
-  bx = b_frame.x;
+  /* we're interested in the frame position for cascading,
+   * not meta_window_get_position()
+   */
+  if (aw->frame)
+    ax = aw->frame->rect.x;
+  else
+    ax = aw->rect.x;
+
+  if (bw->frame)
+    bx = bw->frame->rect.x;
+  else
+    bx = bw->rect.x;
 
   if (ax < bx)
     return -1;
@@ -431,14 +455,20 @@ topmost_cmp (gconstpointer a, gconstpointer b)
 {
   MetaWindow *aw = (gpointer) a;
   MetaWindow *bw = (gpointer) b;
-  MetaRectangle a_frame;
-  MetaRectangle b_frame;
   int ay, by;
 
-  meta_window_get_frame_rect (aw, &a_frame);
-  meta_window_get_frame_rect (bw, &b_frame);
-  ay = a_frame.y;
-  by = b_frame.y;
+  /* we're interested in the frame position for cascading,
+   * not meta_window_get_position()
+   */
+  if (aw->frame)
+    ay = aw->frame->rect.y;
+  else
+    ay = aw->rect.y;
+
+  if (bw->frame)
+    by = bw->frame->rect.y;
+  else
+    by = bw->rect.y;
 
   if (ay < by)
     return -1;
@@ -476,6 +506,7 @@ center_tile_rect_in_area (MetaRectangle *rect,
  */
 static gboolean
 find_first_fit (MetaWindow *window,
+                MetaFrameBorders *borders,
                 /* visible windows on relevant workspaces */
                 GList      *windows,
 		int         monitor,
@@ -509,8 +540,15 @@ find_first_fit (MetaWindow *window,
   right_sorted = g_list_copy (windows);
   right_sorted = g_list_sort (right_sorted, topmost_cmp);
   right_sorted = g_list_sort (right_sorted, leftmost_cmp);
-
-  meta_window_get_frame_rect (window, &rect);
+  
+  rect.width = window->rect.width;
+  rect.height = window->rect.height;
+  
+  if (borders)
+    {
+      rect.width += borders->visible.left + borders->visible.right;
+      rect.height += borders->visible.top + borders->visible.bottom;
+    }
 
 #ifdef WITH_VERBOSE_MODE
     {
@@ -532,6 +570,11 @@ find_first_fit (MetaWindow *window,
       {
         *new_x = rect.x;
         *new_y = rect.y;
+        if (borders)
+          {
+            *new_x += borders->visible.left;
+            *new_y += borders->visible.top;
+          }
     
         retval = TRUE;
        
@@ -543,18 +586,23 @@ find_first_fit (MetaWindow *window,
     while (tmp != NULL)
       {
         MetaWindow *w = tmp->data;
-        MetaRectangle frame_rect;
+        MetaRectangle outer_rect;
 
-        meta_window_get_frame_rect (w, &frame_rect);
+        meta_window_get_outer_rect (w, &outer_rect);
       
-        rect.x = frame_rect.x;
-        rect.y = frame_rect.y + frame_rect.height;
+        rect.x = outer_rect.x;
+        rect.y = outer_rect.y + outer_rect.height;
       
         if (meta_rectangle_contains_rect (&work_area, &rect) &&
             !rectangle_overlaps_some_window (&rect, below_sorted))
           {
             *new_x = rect.x;
             *new_y = rect.y;
+            if (borders)
+              {
+                *new_x += borders->visible.left;
+                *new_y += borders->visible.top;
+              }
           
             retval = TRUE;
           
@@ -569,18 +617,23 @@ find_first_fit (MetaWindow *window,
     while (tmp != NULL)
       {
         MetaWindow *w = tmp->data;
-        MetaRectangle frame_rect;
+        MetaRectangle outer_rect;
    
-        meta_window_get_frame_rect (w, &frame_rect);
+        meta_window_get_outer_rect (w, &outer_rect);
      
-        rect.x = frame_rect.x + frame_rect.width;
-        rect.y = frame_rect.y;
+        rect.x = outer_rect.x + outer_rect.width;
+        rect.y = outer_rect.y;
    
         if (meta_rectangle_contains_rect (&work_area, &rect) &&
             !rectangle_overlaps_some_window (&rect, right_sorted))
           {
             *new_x = rect.x;
             *new_y = rect.y;
+            if (borders)
+              {
+                *new_x += borders->visible.left;
+                *new_y += borders->visible.top;
+              }
         
             retval = TRUE;
        
@@ -599,6 +652,7 @@ find_first_fit (MetaWindow *window,
 
 void
 meta_window_place (MetaWindow        *window,
+                   MetaFrameBorders  *borders,
                    int                x,
                    int                y,
                    int               *new_x,
@@ -606,6 +660,13 @@ meta_window_place (MetaWindow        *window,
 {
   GList *windows;
   const MetaMonitorInfo *xi;
+
+  /* frame member variables should NEVER be used in here, only
+   * MetaFrameBorders. But remember borders == NULL
+   * for undecorated windows. Also, this function should
+   * NEVER have side effects other than computing the
+   * placement coordinates.
+   */
 
   meta_topic (META_DEBUG_PLACEMENT, "Placing window %s\n", window->desc);
 
@@ -695,7 +756,7 @@ meta_window_place (MetaWindow        *window,
         {
           meta_topic (META_DEBUG_PLACEMENT,
                       "Not placing window with PPosition or USPosition set\n");
-          avoid_being_obscured_as_second_modal_dialog (window, &x, &y);
+          avoid_being_obscured_as_second_modal_dialog (window, borders, &x, &y);
           goto done_no_constraints;
         }
     }
@@ -714,27 +775,29 @@ meta_window_place (MetaWindow        *window,
 
       if (parent)
         {
-          MetaRectangle frame_rect, parent_frame_rect;
+          int w;
 
-          meta_window_get_frame_rect (window, &frame_rect);
-          meta_window_get_frame_rect (parent, &parent_frame_rect);
-
-          y = parent_frame_rect.y;
+          meta_window_get_position (parent, &x, &y);
+          w = parent->rect.width;
 
           /* center of parent */
-          x = parent_frame_rect.x + parent_frame_rect.width / 2;
+          x = x + w / 2;
           /* center of child over center of parent */
-          x -= frame_rect.width / 2;
+          x -= window->rect.width / 2;
 
           /* "visually" center window over parent, leaving twice as
            * much space below as on top.
            */
-          y += (parent_frame_rect.height - frame_rect.height)/3;
+          y += (parent->rect.height - window->rect.height)/3;
+
+          /* put top of child's frame, not top of child's client */
+          if (borders)
+            y += borders->visible.top;
 
           meta_topic (META_DEBUG_PLACEMENT, "Centered window %s over transient parent\n",
                       window->desc);
           
-          avoid_being_obscured_as_second_modal_dialog (window, &x, &y);
+          avoid_being_obscured_as_second_modal_dialog (window, borders, &x, &y);
 
           goto done;
         }
@@ -750,9 +813,6 @@ meta_window_place (MetaWindow        *window,
     {
       /* Center on current monitor */
       int w, h;
-      MetaRectangle frame_rect;
-
-      meta_window_get_frame_rect (window, &frame_rect);
 
       /* Warning, this function is a round trip! */
       xi = meta_screen_get_current_monitor_info (window->screen);
@@ -760,8 +820,8 @@ meta_window_place (MetaWindow        *window,
       w = xi->rect.width;
       h = xi->rect.height;
 
-      x = (w - frame_rect.width) / 2;
-      y = (h - frame_rect.height) / 2;
+      x = (w - window->rect.width) / 2;
+      y = (h - window->rect.height) / 2;
 
       x += xi->rect.x;
       y += xi->rect.y;
@@ -805,7 +865,7 @@ meta_window_place (MetaWindow        *window,
   x = xi->rect.x;
   y = xi->rect.y;
 
-  if (find_first_fit (window, windows,
+  if (find_first_fit (window, borders, windows,
                       xi->number,
                       x, y, &x, &y))
     goto done_check_denied_focus;
@@ -818,17 +878,17 @@ meta_window_place (MetaWindow        *window,
       !window->fullscreen)
     {
       MetaRectangle workarea;
-      MetaRectangle frame_rect;
+      MetaRectangle outer;
 
       meta_window_get_work_area_for_monitor (window,
                                              xi->number,
                                              &workarea);      
-      meta_window_get_frame_rect (window, &frame_rect);
+      meta_window_get_outer_rect (window, &outer);
       
       /* If the window is bigger than the screen, then automaximize.  Do NOT
        * auto-maximize the directions independently.  See #419810.
        */
-      if (frame_rect.width >= workarea.width && frame_rect.height >= workarea.height)
+      if (outer.width >= workarea.width && outer.height >= workarea.height)
         {
           window->maximize_horizontally_after_placement = TRUE;
           window->maximize_vertically_after_placement = TRUE;
@@ -839,7 +899,7 @@ meta_window_place (MetaWindow        *window,
    * fully overlapping window (e.g. starting multiple terminals)
    * */
   if (x == xi->rect.x && y == xi->rect.y)  
-    find_next_cascade (window, windows, x, y, &x, &y);
+    find_next_cascade (window, borders, windows, x, y, &x, &y);
 
  done_check_denied_focus:
   /* If the window is being denied focus and isn't a transient of the
@@ -849,14 +909,17 @@ meta_window_place (MetaWindow        *window,
    */
   if (window->denied_focus_and_not_transient)
     {
-      MetaWindow    *focus_window;
       gboolean       found_fit;
+      MetaWindow    *focus_window;
+      MetaRectangle  overlap;
 
       focus_window = window->display->focus_window;
       g_assert (focus_window != NULL);
 
       /* No need to do anything if the window doesn't overlap at all */
-      found_fit = !window_overlaps_focus_window (window);
+      found_fit = !meta_rectangle_intersect (&window->rect,
+                                             &focus_window->rect,
+                                             &overlap);
 
       /* Try to do a first fit again, this time only taking into account the
        * focus window.
@@ -870,7 +933,7 @@ meta_window_place (MetaWindow        *window,
           x = xi->rect.x;
           y = xi->rect.y;
 
-          found_fit = find_first_fit (window, focus_window_list,
+          found_fit = find_first_fit (window, borders, focus_window_list,
                                       xi->number,
                                       x, y, &x, &y);
           g_list_free (focus_window_list);
@@ -880,7 +943,7 @@ meta_window_place (MetaWindow        *window,
        * as possible.
        */
       if (!found_fit)
-        find_most_freespace (window, focus_window, x, y, &x, &y);
+        find_most_freespace (window, borders, focus_window, x, y, &x, &y);
     }
   
  done:

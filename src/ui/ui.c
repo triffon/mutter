@@ -4,6 +4,7 @@
 
 /* 
  * Copyright (C) 2002 Havoc Pennington
+ * stock icon code Copyright (C) 2002 Jorn Baayen <jorn@nl.linux.org>
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -16,7 +17,9 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 #include <config.h>
@@ -28,10 +31,13 @@
 #include "core.h"
 #include "theme-private.h"
 
+#include "inlinepixbufs.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <cairo-xlib.h>
 
+static void meta_stock_icons_init (void);
 static void meta_ui_accelerator_parse (const char      *accel,
                                        guint           *keysym,
                                        guint           *keycode,
@@ -57,10 +63,7 @@ meta_ui_init (void)
   if (!gtk_init_check (NULL, NULL))
     meta_fatal ("Unable to open X display %s\n", XDisplayName (NULL));
 
-  /* We need to be able to fully trust that the window and monitor sizes
-     that Gdk reports corresponds to the X ones, so we disable the automatic
-     scale handling */
-  gdk_x11_display_set_window_scale (gdk_display_get_default (), 1);
+  meta_stock_icons_init ();
 }
 
 Display*
@@ -123,7 +126,6 @@ maybe_redirect_mouse_event (XEvent *xevent)
 
   switch (xev->evtype)
     {
-    case XI_TouchBegin:
     case XI_ButtonPress:
     case XI_ButtonRelease:
     case XI_Motion:
@@ -160,27 +162,20 @@ maybe_redirect_mouse_event (XEvent *xevent)
 
   switch (xev->evtype)
     {
-    case XI_TouchBegin:
     case XI_ButtonPress:
     case XI_ButtonRelease:
-      if (xev_d->evtype == XI_ButtonPress || xev_d->evtype == XI_TouchBegin)
+      if (xev_d->evtype == XI_ButtonPress)
         {
           GtkSettings *settings = gtk_settings_get_default ();
           int double_click_time;
           int double_click_distance;
-          int button;
 
           g_object_get (settings,
                         "gtk-double-click-time", &double_click_time,
                         "gtk-double-click-distance", &double_click_distance,
                         NULL);
 
-          if (xev->evtype == XI_TouchBegin)
-            button = 1;
-          else
-            button = xev_d->detail;
-
-          if (button == ui->button_click_number &&
+          if (xev_d->detail == ui->button_click_number &&
               xev_d->event == ui->button_click_window &&
               xev_d->time < ui->button_click_time + double_click_time &&
               ABS (xev_d->event_x - ui->button_click_x) <= double_click_distance &&
@@ -193,22 +188,20 @@ maybe_redirect_mouse_event (XEvent *xevent)
           else
             {
               gevent = gdk_event_new (GDK_BUTTON_PRESS);
-              ui->button_click_number = button;
+              ui->button_click_number = xev_d->detail;
               ui->button_click_window = xev_d->event;
               ui->button_click_time = xev_d->time;
               ui->button_click_x = xev_d->event_x;
               ui->button_click_y = xev_d->event_y;
             }
-
-          gevent->button.button = button;
         }
       else
         {
           gevent = gdk_event_new (GDK_BUTTON_RELEASE);
-          gevent->button.button = xev_d->detail;
         }
 
       gevent->button.window = g_object_ref (gdk_window);
+      gevent->button.button = xev_d->detail;
       gevent->button.time = xev_d->time;
       gevent->button.x = xev_d->event_x;
       gevent->button.y = xev_d->event_y;
@@ -308,12 +301,9 @@ meta_ui_new (Display *xdisplay,
   g_assert (gdisplay == gdk_display_get_default ());
 
   ui->frames = meta_frames_new (XScreenNumberOfScreen (screen));
-  /* GTK+ needs the frame-sync protocol to work in order to properly
-   * handle style changes. This means that the dummy widget we create
-   * to get the style for title bars actually needs to be mapped
-   * and fully tracked as a MetaWindow. Horrible, but mostly harmless -
-   * the window is a 1x1 overide redirect window positioned offscreen.
-   */
+  /* This does not actually show any widget. MetaFrames has been hacked so
+   * that showing it doesn't actually do anything. But we need the flags
+   * set for GTK to deliver events properly. */
   gtk_widget_show (GTK_WIDGET (ui->frames));
 
   g_object_set_data (G_OBJECT (gdisplay), "meta-ui", ui);
@@ -335,22 +325,25 @@ meta_ui_free (MetaUI *ui)
 }
 
 void
-meta_ui_get_frame_mask (MetaUI  *ui,
-                        Window   frame_xwindow,
-                        guint    width,
-                        guint    height,
-                        cairo_t *cr)
-{
-  meta_frames_get_mask (ui->frames, frame_xwindow, width, height, cr);
-}
-
-void
 meta_ui_get_frame_borders (MetaUI *ui,
                            Window frame_xwindow,
                            MetaFrameBorders *borders)
 {
   meta_frames_get_borders (ui->frames, frame_xwindow,
                            borders);
+}
+
+void
+meta_ui_get_corner_radiuses (MetaUI *ui,
+                             Window  xwindow,
+                             float  *top_left,
+                             float  *top_right,
+                             float  *bottom_left,
+                             float  *bottom_right)
+{
+  meta_frames_get_corner_radiuses (ui->frames, xwindow,
+                                   top_left, top_right,
+                                   bottom_left, bottom_right);
 }
 
 Window
@@ -785,9 +778,10 @@ meta_ui_theme_get_frame_borders (MetaUI *ui,
 }
 
 void
-meta_ui_set_current_theme (const char *name)
+meta_ui_set_current_theme (const char *name,
+                           gboolean    force_reload)
 {
-  meta_theme_set_current (name);
+  meta_theme_set_current (name, force_reload);
   meta_invalidate_default_icons ();
 }
 
@@ -1005,6 +999,48 @@ meta_ui_window_is_widget (MetaUI *ui,
     }
   else
     return FALSE;
+}
+
+/* stock icon code Copyright (C) 2002 Jorn Baayen <jorn@nl.linux.org> */
+typedef struct
+{
+  char *stock_id;
+  const guint8 *icon_data;
+} MetaStockIcon;
+
+static void
+meta_stock_icons_init (void)
+{
+  GtkIconFactory *factory;
+  int i;
+
+  MetaStockIcon items[] =
+  {
+    { METACITY_STOCK_DELETE,   stock_delete_data   },
+    { METACITY_STOCK_MINIMIZE, stock_minimize_data },
+    { METACITY_STOCK_MAXIMIZE, stock_maximize_data }
+  };
+
+  factory = gtk_icon_factory_new ();
+  gtk_icon_factory_add_default (factory);
+
+  for (i = 0; i < (gint) G_N_ELEMENTS (items); i++)
+    {
+      GtkIconSet *icon_set;
+      GdkPixbuf *pixbuf;
+
+      pixbuf = gdk_pixbuf_new_from_inline (-1, items[i].icon_data,
+					   FALSE,
+					   NULL);
+
+      icon_set = gtk_icon_set_new_from_pixbuf (pixbuf);
+      gtk_icon_factory_add (factory, items[i].stock_id, icon_set);
+      gtk_icon_set_unref (icon_set);
+      
+      g_object_unref (G_OBJECT (pixbuf));
+    }
+
+  g_object_unref (G_OBJECT (factory));
 }
 
 int

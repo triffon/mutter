@@ -3,7 +3,7 @@
 
 lib_LTLIBRARIES = libmutter.la
 
-SUBDIRS=compositor/plugins
+SUBDIRS=wm-tester tools compositor/plugins
 
 INCLUDES=								\
 	-DCLUTTER_ENABLE_EXPERIMENTAL_API				\
@@ -30,9 +30,7 @@ INCLUDES=								\
 	-DGETTEXT_PACKAGE=\"$(GETTEXT_PACKAGE)\"
 
 mutter_built_sources = \
-	$(dbus_idle_built_sources)	\
-	$(dbus_xrandr_built_sources)	\
-	mutter-enum-types.h		\
+	mutter-enum-types.h \
 	mutter-enum-types.c
 
 libmutter_la_SOURCES =				\
@@ -55,8 +53,7 @@ libmutter_la_SOURCES =				\
 	compositor/meta-background-actor.c	\
 	compositor/meta-background-actor-private.h	\
 	compositor/meta-background-group.c	\
-	compositor/meta-cullable.c		\
-	compositor/meta-cullable.h		\
+	compositor/meta-background-group-private.h	\
 	compositor/meta-module.c		\
 	compositor/meta-module.h		\
 	compositor/meta-plugin.c		\
@@ -65,7 +62,6 @@ libmutter_la_SOURCES =				\
 	compositor/meta-shadow-factory.c	\
 	compositor/meta-shadow-factory-private.h	\
 	compositor/meta-shaped-texture.c	\
-	compositor/meta-shaped-texture-private.h	\
 	compositor/meta-texture-rectangle.c	\
 	compositor/meta-texture-rectangle.h	\
 	compositor/meta-texture-tower.c		\
@@ -94,10 +90,10 @@ libmutter_la_SOURCES =				\
 	core/display.c				\
 	core/display-private.h			\
 	meta/display.h				\
+	ui/draw-workspace.c			\
+	ui/draw-workspace.h			\
 	core/edge-resistance.c			\
 	core/edge-resistance.h			\
-	core/edid-parse.c			\
-	core/edid.h				\
 	core/errors.c				\
 	meta/errors.h				\
 	core/frame.c				\
@@ -114,15 +110,6 @@ libmutter_la_SOURCES =				\
 	core/keybindings.c			\
 	core/keybindings-private.h		\
 	core/main.c				\
-	core/meta-cursor-tracker.c		\
-	core/meta-cursor-tracker-private.h	\
-	core/meta-idle-monitor.c		\
-	core/meta-idle-monitor-private.h	\
-	core/meta-xrandr-shared.h		\
-	core/monitor.c				\
-	core/monitor-config.c			\
-	core/monitor-private.h			\
-	core/monitor-xrandr.c			\
 	core/mutter-Xatomtype.h			\
 	core/place.c				\
 	core/place.h				\
@@ -140,7 +127,6 @@ libmutter_la_SOURCES =				\
 	core/stack-tracker.h			\
 	core/util.c				\
 	meta/util.h				\
-	core/util-private.h			\
 	core/window-props.c			\
 	core/window-props.h			\
 	core/window.c				\
@@ -153,6 +139,7 @@ libmutter_la_SOURCES =				\
 	meta/common.h				\
 	core/core.h				\
 	ui/ui.h					\
+	inlinepixbufs.h				\
 	ui/frames.c				\
 	ui/frames.h				\
 	ui/menu.c				\
@@ -161,13 +148,17 @@ libmutter_la_SOURCES =				\
 	ui/metaaccellabel.h			\
 	ui/resizepopup.c			\
 	ui/resizepopup.h			\
+	ui/tabpopup.c				\
+	ui/tabpopup.h				\
+	ui/tile-preview.c			\
+	ui/tile-preview.h			\
 	ui/theme-parser.c			\
 	ui/theme.c				\
 	meta/theme.h				\
 	ui/theme-private.h			\
-	ui/ui.c
-
-nodist_libmutter_la_SOURCES =			\
+	ui/ui.c					\
+	meta/preview-widget.h			\
+	ui/preview-widget.c			\
 	$(mutter_built_sources)
 
 libmutter_la_LDFLAGS = -no-undefined
@@ -190,8 +181,6 @@ libmutterinclude_base_headers =		\
 	meta/meta-background-actor.h		\
 	meta/meta-background-group.h		\
 	meta/meta-background.h			\
-	meta/meta-cursor-tracker.h		\
-	meta/meta-idle-monitor.h		\
 	meta/meta-plugin.h			\
 	meta/meta-shaped-texture.h		\
 	meta/meta-shadow-factory.h		\
@@ -207,6 +196,7 @@ libmutterinclude_base_headers =		\
 # Excluded from scanning for introspection but installed
 # atomnames.h: macros cause problems for scanning process
 libmutterinclude_extra_headers =		\
+	meta/preview-widget.h			\
 	meta/atomnames.h
 
 libmutterincludedir = $(includedir)/mutter/meta
@@ -215,7 +205,10 @@ libmutterinclude_HEADERS =			\
 	$(libmutterinclude_base_headers)	\
 	$(libmutterinclude_extra_headers)
 
-bin_PROGRAMS=mutter
+mutter_theme_viewer_SOURCES=  \
+	ui/theme-viewer.c
+
+bin_PROGRAMS=mutter mutter-theme-viewer
 
 mutter_SOURCES = core/mutter.c
 mutter_LDADD = $(MUTTER_LIBS) libmutter.la
@@ -248,10 +241,12 @@ Meta-$(api_version).gir: libmutter.la
 @META_GIR@_FILES =				\
 	mutter-enum-types.h			\
 	$(libmutterinclude_base_headers)	\
-	$(filter %.c,$(libmutter_la_SOURCES) $(nodist_libmutter_la_SOURCES))
+	$(filter %.c,$(libmutter_la_SOURCES))
 @META_GIR@_SCANNERFLAGS = --warn-all --warn-error
 
 endif
+
+mutter_theme_viewer_LDADD= $(MUTTER_LIBS) libmutter.la
 
 testboxes_SOURCES = core/testboxes.c
 testgradient_SOURCES = ui/testgradient.c
@@ -289,7 +284,14 @@ gsettings_SCHEMAS = org.gnome.mutter.gschema.xml
 convertdir = $(datadir)/GConf/gsettings
 convert_DATA = mutter-schemas.convert
 
+IMAGES=stock_maximize.png stock_minimize.png stock_delete.png
+VARIABLES=stock_maximize_data $(srcdir)/stock_maximize.png \
+          stock_minimize_data $(srcdir)/stock_minimize.png \
+          stock_delete_data $(srcdir)/stock_delete.png
+
+BUILT_SOURCES = inlinepixbufs.h
 CLEANFILES =					\
+	inlinepixbufs.h				\
 	mutter.desktop				\
 	mutter-wm.desktop			\
 	org.gnome.mutter.gschema.xml		\
@@ -297,6 +299,9 @@ CLEANFILES =					\
 	$(mutter_built_sources)			\
 	$(typelib_DATA)				\
 	$(gir_DATA)
+
+inlinepixbufs.h: $(IMAGES)
+	$(GDK_PIXBUF_CSOURCE) --raw --build-list $(VARIABLES) >$(srcdir)/inlinepixbufs.h
 
 pkgconfigdir = $(libdir)/pkgconfig
 
@@ -309,15 +314,13 @@ EXTRA_DIST=$(desktopfiles_files) 	\
 	$(wmproperties_in_files)	\
 	$(xml_in_files)			\
 	org.gnome.mutter.gschema.xml.in \
-	idle-monitor.xml \
-	xrandr.xml \
 	mutter-schemas.convert \
 	libmutter.pc.in \
 	mutter-plugins.pc.in  \
 	mutter-enum-types.h.in \
 	mutter-enum-types.c.in
 
-BUILT_SOURCES = $(mutter_built_sources)
+BUILT_SOURCES += $(mutter_built_sources)
 MUTTER_STAMP_FILES = stamp-mutter-enum-types.h
 CLEANFILES += $(MUTTER_STAMP_FILES)
 
@@ -339,22 +342,3 @@ mutter-enum-types.c: stamp-mutter-enum-types.h mutter-enum-types.c.in
 	  $(libmutterinclude_base_headers) ) >> xgen-tetc && \
 	cp xgen-tetc mutter-enum-types.c && \
 	rm -f xgen-tetc
-
-dbus_xrandr_built_sources = meta-dbus-xrandr.c meta-dbus-xrandr.h
-
-$(dbus_xrandr_built_sources) : Makefile.am xrandr.xml
-	$(AM_V_GEN)gdbus-codegen							\
-		--interface-prefix org.gnome.Mutter					\
-		--c-namespace MetaDBus							\
-		--generate-c-code meta-dbus-xrandr					\
-		$(srcdir)/xrandr.xml
-
-dbus_idle_built_sources = meta-dbus-idle-monitor.c meta-dbus-idle-monitor.h
-
-$(dbus_idle_built_sources) : Makefile.am idle-monitor.xml
-	$(AM_V_GEN)gdbus-codegen							\
-		--interface-prefix org.gnome.Mutter					\
-		--c-namespace MetaDBus							\
-		--generate-c-code meta-dbus-idle-monitor				\
-		--c-generate-object-manager						\
-		$(srcdir)/idle-monitor.xml

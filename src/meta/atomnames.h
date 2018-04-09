@@ -18,7 +18,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 /*
@@ -52,6 +54,9 @@ item(WM_WINDOW_ROLE)
 item(UTF8_STRING)
 item(WM_ICON_SIZE)
 item(_KWM_WIN_ICON)
+item(_MUTTER_RELOAD_THEME_MESSAGE)
+item(_MUTTER_SET_KEYBINDINGS_MESSAGE)
+item(_MUTTER_TOGGLE_VERBOSE)
 item(_MUTTER_HINTS)
 item(_GTK_THEME_VARIANT)
 item(_GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED)
@@ -61,16 +66,12 @@ item(_GTK_APPLICATION_OBJECT_PATH)
 item(_GTK_WINDOW_OBJECT_PATH)
 item(_GTK_APP_MENU_OBJECT_PATH)
 item(_GTK_MENUBAR_OBJECT_PATH)
-item(_GTK_FRAME_EXTENTS)
 item(_GNOME_WM_KEYBINDINGS)
 item(_GNOME_PANEL_ACTION)
 item(_GNOME_PANEL_ACTION_MAIN_MENU)
 item(_GNOME_PANEL_ACTION_RUN_DIALOG)
-item(_MUTTER_TIMESTAMP_PING)
-item(_MUTTER_FOCUS_SET)
 item(_MUTTER_SENTINEL)
 item(_MUTTER_VERSION)
-item(_MUTTER_PRESENTATION_OUTPUT)
 item(WM_CLIENT_MACHINE)
 item(MANAGER)
 item(TARGETS)
@@ -78,8 +79,6 @@ item(MULTIPLE)
 item(TIMESTAMP)
 item(VERSION)
 item(ATOM_PAIR)
-item(Backlight)
-item(hotplug_mode_update)
 
 /* Oddities: These are used, and we need atoms for them,
  * but when we need all _NET_WM hints (i.e. when we're making
@@ -177,7 +176,6 @@ item(_NET_WM_BYPASS_COMPOSITOR)
 item(_NET_WM_OPAQUE_REGION)
 item(_NET_WM_FRAME_DRAWN)
 item(_NET_WM_FRAME_TIMINGS)
-item(_NET_WM_WINDOW_OPACITY)
 
 #if 0
 /* We apparently never use: */

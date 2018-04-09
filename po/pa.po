@@ -8,14 +8,14 @@
 # A S Alam <aalam@users.sf.net>, 2006.
 # A S Alam <aalam@users.sf.net>, 2007, 2009, 2010, 2011.
 # ASB <aalam@users.sf.net>, 2007.
-# Amanpreet Singh Alam <aalam@users.sf.net>, 2009, 2012, 2013, 2014.
+# Amanpreet Singh Alam <aalam@users.sf.net>, 2009, 2012, 2013.
 msgid ""
 msgstr ""
 "Project-Id-Version: metacity.gnome-2-26\n"
 "Report-Msgid-Bugs-To: http://bugzilla.gnome.org/enter_bug.cgi?"
 "product=mutter&keywords=I18N+L10N&component=general\n"
-"POT-Creation-Date: 2014-03-17 10:54+0000\n"
-"PO-Revision-Date: 2014-03-17 16:02-0500\n"
+"POT-Creation-Date: 2013-03-01 15:50+0000\n"
+"PO-Revision-Date: 2013-03-03 07:09+0530\n"
 "Last-Translator: A S Alam <aalam@users.sf.net>\n"
 "Language-Team: Punjabi/Panjabi <punjabi-users@lists.sf.net>\n"
 "Language: pa\n"
@@ -63,86 +63,66 @@ msgid "Move window one workspace down"
 msgstr "ਵਿੰਡੋ ਨੂੰ ਇੱਕ ਵਰਕਸਪੇਸ ਹੇਠਾਂ ਲਿਜਾਓ"
 
 #: ../src/50-mutter-navigation.xml.in.h:10
-#| msgid "Move window one workspace to the left"
-msgid "Move window one monitor to the left"
-msgstr "ਵਿੰਡੋ ਨੂੰ ਇੱਕ ਮਾਨੀਟਰ ਖੱਬੇ ਵੱਲ ਲਿਜਾਓ"
-
-#: ../src/50-mutter-navigation.xml.in.h:11
-#| msgid "Move window one workspace to the right"
-msgid "Move window one monitor to the right"
-msgstr "ਵਿੰਡੋ ਨੂੰ ਇੱਕ ਮਾਨੀਟਰ ਸੱਜੇ ਵੱਲ ਲਿਜਾਓ"
-
-#: ../src/50-mutter-navigation.xml.in.h:12
-#| msgid "Move window one workspace up"
-msgid "Move window one monitor up"
-msgstr "ਵਿੰਡੋ ਨੂੰ ਇੱਕ ਮਾਨੀਟਰ ਉੱਤੇ ਲਿਜਾਓ"
-
-#: ../src/50-mutter-navigation.xml.in.h:13
-#| msgid "Move window one workspace down"
-msgid "Move window one monitor down"
-msgstr "ਵਿੰਡੋ ਨੂੰ ਇੱਕ ਮਾਨੀਟਰ ਹੇਠਾਂ ਲਿਜਾਓ"
-
-#: ../src/50-mutter-navigation.xml.in.h:14
 msgid "Switch applications"
 msgstr "ਐਪਲੀਕੇਸ਼ਨ ਬਦਲੋ"
 
-#: ../src/50-mutter-navigation.xml.in.h:15
+#: ../src/50-mutter-navigation.xml.in.h:11
 msgid "Switch windows"
 msgstr "ਵਿੰਡੋਜ਼ ਬਦਲੋ"
 
-#: ../src/50-mutter-navigation.xml.in.h:16
+#: ../src/50-mutter-navigation.xml.in.h:12
 msgid "Switch windows of an application"
 msgstr "ਐਪਲੀਕੇਸ਼ਨ ਦੀਆਂ ਵਿੰਡੋਜ਼ ਬਦਲੋ"
 
-#: ../src/50-mutter-navigation.xml.in.h:17
+#: ../src/50-mutter-navigation.xml.in.h:13
 msgid "Switch system controls"
 msgstr "ਸਿਸਟਮ ਕੰਟਰੋਲ ਬਦਲੋ"
 
-#: ../src/50-mutter-navigation.xml.in.h:18
+#: ../src/50-mutter-navigation.xml.in.h:14
 msgid "Switch windows directly"
 msgstr "ਵਿੰਡੋਜ਼ ਸਿੱਧੀਆਂ ਬਦਲੋ"
 
-#: ../src/50-mutter-navigation.xml.in.h:19
+#: ../src/50-mutter-navigation.xml.in.h:15
 msgid "Switch windows of an app directly"
 msgstr "ਐਪਲੀਕੇਸ਼ਨ ਦੀ ਵਿੰਡੋਜ਼ ਸਿੱਧੀ ਬਦਲੋ"
 
-#: ../src/50-mutter-navigation.xml.in.h:20
+#: ../src/50-mutter-navigation.xml.in.h:16
 msgid "Switch system controls directly"
 msgstr "ਸਿਸਟਮ ਕੰਟਰੋਲ ਸਿੱਧੇ ਬਦਲੋ"
 
-#: ../src/50-mutter-navigation.xml.in.h:21
+#: ../src/50-mutter-navigation.xml.in.h:17
 msgid "Hide all normal windows"
 msgstr "ਸਭ ਸਧਾਰਨ ਵਿੰਡੋਜ਼ ਓਹਲੇ ਕਰੋ"
 
-#: ../src/50-mutter-navigation.xml.in.h:22
+#: ../src/50-mutter-navigation.xml.in.h:18
 msgid "Switch to workspace 1"
 msgstr "ਵਰਕਸਪੇਸ ੧ ਵਿੱਚ ਜਾਓ"
 
-#: ../src/50-mutter-navigation.xml.in.h:23
+#: ../src/50-mutter-navigation.xml.in.h:19
 msgid "Switch to workspace 2"
 msgstr "ਵਰਕਸਪੇਸ ੨ ਵਿੱਚ ਜਾਓ"
 
-#: ../src/50-mutter-navigation.xml.in.h:24
+#: ../src/50-mutter-navigation.xml.in.h:20
 msgid "Switch to workspace 3"
 msgstr "ਵਰਕਸਪੇਸ ੩ ਵਿੱਚ ਜਾਓ"
 
-#: ../src/50-mutter-navigation.xml.in.h:25
+#: ../src/50-mutter-navigation.xml.in.h:21
 msgid "Switch to workspace 4"
 msgstr "ਵਰਕਸਪੇਸ ੪ ਵਿੱਚ ਜਾਓ"
 
-#: ../src/50-mutter-navigation.xml.in.h:26
+#: ../src/50-mutter-navigation.xml.in.h:22
 msgid "Move to workspace left"
 msgstr "ਖੱਬੇ ਵਰਕਸਪੇਸ 'ਚ ਭੇਜੋ"
 
-#: ../src/50-mutter-navigation.xml.in.h:27
+#: ../src/50-mutter-navigation.xml.in.h:23
 msgid "Move to workspace right"
 msgstr "ਸੱਜੇ ਵਰਕਸਪੇਸ 'ਚ ਭੇਜੋ"
 
-#: ../src/50-mutter-navigation.xml.in.h:28
+#: ../src/50-mutter-navigation.xml.in.h:24
 msgid "Move to workspace above"
 msgstr "ਉੱਤੇ ਵਰਕਸਪੇਸ 'ਚ ਭੇਜੋ"
 
-#: ../src/50-mutter-navigation.xml.in.h:29
+#: ../src/50-mutter-navigation.xml.in.h:25
 msgid "Move to workspace below"
 msgstr "ਹੇਠਾਂ ਵਰਕਸਪੇਸ 'ਚ ਭੇਜੋ"
 
@@ -236,7 +216,7 @@ msgstr "ਸੱਜੇ ਪਾਸੇ ਵੰਡ ਵੇਖੋ"
 
 #. This probably means that a non-WM compositor like xcompmgr is running;
 #. * we have no way to get it to exit
-#: ../src/compositor/compositor.c:534
+#: ../src/compositor/compositor.c:507
 #, c-format
 msgid ""
 "Another compositing manager is already running on screen %i on display \"%s"
@@ -245,29 +225,29 @@ msgstr ""
 "ਇੱਕ ਹੋਰ ਕੰਪੋਜ਼ਟਿੰਗ ਮੈਨੇਜਰ %i ਸਕਰੀਨ ਉੱਤੇ ਡਿਸਪਲੇਅ \"%s\" ਉੱਤੇ ਪਹਿਲਾਂ ਹੀ ਚੱਲ "
 "ਰਿਹਾ ਹੈ।"
 
-#: ../src/compositor/meta-background.c:1074
+#: ../src/compositor/meta-background.c:1111
 msgid "background texture could not be created from file"
 msgstr "ਬੈਕਗਰਾਊਂਡ ਟੈਕਸਚਰ ਨੂੰ ਫਾਇਲ ਤੋਂ ਨਹੀਂ ਬਣਾਇਆ ਜਾ ਸਕਿਆ"
 
-#: ../src/core/bell.c:321
+#: ../src/core/bell.c:320
 msgid "Bell event"
 msgstr "ਘੰਟੀ ਈਵੈਂਟ"
 
-#: ../src/core/core.c:156
+#: ../src/core/core.c:157
 #, c-format
 msgid "Unknown window information request: %d"
 msgstr "ਅਣਜਾਣ ਵਿੰਡੋ ਜਾਣਕਾਰੀ ਮੰਗ: %d"
 
-#: ../src/core/delete.c:109
+#: ../src/core/delete.c:111
 #, c-format
 msgid "“%s” is not responding."
 msgstr "\"%s\" ਜਵਾਬ ਨਹੀਂ ਦੇ ਰਹੀ ਹੈ।"
 
-#: ../src/core/delete.c:111
+#: ../src/core/delete.c:113
 msgid "Application is not responding."
 msgstr "ਐਪਲੀਕੇਸ਼ਨ ਜਵਾਬ ਨਹੀਂ ਦੇ ਰਹੀ ਹੈ।"
 
-#: ../src/core/delete.c:116
+#: ../src/core/delete.c:118
 msgid ""
 "You may choose to wait a short while for it to continue or force the "
 "application to quit entirely."
@@ -275,25 +255,25 @@ msgstr ""
 "ਤੁਸੀਂ ਇਸ ਲਈ ਕੁਝ ਸਮੇਂ ਵਾਸਤੇ ਉਡੀਕ ਕਰ ਸਕਦੇ ਹੋ ਜਾਂ ਕਾਰਜ ਨੂੰ ਧੱਕੇ ਨਾਲ ਬੰਦ ਕਰ ਸਕਦੇ "
 "ਹੋ।"
 
-#: ../src/core/delete.c:123
+#: ../src/core/delete.c:125
 msgid "_Wait"
 msgstr "ਉਡੀਕੋ(_W)"
 
-#: ../src/core/delete.c:123
+#: ../src/core/delete.c:125
 msgid "_Force Quit"
 msgstr "ਧੱਕੇ ਨਾਲ ਬੰਦ(_F)"
 
-#: ../src/core/display.c:405
+#: ../src/core/display.c:401
 #, c-format
 msgid "Missing %s extension required for compositing"
 msgstr "ਕੰਪੋਜ਼ਿਸ਼ਨਿੰਗ ਲਈ %s ਐਕਸਟੈਨਸ਼ਨ ਗੁੰਮ ਹੈ"
 
-#: ../src/core/display.c:497
+#: ../src/core/display.c:493
 #, c-format
 msgid "Failed to open X Window System display '%s'\n"
 msgstr "X ਵਿੰਡੋ ਸਿਸਟਮ ਡਿਸਪਲੇਅ '%s' ਨੂੰ ਖੋਲਣ ਵਿੱਚ ਅਸਮਰਥ\n"
 
-#: ../src/core/keybindings.c:1105
+#: ../src/core/keybindings.c:929
 #, c-format
 msgid ""
 "Some other program is already using the key %s with modifiers %x as a "
@@ -301,70 +281,49 @@ msgid ""
 msgstr ""
 "ਕੋਈ ਹੋਰ ਪਰੋਗਰਾਮ %s ਸਵਿੱਚ ਨੂੰ %x ਸੋਧਕ ਨਾਲ ਪਹਿਲਾਂ ਹੀ ਜੋੜ ਵਾਂਗ ਵਰਤ ਰਿਹਾ ਹੈ\n"
 
-#: ../src/core/keybindings.c:1308
+#: ../src/core/keybindings.c:1129
 #, c-format
+#| msgid "\"%s\" is not a valid value for focus attribute"
 msgid "\"%s\" is not a valid accelerator\n"
 msgstr "\"%s\" ਢੁੱਕਵਾਂ ਐਕਸਲੇਟਰ ਨਹੀਂ ਹੈ\n"
 
-#: ../src/core/main.c:195
+#: ../src/core/main.c:196
 msgid "Disable connection to session manager"
 msgstr "ਸ਼ੈਸ਼ਨ ਮੈਨੇਜਰ ਨਾਲ ਕੁਨੈਕਸ਼ਨ ਅਯੋਗ"
 
-#: ../src/core/main.c:201
+#: ../src/core/main.c:202
 msgid "Replace the running window manager"
 msgstr "ਚੱਲ ਰਹੇ ਵਿੰਡੋ ਮੈਨੇਜਰ ਨੂੰ ਬਦਲੋ"
 
-#: ../src/core/main.c:207
+#: ../src/core/main.c:208
 msgid "Specify session management ID"
 msgstr "ਸ਼ੈਸ਼ਨ ਪਰਬੰਧਨ ID ਦਿਓ"
 
-#: ../src/core/main.c:212
+#: ../src/core/main.c:213
 msgid "X Display to use"
 msgstr "ਵਰਤਣ ਲਈ X ਡਿਸਪਲੇਅ"
 
-#: ../src/core/main.c:218
+#: ../src/core/main.c:219
 msgid "Initialize session from savefile"
 msgstr "ਸੰਭਾਲੀ ਫਾਇਲ ਤੋਂ ਸ਼ੈਸ਼ਨ ਸ਼ੁਰੂ"
 
-#: ../src/core/main.c:224
+#: ../src/core/main.c:225
 msgid "Make X calls synchronous"
 msgstr "X ਕਾਲ ਸੈਕਰੋਨਸ ਬਣਾਓ"
 
-#: ../src/core/main.c:544
+#: ../src/core/main.c:494
 #, c-format
 msgid "Failed to scan themes directory: %s\n"
 msgstr "ਥੀਮ ਡਾਇਰੈਕਟਰੀ ਦੀ ਜਾਂਚ ਅਸਫਲ: %s\n"
 
-#: ../src/core/main.c:560
+#: ../src/core/main.c:510
 #, c-format
 msgid ""
 "Could not find a theme! Be sure %s exists and contains the usual themes.\n"
 msgstr ""
 "ਥੀਮ ਨਹੀ ਲੱਭ ਸਕਿਆ! ਯਕੀਨੀ ਬਣਾਓ ਕਿ %s ਮੌਜੂਦ ਹੈ ਅਤੇ ਇਸ ਵਿਚ ਵਰਤਣ ਵਾਲੇ ਥੀਮ ਹਨ।\n"
 
-#: ../src/core/monitor.c:699
-msgid "Built-in display"
-msgstr "ਬਿਲਟ-ਇਨ ਡਿਸਪਲੇਅ"
-
-#: ../src/core/monitor.c:724
-#| msgid "Unknown %s"
-msgid "Unknown"
-msgstr "ਅਣਜਾਣ"
-
-#: ../src/core/monitor.c:726
-#| msgid "Unknown %s"
-msgid "Unknown Display"
-msgstr "ਅਣਜਾਣ ਡਿਸਪਲੇਅ"
-
-#. TRANSLATORS: this is a monitor vendor name, followed by a
-#. * size in inches, like 'Dell 15"'
-#.
-#: ../src/core/monitor.c:734
-#, c-format
-msgid "%s %s"
-msgstr "%s %s"
-
-#: ../src/core/mutter.c:39
+#: ../src/core/mutter.c:40
 #, c-format
 msgid ""
 "mutter %s\n"
@@ -378,15 +337,15 @@ msgstr ""
 "ਇਹ ਮੁਫਤ ਸਾਫਟਵੇਅਰ ਹੈ; ਉਤਾਰਾ ਹਾਲਤਾਂ ਲਈ ਸਰੋਤ ਵੇਖੋ।\n"
 "ਇਸ ਦੀ ਕੋਈ ਗਰੰਟੀ ਨਹੀ; ਇਥੋਂ ਤੱਕ ਕਿ ਖਰੀਦਦਾਰੀ ਜਾਂ ਖਾਸ ਮਕਸਦ ਦੀ ਪੂਰਤੀ ਲਈ ਵੀ।\n"
 
-#: ../src/core/mutter.c:53
+#: ../src/core/mutter.c:54
 msgid "Print version"
 msgstr "ਵਰਜਨ ਛਾਪੋ"
 
-#: ../src/core/mutter.c:59
+#: ../src/core/mutter.c:60
 msgid "Mutter plugin to use"
 msgstr "ਵਰਤਣ ਲਈ ਮੁੱਟਰ ਪਲੱਗਇਨ"
 
-#: ../src/core/prefs.c:1190
+#: ../src/core/prefs.c:1087
 msgid ""
 "Workarounds for broken applications disabled. Some applications may not "
 "behave properly.\n"
@@ -394,13 +353,13 @@ msgstr ""
 "ਖਰਾਬ ਐਪਲੀਕੇਸ਼ਨ ਲਈ ਜੁਗਾੜ ਬੰਦ ਕੀਤਾ ਹੈ। ਕੁਝ ਐਪਲੀਕੇਸ਼ਨ ਚੰਗੀ ਤਰਾਂ ਕੰਮ ਨਹੀਂ ਕਰ ਸਕਦੇ "
 "ਹਨ।\n"
 
-#: ../src/core/prefs.c:1265
+#: ../src/core/prefs.c:1162
 #, c-format
 msgid "Could not parse font description \"%s\" from GSettings key %s\n"
 msgstr ""
 "GSettings ਸਵਿੱਚ \"%2$s\" ਤੋਂ ਫੋਂਟ ਵੇਰਵੇ \"%1$s\" ਨੂੰ ਪਾਰਸ ਨਹੀਂ ਕਰ ਸਕਿਆ\n"
 
-#: ../src/core/prefs.c:1331
+#: ../src/core/prefs.c:1228
 #, c-format
 msgid ""
 "\"%s\" found in configuration database is not a valid value for mouse button "
@@ -408,7 +367,7 @@ msgid ""
 msgstr ""
 "ਸੰਰਚਨਾ ਡਾਟਾਬੇਸ ਵਿੱਚ ਲੱਭੀ ਹੋਈ \"%s\" ਮਾਊਸ ਬਟਨ ਸੋਧਕ ਲਈ ਯੋਗ ਕੀਮਤ ਨਹੀਂ ਹੈ\n"
 
-#: ../src/core/prefs.c:1894
+#: ../src/core/prefs.c:1780
 #, c-format
 msgid ""
 "\"%s\" found in configuration database is not a valid value for keybinding "
@@ -417,17 +376,17 @@ msgstr ""
 "ਸੰਰਚਨਾ ਡਾਟਾਬੇਸ ਵਿੱਚ  ਲੱਭੀ ਹੋਈ \"%s\" ਸਵਿੱਚ-ਬਾਈਡਿੰਗ \"%s\" ਲਈ ਯੋਗ ਕੀਮਤ ਨਹੀਂ "
 "ਹੈ\n"
 
-#: ../src/core/prefs.c:1984
+#: ../src/core/prefs.c:1879
 #, c-format
 msgid "Workspace %d"
 msgstr "ਵਰਕਸਪੇਸ %d"
 
-#: ../src/core/screen.c:539
+#: ../src/core/screen.c:673
 #, c-format
 msgid "Screen %d on display '%s' is invalid\n"
 msgstr "ਡਿਸਪਲੇਅ '%2$s' ਉੱਤੇ ਸਕਰੀਨ %1$d ਗਲਤ ਹੈ\n"
 
-#: ../src/core/screen.c:555
+#: ../src/core/screen.c:689
 #, c-format
 msgid ""
 "Screen %d on display \"%s\" already has a window manager; try using the --"
@@ -437,70 +396,70 @@ msgstr ""
 "--replace "
 "ਮੌਜੂਦਾ ਵਿੰਡੋ ਮੈਨੇਜਰ ਵਰਤੋਂ।\n"
 
-#: ../src/core/screen.c:582
+#: ../src/core/screen.c:716
 #, c-format
 msgid ""
 "Could not acquire window manager selection on screen %d display \"%s\"\n"
 msgstr "ਡਿਸਪਲੇਅ \"%2$s\" %1$d ਸਕਰੀਨ ਉੱਤੇ ਵਿੰਡੋ ਮੈਨੇਜਰ ਚੋਣ ਉਪਲੱਬਧ ਨਹੀਂ ਹੋ ਸਕੀ\n"
 
-#: ../src/core/screen.c:660
+#: ../src/core/screen.c:794
 #, c-format
 msgid "Screen %d on display \"%s\" already has a window manager\n"
 msgstr "ਡਿਸਪਲੇਅ \"%2$s\" ਉੱਤੇ ਸਕਰੀਨ %1$d ਕੋਲ ਪਹਿਲਾਂ ਹੀ ਵਿੰਡੋ ਮੈਨੇਜਰ ਹੈ\n"
 
-#: ../src/core/screen.c:848
+#: ../src/core/screen.c:979
 #, c-format
 msgid "Could not release screen %d on display \"%s\"\n"
 msgstr "ਡਿਸਪਲੇਅ \"%2$s\" ਉੱਤੇ ਸਕਰੀਨ %1$d ਰੀਲਿਜ਼ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ\n"
 
-#: ../src/core/session.c:842 ../src/core/session.c:849
+#: ../src/core/session.c:843 ../src/core/session.c:850
 #, c-format
 msgid "Could not create directory '%s': %s\n"
 msgstr "'%s' ਡਾਇਰੈਕਟਰੀ ਬਣਾਈ ਨਹੀਂ ਜਾ ਸਕੀ:%s\n"
 
-#: ../src/core/session.c:859
+#: ../src/core/session.c:860
 #, c-format
 msgid "Could not open session file '%s' for writing: %s\n"
 msgstr "ਲਿਖਣ ਲਈ ਸ਼ੈਸ਼ਨ ਫਾਇਲ '%s' ਖੋਲ੍ਹੀ ਨਹੀਂ ਜਾ ਸਕੀ: %s\n"
 
-#: ../src/core/session.c:1000
+#: ../src/core/session.c:1001
 #, c-format
 msgid "Error writing session file '%s': %s\n"
 msgstr "ਸ਼ੈਸ਼ਨ ਫਾਇਲ '%s' ਲਿਖਣ ਦੀ ਗਲਤੀ:%s\n"
 
-#: ../src/core/session.c:1005
+#: ../src/core/session.c:1006
 #, c-format
 msgid "Error closing session file '%s': %s\n"
 msgstr "ਸ਼ੈਸ਼ਨ ਫਾਇਲ '%s' ਖੋਲ੍ਹਣ ਦੀ ਗਲਤੀ: %s\n"
 
-#: ../src/core/session.c:1135
+#: ../src/core/session.c:1136
 #, c-format
 msgid "Failed to parse saved session file: %s\n"
 msgstr "ਸੰਭਾਲੀ ਸ਼ੈਸ਼ਨ ਫਾਇਲ ਨੂੰ ਪਾਰਸ ਕਰਨ ਲਈ ਅਸਫਲ: %s\n"
 
-#: ../src/core/session.c:1184
+#: ../src/core/session.c:1185
 #, c-format
 msgid "<mutter_session> attribute seen but we already have the session ID"
 msgstr "<mutter_session>  ਗੁਣ ਦਿਖਿਆ, ਪਰ ਸਾਡੇ ਕੋਲ ਸ਼ੈਸ਼ਨ ID ਪਹਿਲਾਂ ਹੀ ਹੈ"
 
-#: ../src/core/session.c:1197 ../src/core/session.c:1272
-#: ../src/core/session.c:1304 ../src/core/session.c:1376
-#: ../src/core/session.c:1436
+#: ../src/core/session.c:1198 ../src/core/session.c:1273
+#: ../src/core/session.c:1305 ../src/core/session.c:1377
+#: ../src/core/session.c:1437
 #, c-format
 msgid "Unknown attribute %s on <%s> element"
 msgstr "<%2$s> ਐਲੀਮੈਂਟ ਉੱਤੇ ਅਣਜਾਣ %1$s ਗੁਣ"
 
-#: ../src/core/session.c:1214
+#: ../src/core/session.c:1215
 #, c-format
 msgid "nested <window> tag"
 msgstr "ਨੈਸਟਡ <window> ਟੈਗ"
 
-#: ../src/core/session.c:1456
+#: ../src/core/session.c:1457
 #, c-format
 msgid "Unknown element %s"
 msgstr "ਅਣਜਾਣ ਐਲੀਮੈਂਟ %s"
 
-#: ../src/core/session.c:1808
+#: ../src/core/session.c:1809
 msgid ""
 "These windows do not support &quot;save current setup&quot; and will have to "
 "be restarted manually next time you log in."
@@ -509,43 +468,44 @@ msgstr ""
 "ਤੁਸੀਂ ਲਾਗਇਨ "
 "ਕਰੋਗੇ ਤਾਂ ਮੁੜ ਸ਼ੁਰੂ ਕਰਨਾ ਪਵੇਗਾ।"
 
-#: ../src/core/util.c:82
+#: ../src/core/util.c:80
 #, c-format
 msgid "Failed to open debug log: %s\n"
 msgstr "ਡੀਬੱਗ ਲਾਗ ਖੋਲ੍ਹਣ ਵਿੱਚ ਅਸਫਲ: %s\n"
 
-#: ../src/core/util.c:92
+#: ../src/core/util.c:90
 #, c-format
 msgid "Failed to fdopen() log file %s: %s\n"
 msgstr "ਲਾਗ ਫਾਇਲ %s ਨੂੰ fdopen() ਲਈ ਅਸਫਲ: %s\n"
 
-#: ../src/core/util.c:98
+#: ../src/core/util.c:96
 #, c-format
 msgid "Opened log file %s\n"
 msgstr "ਖੁੱਲ੍ਹੀ ਲਾਗ ਫਾਇਲ %s\n"
 
-#: ../src/core/util.c:117
+#: ../src/core/util.c:115 ../src/tools/mutter-message.c:149
+#, c-format
 msgid "Mutter was compiled without support for verbose mode\n"
 msgstr "ਮੱਟਰ, ਵਰਬੋਜ਼ ਮੋਡ ਲਈ ਸਹਾਰੇ ਤੋਂ ਬਿਨਾਂ ਕੰਪਾਇਲ ਹੋਇਆ\n"
 
-#: ../src/core/util.c:262
+#: ../src/core/util.c:259
 msgid "Window manager: "
 msgstr "ਵਿੰਡੋ ਮੈਨੇਜਰ: "
 
-#: ../src/core/util.c:412
+#: ../src/core/util.c:407
 msgid "Bug in window manager: "
 msgstr "ਵਿੰਡੋ ਮੈਨੇਜਰ ਵਿੱਚ ਬੱਗ: "
 
-#: ../src/core/util.c:443
+#: ../src/core/util.c:438
 msgid "Window manager warning: "
 msgstr "ਵਿੰਡੋ ਮੈਨੇਜਰ ਚੇਤਾਵਨੀ: "
 
-#: ../src/core/util.c:471
+#: ../src/core/util.c:466
 msgid "Window manager error: "
 msgstr "ਵਿੰਡੋ ਮੈਨੇਜਰ ਗਲਤੀ: "
 
 #. first time through
-#: ../src/core/window.c:7562
+#: ../src/core/window.c:7539
 #, c-format
 msgid ""
 "Window %s sets SM_CLIENT_ID on itself, instead of on the WM_CLIENT_LEADER "
@@ -561,7 +521,7 @@ msgstr ""
 #. * MWM but not WM_NORMAL_HINTS are basically broken. We complain
 #. * about these apps but make them work.
 #.
-#: ../src/core/window.c:8487
+#: ../src/core/window.c:8263
 #, c-format
 msgid ""
 "Window %s sets an MWM hint indicating it isn't resizable, but sets min size "
@@ -571,27 +531,27 @@ msgstr ""
 "ਆਕਾਰ %d x %d ਅਤੇ "
 "ਵੱਧ ਤੋਂ ਵੱਧ ਆਕਾਰ %d x %d ਸੈੱਟ ਕਰਦਾ ਹੈ, ਪਰ ਇਹ ਦਾ ਜ਼ਿਆਦਾ ਮਤਲਬ ਨਹੀਂ ਹੈ।\n"
 
-#: ../src/core/window-props.c:349
+#: ../src/core/window-props.c:318
 #, c-format
 msgid "Application set a bogus _NET_WM_PID %lu\n"
 msgstr "ਐਪਲੀਕੇਸ਼ਨ ਨੇ ਇੱਕ ਫਰਜ਼ੀ _NET_WM_PID %lu ਦਿੱਤਾ ਹੈ\n"
 
-#: ../src/core/window-props.c:465
+#: ../src/core/window-props.c:434
 #, c-format
 msgid "%s (on %s)"
 msgstr "%s (%s ਉੱਤੇ)"
 
-#: ../src/core/window-props.c:1548
+#: ../src/core/window-props.c:1517
 #, c-format
 msgid "Invalid WM_TRANSIENT_FOR window 0x%lx specified for %s.\n"
 msgstr "ਗਲਤ WM_TRANSIENT_FOR ਵਿੰਡੋ 0x%lx %s ਲਈ ਦਿੱਤਾ ਗਿਆ ਹੈ।\n"
 
-#: ../src/core/window-props.c:1559
+#: ../src/core/window-props.c:1528
 #, c-format
 msgid "WM_TRANSIENT_FOR window 0x%lx for %s would create loop.\n"
 msgstr "WM_TRANSIENT_FOR ਵਿੰਡੋ 0x%lx %s ਲੂਪ ਬਣਾਏਗਾ।\n"
 
-#: ../src/core/xprops.c:153
+#: ../src/core/xprops.c:155
 #, c-format
 msgid ""
 "Window 0x%lx has property %s\n"
@@ -606,12 +566,12 @@ msgstr ""
 "ਇਹ ਜਿਆਦਾਤਰ ਐਪਲੀਕੇਸ਼ਨ ਬੱਗ ਵਰਗਾ ਹੈ ਵਿੰਡੋ ਬੱਗ ਵਰਗਾ ਨਹੀਂ।\n"
 "ਵਿੰਡੋ ਦਾ ਟਾਇਟਲ=\"%s\" ਕਿਸਮ=\"%s\" ਨਾਂ=\"%s\" ਹੈ\n"
 
-#: ../src/core/xprops.c:409
+#: ../src/core/xprops.c:411
 #, c-format
 msgid "Property %s on window 0x%lx contained invalid UTF-8\n"
 msgstr "ਵਿਸ਼ੇਸ਼ਤਾ %s ਵਿੰਡੋ 0x%lx ਵਿੱਚ ਅਯੋਗ UTF-8 ਸ਼ਾਮਿਲ ਹੈ\n"
 
-#: ../src/core/xprops.c:492
+#: ../src/core/xprops.c:494
 #, c-format
 msgid ""
 "Property %s on window 0x%lx contained invalid UTF-8 for item %d in the list\n"
@@ -755,104 +715,109 @@ msgstr "ਟੈਬ ਪੋਪਅੱਪ ਤੋਂ ਵਿੰਡੋ ਚੁਣੋ"
 msgid "Cancel tab popup"
 msgstr "ਟੈਬ ਪੋਪਅੱਪ ਰੱਦ ਕਰੋ"
 
+#: ../src/tools/mutter-message.c:123
+#, c-format
+msgid "Usage: %s\n"
+msgstr "ਵਰਤੋਂ: %s\n"
+
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:65
+#: ../src/ui/menu.c:69
 msgid "Mi_nimize"
 msgstr "ਘੱਟੋ-ਘੱਟੋ(_n)"
 
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:67
+#: ../src/ui/menu.c:71
 msgid "Ma_ximize"
 msgstr "ਵੱਧੋ-ਵੱਧ(_x)"
 
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:69
+#: ../src/ui/menu.c:73
 msgid "Unma_ximize"
 msgstr "ਨਾ-ਵੱਧੋ-ਵੱਧ(_x)"
 
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:71
+#: ../src/ui/menu.c:75
 msgid "Roll _Up"
 msgstr "ਸਮੇਟੋ(_U)"
 
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:73
+#: ../src/ui/menu.c:77
 msgid "_Unroll"
 msgstr "ਖੋਲ੍ਹੋ(_U)"
 
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:75
+#: ../src/ui/menu.c:79
 msgid "_Move"
 msgstr "ਏਧਰ-ਓਧਰ(_M)"
 
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:77
+#: ../src/ui/menu.c:81
 msgid "_Resize"
 msgstr "ਮੁੜ-ਅਕਾਰ(_R)"
 
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:79
+#: ../src/ui/menu.c:83
 msgid "Move Titlebar On_screen"
 msgstr "ਟਾਇਟਲ ਸਕਰੀਨ ਉੱਤੇ ਭੇਜੋ(_s)"
 
 #. separator
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:82 ../src/ui/menu.c:84
+#: ../src/ui/menu.c:86 ../src/ui/menu.c:88
 msgid "Always on _Top"
 msgstr "ਹਮੇਸ਼ਾ ਸਭ ਤੋਂ ਉੱਤੇ(_T)"
 
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:86
+#: ../src/ui/menu.c:90
 msgid "_Always on Visible Workspace"
 msgstr "ਸਿਰਫ਼ ਇਸ ਵਰਕਸਪੇਸ ਵਿੱਚ ਰੱਖੋ(_A)"
 
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:88
+#: ../src/ui/menu.c:92
 msgid "_Only on This Workspace"
 msgstr "ਸਿਰਫ਼ ਇਸ ਵਰਕਸਪੇਸ ਵਿੱਚ ਰੱਖੋ(_O)"
 
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:90
+#: ../src/ui/menu.c:94
 msgid "Move to Workspace _Left"
 msgstr "ਵਰਕਸਪੇਸ ਵਿੱਚ ਖੱਬੇ ਭੇਜੋ(_L)"
 
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:92
+#: ../src/ui/menu.c:96
 msgid "Move to Workspace R_ight"
 msgstr "ਵਰਕਸਪੇਸ ਵਿੱਚ ਸੱਜੇ ਭੇਜੋ(_i)"
 
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:94
+#: ../src/ui/menu.c:98
 msgid "Move to Workspace _Up"
 msgstr "ਵਰਕਸਪੇਸ ਵਿੱਚ ਉੱਤੇ ਲੈ ਜਾਓ(_U)"
 
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:96
+#: ../src/ui/menu.c:100
 msgid "Move to Workspace _Down"
 msgstr "ਵਰਕਸਪੇਸ ਵਿੱਚ ਹੇਠਾਂ ਲੈ ਜਾਓ(_D)"
 
 #. separator
 #. Translators: Translate this string the same way as you do in libwnck!
-#: ../src/ui/menu.c:100
+#: ../src/ui/menu.c:104
 msgid "_Close"
 msgstr "ਬੰਦ ਕਰੋ(_C)"
 
-#: ../src/ui/menu.c:200
+#: ../src/ui/menu.c:204
 #, c-format
 msgid "Workspace %d%n"
 msgstr "ਵਰਕਸਪੇਸ %d%n"
 
-#: ../src/ui/menu.c:210
+#: ../src/ui/menu.c:214
 #, c-format
 msgid "Workspace 1_0"
 msgstr "ਵਰਕਸਪੇਸ ੧_0"
 
-#: ../src/ui/menu.c:212
+#: ../src/ui/menu.c:216
 #, c-format
 msgid "Workspace %s%d"
 msgstr "ਵਰਕਸਪੇਸ %s%d"
 
-#: ../src/ui/menu.c:382
+#: ../src/ui/menu.c:397
 msgid "Move to Another _Workspace"
 msgstr "ਹੋਰ ਵਰਕਸਪੇਸ ਉੱਤੇ ਭੇਜੋ(_W)"
 
@@ -861,7 +826,7 @@ msgstr "ਹੋਰ ਵਰਕਸਪੇਸ ਉੱਤੇ ਭੇਜੋ(_W)"
 #. * translated on keyboards used for your language, don't translate
 #. * this.
 #.
-#: ../src/ui/metaaccellabel.c:75
+#: ../src/ui/metaaccellabel.c:77
 msgid "Shift"
 msgstr "Shift"
 
@@ -870,7 +835,7 @@ msgstr "Shift"
 #. * translated on keyboards used for your language, don't translate
 #. * this.
 #.
-#: ../src/ui/metaaccellabel.c:81
+#: ../src/ui/metaaccellabel.c:83
 msgid "Ctrl"
 msgstr "Ctrl"
 
@@ -879,7 +844,7 @@ msgstr "Ctrl"
 #. * translated on keyboards used for your language, don't translate
 #. * this.
 #.
-#: ../src/ui/metaaccellabel.c:87
+#: ../src/ui/metaaccellabel.c:89
 msgid "Alt"
 msgstr "Alt"
 
@@ -888,7 +853,7 @@ msgstr "Alt"
 #. * translated on keyboards used for your language, don't translate
 #. * this.
 #.
-#: ../src/ui/metaaccellabel.c:93
+#: ../src/ui/metaaccellabel.c:95
 msgid "Meta"
 msgstr "Meta"
 
@@ -897,7 +862,7 @@ msgstr "Meta"
 #. * translated on keyboards used for your language, don't translate
 #. * this.
 #.
-#: ../src/ui/metaaccellabel.c:99
+#: ../src/ui/metaaccellabel.c:101
 msgid "Super"
 msgstr "Super"
 
@@ -906,7 +871,7 @@ msgstr "Super"
 #. * translated on keyboards used for your language, don't translate
 #. * this.
 #.
-#: ../src/ui/metaaccellabel.c:105
+#: ../src/ui/metaaccellabel.c:107
 msgid "Hyper"
 msgstr "Hyper"
 
@@ -915,7 +880,7 @@ msgstr "Hyper"
 #. * translated on keyboards used for your language, don't translate
 #. * this.
 #.
-#: ../src/ui/metaaccellabel.c:111
+#: ../src/ui/metaaccellabel.c:113
 msgid "Mod2"
 msgstr "ਮਾਡ੨"
 
@@ -924,7 +889,7 @@ msgstr "ਮਾਡ੨"
 #. * translated on keyboards used for your language, don't translate
 #. * this.
 #.
-#: ../src/ui/metaaccellabel.c:117
+#: ../src/ui/metaaccellabel.c:119
 msgid "Mod3"
 msgstr "ਮਾਡ੩"
 
@@ -933,7 +898,7 @@ msgstr "ਮਾਡ੩"
 #. * translated on keyboards used for your language, don't translate
 #. * this.
 #.
-#: ../src/ui/metaaccellabel.c:123
+#: ../src/ui/metaaccellabel.c:125
 msgid "Mod4"
 msgstr "ਮਾਡ੪"
 
@@ -942,60 +907,60 @@ msgstr "ਮਾਡ੪"
 #. * translated on keyboards used for your language, don't translate
 #. * this.
 #.
-#: ../src/ui/metaaccellabel.c:129
+#: ../src/ui/metaaccellabel.c:131
 msgid "Mod5"
 msgstr "ਮਾਡ੫"
 
 #. Translators: This represents the size of a window.  The first number is
 #. * the width of the window and the second is the height.
 #.
-#: ../src/ui/resizepopup.c:134
+#: ../src/ui/resizepopup.c:136
 #, c-format
 msgid "%d x %d"
 msgstr "%d x %d"
 
-#: ../src/ui/theme.c:234
+#: ../src/ui/theme.c:235
 msgid "top"
 msgstr "ਉੱਤੇ"
 
-#: ../src/ui/theme.c:236
+#: ../src/ui/theme.c:237
 msgid "bottom"
 msgstr "ਹੇਠਾਂ"
 
-#: ../src/ui/theme.c:238
+#: ../src/ui/theme.c:239
 msgid "left"
 msgstr "ਖੱਬਾ"
 
-#: ../src/ui/theme.c:240
+#: ../src/ui/theme.c:241
 msgid "right"
 msgstr "ਸੱਜਾ"
 
-#: ../src/ui/theme.c:268
+#: ../src/ui/theme.c:269
 #, c-format
 msgid "frame geometry does not specify \"%s\" dimension"
 msgstr "ਫਰੇਮ ਜੁਮੈਟਰੀ \"%s\" ਮਾਪ ਨਹੀਂ ਦਰਸਾਉਦੀ ਹੈ"
 
-#: ../src/ui/theme.c:287
+#: ../src/ui/theme.c:288
 #, c-format
 msgid "frame geometry does not specify dimension \"%s\" for border \"%s\""
 msgstr "ਫਰੇਮ ਜੁਮੈਟਰੀ \"%2$s\" ਹਾਸ਼ੀਏ ਲਈ \"%1$s\" ਮਾਪ ਨਹੀਂ ਦਰਸਾਉਦੀ ਹੈ"
 
-#: ../src/ui/theme.c:324
+#: ../src/ui/theme.c:325
 #, c-format
 msgid "Button aspect ratio %g is not reasonable"
 msgstr "ਤਲ ਆਕਾਰ ਅਨੁਪਾਤ %g ਢੁੱਕਵਾਂ ਨਹੀਂ ਹੈ"
 
-#: ../src/ui/theme.c:336
+#: ../src/ui/theme.c:337
 #, c-format
 msgid "Frame geometry does not specify size of buttons"
 msgstr "ਫਰੇਮ ਜੁਮੈਟਰੀ ਬਟਨਾਂ ਦਾ ਆਕਾਰ ਨਹੀਂ ਦਰਸਾਉਦੀ"
 
-#: ../src/ui/theme.c:1049
+#: ../src/ui/theme.c:1050
 #, c-format
 msgid "Gradients should have at least two colors"
 msgstr "ਢਾਲਵੇ ਲਈ ਘੱਟ ਤੋਂ ਘੱਟ ਦੋ ਰੰਗ ਚਾਹੀਦੇ ਹਨ"
 
-#: ../src/ui/theme.c:1201
+#: ../src/ui/theme.c:1202
 #, c-format
 msgid ""
 "GTK custom color specification must have color name and fallback in "
@@ -1005,7 +970,7 @@ msgstr ""
 "gtk:custom (foo,"
 "bar);  \"%s\" ਦੀ ਪਾਰਸ ਨਹੀਂ ਕਰ ਸਕਿਆ"
 
-#: ../src/ui/theme.c:1217
+#: ../src/ui/theme.c:1218
 #, c-format
 msgid ""
 "Invalid character '%c' in color_name parameter of gtk:custom, only A-Za-z0-9-"
@@ -1015,7 +980,7 @@ msgstr ""
 "ਸ਼ਾਮਲ ਹੋ "
 "ਸਕਦੇ ਹਨ"
 
-#: ../src/ui/theme.c:1231
+#: ../src/ui/theme.c:1232
 #, c-format
 msgid ""
 "Gtk:custom format is \"gtk:custom(color_name,fallback)\", \"%s\" does not "
@@ -1025,7 +990,7 @@ msgstr ""
 "ਫਿੱਟ "
 "ਨਹੀਂ ਹੈ"
 
-#: ../src/ui/theme.c:1276
+#: ../src/ui/theme.c:1277
 #, c-format
 msgid ""
 "GTK color specification must have the state in brackets, e.g. gtk:fg[NORMAL] "
@@ -1035,7 +1000,7 @@ msgstr ""
 "ਜਿੱਥੇ ਸਾਧਾਰਨ  "
 "ਇੱਕ ਹਾਲਤ ਹੈ; \"%s\" ਦੀ ਪਾਰਸ ਨਹੀਂ ਕਰ ਸਕਿਆ"
 
-#: ../src/ui/theme.c:1290
+#: ../src/ui/theme.c:1291
 #, c-format
 msgid ""
 "GTK color specification must have a close bracket after the state, e.g. gtk:"
@@ -1045,60 +1010,60 @@ msgstr ""
 "gtk:fg[ਸਾਧਾਰਨ] "
 "ਜਿੱਥੇ ਸਾਧਾਰਨ ਇੱਕ ਹਾਲਤ ਹੈ; \"%s\" ਦੀ ਪਾਰਸ ਨਹੀਂ ਕਰ ਸਕਿਆ"
 
-#: ../src/ui/theme.c:1301
+#: ../src/ui/theme.c:1302
 #, c-format
 msgid "Did not understand state \"%s\" in color specification"
 msgstr "ਰੰਗ ਹਦਾਇਤ ਵਿੱਚ \"%s\" ਹਾਲਤ ਨੂੰ ਨਹੀਂ ਸਮਝਿਆ"
 
-#: ../src/ui/theme.c:1314
+#: ../src/ui/theme.c:1315
 #, c-format
 msgid "Did not understand color component \"%s\" in color specification"
 msgstr "ਰੰਗ ਹਦਾਇਤ ਵਿੱਚ ਰੰਗ ਸੰਖੇਪ \"%s\" ਨੂੰ ਨਹੀਂ ਸਮਝਿਆ"
 
-#: ../src/ui/theme.c:1343
+#: ../src/ui/theme.c:1344
 #, c-format
 msgid ""
 "Blend format is \"blend/bg_color/fg_color/alpha\", \"%s\" does not fit the "
 "format"
 msgstr "ਧੁੰਦਲੀ ਬਣਤਰ \"ਧੁੰਦਲੀ/bg_ਰੰਗ/ਐਲਫਾ, \"%s\" ਬਣਤਰ ਵਿੱਚ ਠੀਕ ਨਹੀਂ ਆਂਉਦੀ"
 
-#: ../src/ui/theme.c:1354
+#: ../src/ui/theme.c:1355
 #, c-format
 msgid "Could not parse alpha value \"%s\" in blended color"
 msgstr "ਧੁੰਦਲੇ ਰੰਗ ਵਿੱਚ ਐਲਫਾ ਕੀਮਤ \"%s\" ਦੀ ਪਾਰਸ ਨਹੀਂ ਕਰ ਸਕਿਆ"
 
-#: ../src/ui/theme.c:1364
+#: ../src/ui/theme.c:1365
 #, c-format
 msgid "Alpha value \"%s\" in blended color is not between 0.0 and 1.0"
 msgstr "ਧੁੰਦਲੇ ਰੰਗ ਵਿੱਚ ਐਲਫਾ ਕੀਮਤ \"%s\" 0.0 ਅਤੇ 1.0 ਵਿਚਕਾਰ ਨਹੀਂ ਹੈ"
 
-#: ../src/ui/theme.c:1411
+#: ../src/ui/theme.c:1412
 #, c-format
 msgid ""
 "Shade format is \"shade/base_color/factor\", \"%s\" does not fit the format"
 msgstr "ਰੰਗਤ ਬਣਤਰ \"ਰੰਗਤ/ਆਧਾਰ_ਰੰਗ/ਫੈਕਟਰ\" ਹੈ, \"%s\" ਬਣਤਰ ਵਿੱਚ ਠੀਕ ਨਹੀਂ ਆਉਦੀ"
 
-#: ../src/ui/theme.c:1422
+#: ../src/ui/theme.c:1423
 #, c-format
 msgid "Could not parse shade factor \"%s\" in shaded color"
 msgstr "ਛਾਇਆ ਰੰਗ ਵਿੱਚ ਰੰਗਤ ਫੈਕਟਰ \"%s\" ਦੀ ਪਾਰਸ ਨਹੀਂ ਕਰ ਸਕਿਆ"
 
-#: ../src/ui/theme.c:1432
+#: ../src/ui/theme.c:1433
 #, c-format
 msgid "Shade factor \"%s\" in shaded color is negative"
 msgstr "ਛਾਇਆ ਰੰਗ ਵਿੱਚ ਰੰਗਤ ਫੈਕਟਰ \"%s\" ਨਾਂਹਵਾਚਕ ਹੈ"
 
-#: ../src/ui/theme.c:1461
+#: ../src/ui/theme.c:1462
 #, c-format
 msgid "Could not parse color \"%s\""
 msgstr "\"%s\" ਰੰਗ ਦੀ ਪਾਰਸ ਨਹੀਂ ਕਰ ਸਕਿਆ"
 
-#: ../src/ui/theme.c:1778
+#: ../src/ui/theme.c:1779
 #, c-format
 msgid "Coordinate expression contains character '%s' which is not allowed"
 msgstr "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਵਿੱਚ ਅੱਖਰ '%s' ਸ਼ਾਮਿਲ ਹੈ ਜਿਸ ਦੀ ਇਜਾਜ਼ਤ ਨਹੀਂ"
 
-#: ../src/ui/theme.c:1805
+#: ../src/ui/theme.c:1806
 #, c-format
 msgid ""
 "Coordinate expression contains floating point number '%s' which could not be "
@@ -1107,13 +1072,13 @@ msgstr ""
 "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਵਿੱਚ ਦਸ਼ਮਲਵ ਅੰਕ '%s' ਸ਼ਾਮਿਲ ਹੈ ਜਿਸ ਦੀ ਪਾਰਸ ਨਹੀਂ ਕੀਤੀ ਜਾ "
 "ਸਕਦੀ"
 
-#: ../src/ui/theme.c:1819
+#: ../src/ui/theme.c:1820
 #, c-format
 msgid "Coordinate expression contains integer '%s' which could not be parsed"
 msgstr ""
 "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਵਿੱਚ ਪੂਰਨ ਅੰਕ '%s' ਸ਼ਾਮਿਲ ਹੈ ਜਿਸ ਦੀ ਪਾਰਸ ਨਹੀਂ ਕੀਤੀ ਜਾ ਸਕਦੀ"
 
-#: ../src/ui/theme.c:1940
+#: ../src/ui/theme.c:1941
 #, c-format
 msgid ""
 "Coordinate expression contained unknown operator at the start of this text: "
@@ -1121,42 +1086,42 @@ msgid ""
 msgstr ""
 "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਵਿੱਚ ਇਸ ਪਾਠ \"%s\" ਦੇ ਸ਼ੁਰੂ ਵਿੱਚ ਅਣਪਛਾਤਾ ਆਪ੍ਰੇਟਰ ਸ਼ਾਮਿਲ ਹੈ"
 
-#: ../src/ui/theme.c:1997
+#: ../src/ui/theme.c:1998
 #, c-format
 msgid "Coordinate expression was empty or not understood"
 msgstr "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਖਾਲੀ ਸੀ ਜਾਂ ਸਮਝਿਆ ਨਹੀਂ"
 
-#: ../src/ui/theme.c:2110 ../src/ui/theme.c:2120 ../src/ui/theme.c:2154
+#: ../src/ui/theme.c:2111 ../src/ui/theme.c:2121 ../src/ui/theme.c:2155
 #, c-format
 msgid "Coordinate expression results in division by zero"
 msgstr "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਦੇ ਨਤੀਜੇ ਵਜੋਂ ਜੀਰੋ ਨਾਲ ਭਾਗ ਹੈ"
 
-#: ../src/ui/theme.c:2162
+#: ../src/ui/theme.c:2163
 #, c-format
 msgid ""
 "Coordinate expression tries to use mod operator on a floating-point number"
 msgstr ""
 "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਦਸ਼ਮਲਵ ਅੰਕ ਉੱਤੇ ਮਾਡ (mod) ਆਪ੍ਰੇਟਰ ਵਰਤਣ ਦੀ ਕੋਸ਼ਿਸ਼ ਕਰਦਾ ਹੈ"
 
-#: ../src/ui/theme.c:2218
+#: ../src/ui/theme.c:2219
 #, c-format
 msgid ""
 "Coordinate expression has an operator \"%s\" where an operand was expected"
 msgstr ""
 "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਵਿੱਚ ਆਪ੍ਰੇਟਰ \"%s\" ਹੈ ਜਿੱਥੇ ਪ੍ਰਭਾਵੀ ਅੰਕ ਦੀ ਉਮੀਦ ਸੀ"
 
-#: ../src/ui/theme.c:2227
+#: ../src/ui/theme.c:2228
 #, c-format
 msgid "Coordinate expression had an operand where an operator was expected"
 msgstr "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਵਿੱਚ ਪ੍ਰਭਾਵੀ ਅੰਕ ਸੀ ਜਿੱਥੇ ਆਪ੍ਰੇਟਰ ਦੀ ਉਮੀਦ ਸੀ"
 
-#: ../src/ui/theme.c:2235
+#: ../src/ui/theme.c:2236
 #, c-format
 msgid "Coordinate expression ended with an operator instead of an operand"
 msgstr ""
 "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਦੀ ਸਮਾਪਤੀ ਆਪ੍ਰੇਟਰ ਨਾਲ ਹੁੰਦੀ ਹੈ ਨਾ ਕਿ ਪ੍ਰਭਾਵੀ ਅੰਕ ਨਾਲ"
 
-#: ../src/ui/theme.c:2245
+#: ../src/ui/theme.c:2246
 #, c-format
 msgid ""
 "Coordinate expression has operator \"%c\" following operator \"%c\" with no "
@@ -1166,39 +1131,39 @@ msgstr ""
 "ਬਾਅਦ ਆਪ੍ਰੇਟਰ \"%c"
 "\" ਹੈ "
 
-#: ../src/ui/theme.c:2396 ../src/ui/theme.c:2441
+#: ../src/ui/theme.c:2397 ../src/ui/theme.c:2442
 #, c-format
 msgid "Coordinate expression had unknown variable or constant \"%s\""
 msgstr "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਵਿੱਚ ਅਣਪਛਾਤਾ ਅਸਥਿਰ ਜਾਂ ਸਥਿਰ \"%s\" ਸੀ"
 
-#: ../src/ui/theme.c:2495
+#: ../src/ui/theme.c:2496
 #, c-format
 msgid "Coordinate expression parser overflowed its buffer."
 msgstr "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਪਾਰਸਰ ਦਾ ਬਫ਼ਰ ਓਵਰਫਲੋ ਹੋ ਗਿਆ ਹੈ।"
 
-#: ../src/ui/theme.c:2524
+#: ../src/ui/theme.c:2525
 #, c-format
 msgid "Coordinate expression had a close parenthesis with no open parenthesis"
 msgstr ""
 "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਵਿੱਚ ਕੋਈ ਖੁੱਲੀ ਬਰੈਕਟ ਨਾ ਹੋਣ ਕਰਕੇ ਬੰਦ ਬਰੈਕਟ(parenthesis) "
 "ਸੀ"
 
-#: ../src/ui/theme.c:2588
+#: ../src/ui/theme.c:2589
 #, c-format
 msgid "Coordinate expression had an open parenthesis with no close parenthesis"
 msgstr "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਵਿੱਚ ਕੋਈ ਬੰਦ ਬਰੈਕਟ ਨਾ ਹੋਣ ਕਰਕੇ ਖੁੱਲੀ ਬਰੈਕਟ ਸੀ"
 
-#: ../src/ui/theme.c:2599
+#: ../src/ui/theme.c:2600
 #, c-format
 msgid "Coordinate expression doesn't seem to have any operators or operands"
 msgstr "ਕਰੋਆਡੀਨੇਟ ਐਕਸ਼ਪਰੈਸ਼ਨ ਵਿੱਚ ਕੋਈ ਵੀ ਆਪ੍ਰੇਟਰ ਜਾਂ ਪ੍ਰਭਾਵੀ ਅੰਕ ਨਹੀਂ ਦਿਸਦਾ"
 
-#: ../src/ui/theme.c:2812 ../src/ui/theme.c:2832 ../src/ui/theme.c:2852
+#: ../src/ui/theme.c:2813 ../src/ui/theme.c:2833 ../src/ui/theme.c:2853
 #, c-format
 msgid "Theme contained an expression that resulted in an error: %s\n"
 msgstr "ਥੀਮ ਵਿੱਚ ਸਮੀਕਰਨ ਹੈ, ਜਿਸ ਦਾ ਨਤੀਜਾ ਹੈ ਗਲਤੀ: %s\n"
 
-#: ../src/ui/theme.c:4498
+#: ../src/ui/theme.c:4499
 #, c-format
 msgid ""
 "<button function=\"%s\" state=\"%s\" draw_ops=\"whatever\"/> must be "
@@ -1208,25 +1173,25 @@ msgstr ""
 "ਦੇਣਾ "
 "ਲਾਜ਼ਮੀ ਹੈ"
 
-#: ../src/ui/theme.c:5009 ../src/ui/theme.c:5034
+#: ../src/ui/theme.c:5010 ../src/ui/theme.c:5035
 #, c-format
 msgid ""
 "Missing <frame state=\"%s\" resize=\"%s\" focus=\"%s\" style=\"whatever\"/>"
 msgstr ""
 "<frame state=\"%s\" resize=\"%s\" focus=\"%s\" style=\"whatever\"/> ਗੁੰਮ ਹੈ"
 
-#: ../src/ui/theme.c:5080
+#: ../src/ui/theme.c:5083
 #, c-format
 msgid "Failed to load theme \"%s\": %s\n"
 msgstr "ਥੀਮ \"%s\" ਲੋਡ ਕਰਨ ਲਈ ਅਸਫਲ: %s\n"
 
-#: ../src/ui/theme.c:5216 ../src/ui/theme.c:5223 ../src/ui/theme.c:5230
-#: ../src/ui/theme.c:5237 ../src/ui/theme.c:5244
+#: ../src/ui/theme.c:5219 ../src/ui/theme.c:5226 ../src/ui/theme.c:5233
+#: ../src/ui/theme.c:5240 ../src/ui/theme.c:5247
 #, c-format
 msgid "No <%s> set for theme \"%s\""
 msgstr "ਥੀਮ \"%2$s\" ਲਈ <%1$s> ਨਹੀਂ ਸੈੱਟ ਕੀਤਾ"
 
-#: ../src/ui/theme.c:5252
+#: ../src/ui/theme.c:5255
 #, c-format
 msgid ""
 "No frame style set for window type \"%s\" in theme \"%s\", add a <window "
@@ -1236,13 +1201,13 @@ msgstr ""
 "window type="
 "\"%s\" style_set=\"whatever\"/> ਐਲੀਮੈਂਟ ਸ਼ਾਮਿਲ ਕਰੋ"
 
-#: ../src/ui/theme.c:5659 ../src/ui/theme.c:5721 ../src/ui/theme.c:5784
+#: ../src/ui/theme.c:5662 ../src/ui/theme.c:5724 ../src/ui/theme.c:5787
 #, c-format
 msgid ""
 "User-defined constants must begin with a capital letter; \"%s\" does not"
 msgstr "ਯੂਜ਼ਰ ਰਾਹੀਂ ਪਰਭਾਸ਼ਿਤ ਸਥਿਰ ਵੱਡੇ ਅੱਖਰ ਨਾਲ ਸ਼ੁਰੂ ਹੋਣ; \"%s\" ਨਹੀਂ ਹੁੰਦੇ"
 
-#: ../src/ui/theme.c:5667 ../src/ui/theme.c:5729 ../src/ui/theme.c:5792
+#: ../src/ui/theme.c:5670 ../src/ui/theme.c:5732 ../src/ui/theme.c:5795
 #, c-format
 msgid "Constant \"%s\" has already been defined"
 msgstr "ਸਥਿਰ \"%s\" ਪਹਿਲਾਂ ਹੀ ਪਰਭਾਸ਼ਿਤ ਕੀਤਾ ਹੈ"
@@ -1250,67 +1215,67 @@ msgstr "ਸਥਿਰ \"%s\" ਪਹਿਲਾਂ ਹੀ ਪਰਭਾਸ਼ਿਤ ਕ�
 #. Translators: This means that an attribute which should have been found
 #. * on an XML element was not in fact found.
 #.
-#: ../src/ui/theme-parser.c:234
+#: ../src/ui/theme-parser.c:236
 #, c-format
 msgid "No \"%s\" attribute on element <%s>"
 msgstr "<%2$s> ਐਲੀਮੈਂਟ ਉੱਤੇ ਕੋਈ \"%1$s\" ਗੁਣ ਨਹੀਂ"
 
-#: ../src/ui/theme-parser.c:263 ../src/ui/theme-parser.c:281
+#: ../src/ui/theme-parser.c:265 ../src/ui/theme-parser.c:283
 #, c-format
 msgid "Line %d character %d: %s"
 msgstr "ਲਾਈਨ %d ਅੱਖਰ %d:%s"
 
-#: ../src/ui/theme-parser.c:481
+#: ../src/ui/theme-parser.c:479
 #, c-format
 msgid "Attribute \"%s\" repeated twice on the same <%s> element"
 msgstr "ਗੁਣ \"%s\" ਇੱਕੋ ਐਲੀਮੈਂਟ <%s> ਉੱਤੇ ਦੋ ਵਾਰ ਦੁਹਰਾਇਆ ਗਿਆ"
 
-#: ../src/ui/theme-parser.c:505 ../src/ui/theme-parser.c:554
+#: ../src/ui/theme-parser.c:503 ../src/ui/theme-parser.c:552
 #, c-format
 msgid "Attribute \"%s\" is invalid on <%s> element in this context"
 msgstr "ਇਸ ਸਬੰਧ ਵਿਚਲਾ \"%s\" ਗੁਣ ਅਯੋਗ ਹੈ ਐਲੀਮੈਂਟ <%s> ਉੱਤੇ"
 
-#: ../src/ui/theme-parser.c:596
+#: ../src/ui/theme-parser.c:594
 #, c-format
 msgid "Could not parse \"%s\" as an integer"
 msgstr "\"%s\" ਦੀ ਪੂਰਨ ਅੰਕ ਵਾਂਗ ਪਾਰਸ ਨਹੀ ਕਰ ਸਕਿਆ"
 
-#: ../src/ui/theme-parser.c:605 ../src/ui/theme-parser.c:660
+#: ../src/ui/theme-parser.c:603 ../src/ui/theme-parser.c:658
 #, c-format
 msgid "Did not understand trailing characters \"%s\" in string \"%s\""
 msgstr "\"%s\" ਸਤਰ ਵਿਚ ਖੋਜੇ ਅੱਖਰ \"%s\" ਨੂੰ ਸਮਝ ਨਹੀ ਸਕੇ"
 
-#: ../src/ui/theme-parser.c:615
+#: ../src/ui/theme-parser.c:613
 #, c-format
 msgid "Integer %ld must be positive"
 msgstr "ਪੂਰਨ ਅੰਕ %ld ਜੋੜ ਦਾ ਹੋਣਾ ਜਰੂਰੀ ਹੈ"
 
-#: ../src/ui/theme-parser.c:623
+#: ../src/ui/theme-parser.c:621
 #, c-format
 msgid "Integer %ld is too large, current max is %d"
 msgstr "ਪੂਰਨ ਅੰਕ %ld ਬਹੁਤ ਵੱਡਾ ਹੈ, ਮੌਜੂਦਾ ਅਧਿਕਤਮ %d ਹੈ"
 
-#: ../src/ui/theme-parser.c:651 ../src/ui/theme-parser.c:767
+#: ../src/ui/theme-parser.c:649 ../src/ui/theme-parser.c:765
 #, c-format
 msgid "Could not parse \"%s\" as a floating point number"
 msgstr "\"%s\" ਦੀ ਦਸ਼ਮਲਵ ਅੰਕ ਵਾਂਗ ਪਾਰਸ ਨਹੀਂ ਕਰ ਸਕਿਆ"
 
-#: ../src/ui/theme-parser.c:682 ../src/ui/theme-parser.c:710
+#: ../src/ui/theme-parser.c:680 ../src/ui/theme-parser.c:708
 #, c-format
 msgid "Boolean values must be \"true\" or \"false\" not \"%s\""
 msgstr "ਬੂਲੀਅਨ ਕੀਮਤ \"ਠੀਕ\" ਜਾਂ \"ਗਲਤ\" ਹੋਵੇ \"%s\" ਨਹੀਂ"
 
-#: ../src/ui/theme-parser.c:737
+#: ../src/ui/theme-parser.c:735
 #, c-format
 msgid "Angle must be between 0.0 and 360.0, was %g\n"
 msgstr "ਕੋਣ 0.0 ਤੋਂ 360.0 ਵਿਚਕਾਰ ਹੋਵੇ, ਕੀ %g ਸੀ\n"
 
-#: ../src/ui/theme-parser.c:800
+#: ../src/ui/theme-parser.c:798
 #, c-format
 msgid "Alpha must be between 0.0 (invisible) and 1.0 (fully opaque), was %g\n"
 msgstr "ਐਲਫਾ 0.0 (ਅਦਿੱਖ) ਅਤੇ 1.0 (ਪੂਰੀ ਤਰਾਂ ਅਪਾਰਦਰਸ਼ੀ) ਵਿਚਕਾਰ ਹੋਵੇ, ਕੀ %g ਸੀ\n"
 
-#: ../src/ui/theme-parser.c:865
+#: ../src/ui/theme-parser.c:863
 #, c-format
 msgid ""
 "Invalid title scale \"%s\" (must be one of xx-small,x-small,small,medium,"
@@ -1318,58 +1283,58 @@ msgid ""
 msgstr ""
 "ਅਯੋਗ ਟਾਇਟਲ ਪੈਮਾਨਾ \"%s\" (xx-ਛੋਟਾ,x-ਛੋਟਾ,ਛੋਟਾ,ਮੱਧਮ,ਵੱਡਾ,x-ਵੱਡਾ,xx-ਵੱਡਾ)\n"
 
-#: ../src/ui/theme-parser.c:1021 ../src/ui/theme-parser.c:1084
-#: ../src/ui/theme-parser.c:1118 ../src/ui/theme-parser.c:1221
+#: ../src/ui/theme-parser.c:1019 ../src/ui/theme-parser.c:1082
+#: ../src/ui/theme-parser.c:1116 ../src/ui/theme-parser.c:1219
 #, c-format
 msgid "<%s> name \"%s\" used a second time"
 msgstr "<%s> ਨਾਂ \"%s\" ਦੂਜੀ ਵਾਰ ਵਰਤਿਆ ਗਿਆ"
 
-#: ../src/ui/theme-parser.c:1033 ../src/ui/theme-parser.c:1130
-#: ../src/ui/theme-parser.c:1233
+#: ../src/ui/theme-parser.c:1031 ../src/ui/theme-parser.c:1128
+#: ../src/ui/theme-parser.c:1231
 #, c-format
 msgid "<%s> parent \"%s\" has not been defined"
 msgstr "<%s> ਮੂਲ \"%s\" ਪਰਭਾਸ਼ਿਤ ਨਹੀਂ ਕੀਤਾ ਗਿਆ"
 
-#: ../src/ui/theme-parser.c:1143
+#: ../src/ui/theme-parser.c:1141
 #, c-format
 msgid "<%s> geometry \"%s\" has not been defined"
 msgstr "<%s> ਜੁਮੈਟਰੀ \"%s\" ਪਰਭਾਸ਼ਿਤ ਨਹੀਂ ਕੀਤੀ ਗਈ"
 
-#: ../src/ui/theme-parser.c:1156
+#: ../src/ui/theme-parser.c:1154
 #, c-format
 msgid "<%s> must specify either a geometry or a parent that has a geometry"
 msgstr "<%s> ਜੁਮੈਟਰੀ ਜਾਂ ਜੁਮੈਟਰੀ ਵਾਲੇ ਮੂਲ ਨੂੰ ਦੇਣਾ ਲਾਜ਼ਮੀ ਹੈ"
 
-#: ../src/ui/theme-parser.c:1198
+#: ../src/ui/theme-parser.c:1196
 msgid "You must specify a background for an alpha value to be meaningful"
 msgstr "ਤੁਹਾਨੂੰ ਇੱਕ ਐਲਫ਼ਾ ਮੁੱਲ ਲਈ ਇੱਕ ਬੈਕਗਰਾਊਂਡ ਮੁੱਲ ਦਿਓ, ਜੋ ਕਿ ਮਤਲਬ ਸਿਰ ਹੋਵੇ"
 
-#: ../src/ui/theme-parser.c:1266
+#: ../src/ui/theme-parser.c:1264
 #, c-format
 msgid "Unknown type \"%s\" on <%s> element"
 msgstr "ਅਣਜਾਣ ਕਿਸਮ \"%s\" ਉੱਤੇ <%s> ਐਲੀਮੈਂਟ"
 
-#: ../src/ui/theme-parser.c:1277
+#: ../src/ui/theme-parser.c:1275
 #, c-format
 msgid "Unknown style_set \"%s\" on <%s> element"
 msgstr "ਅਣਜਾਣ ਸਟਾਇਲ_ਸੈੱਟ \"%s\" <%s> ਐਲੀਮੈਂਟ ਉੱਤੇ"
 
-#: ../src/ui/theme-parser.c:1285
+#: ../src/ui/theme-parser.c:1283
 #, c-format
 msgid "Window type \"%s\" has already been assigned a style set"
 msgstr "ਵਿੰਡੋ ਕਿਸਮ \"%s\" ਵਾਸਤੇ ਪਹਿਲਾਂ ਹੀ ਇੱਕ ਸਟਾਇਲ ਸੈੱਟ ਦਿੱਤਾ ਹੈ"
 
-#: ../src/ui/theme-parser.c:1315 ../src/ui/theme-parser.c:1379
-#: ../src/ui/theme-parser.c:1605 ../src/ui/theme-parser.c:2840
-#: ../src/ui/theme-parser.c:2886 ../src/ui/theme-parser.c:3036
-#: ../src/ui/theme-parser.c:3272 ../src/ui/theme-parser.c:3310
-#: ../src/ui/theme-parser.c:3348 ../src/ui/theme-parser.c:3386
+#: ../src/ui/theme-parser.c:1313 ../src/ui/theme-parser.c:1377
+#: ../src/ui/theme-parser.c:1603 ../src/ui/theme-parser.c:2838
+#: ../src/ui/theme-parser.c:2884 ../src/ui/theme-parser.c:3034
+#: ../src/ui/theme-parser.c:3273 ../src/ui/theme-parser.c:3311
+#: ../src/ui/theme-parser.c:3349 ../src/ui/theme-parser.c:3387
 #, c-format
 msgid "Element <%s> is not allowed below <%s>"
 msgstr "<%s> ਐਲੀਮੈਂਟ ਨੂੰ <%s> ਹੇਠਾਂ ਇਜਾਜ਼ਤ ਨਹੀਂ"
 
-#: ../src/ui/theme-parser.c:1429 ../src/ui/theme-parser.c:1443
-#: ../src/ui/theme-parser.c:1488
+#: ../src/ui/theme-parser.c:1427 ../src/ui/theme-parser.c:1441
+#: ../src/ui/theme-parser.c:1486
 msgid ""
 "Cannot specify both \"button_width\"/\"button_height\" and \"aspect_ratio\" "
 "for buttons"
@@ -1378,123 +1343,123 @@ msgstr ""
 "\"aspect_ratio"
 "\" ਬਟਨਾਂ ਲਈ ਨਹੀਂ ਦਿੱਤੇ ਦੇ ਸਕਦੇ"
 
-#: ../src/ui/theme-parser.c:1452
+#: ../src/ui/theme-parser.c:1450
 #, c-format
 msgid "Distance \"%s\" is unknown"
 msgstr "ਫਾਸਲਾ \"%s\" ਅਣਜਾਣ ਹੈ"
 
-#: ../src/ui/theme-parser.c:1497
+#: ../src/ui/theme-parser.c:1495
 #, c-format
 msgid "Aspect ratio \"%s\" is unknown"
 msgstr "ਅਕਾਰ ਅਨੁਪਾਤ \"%s\" ਅਣਜਾਣ ਹੈ"
 
-#: ../src/ui/theme-parser.c:1559
+#: ../src/ui/theme-parser.c:1557
 #, c-format
 msgid "Border \"%s\" is unknown"
 msgstr "ਬਾਰਡਰ \"%s\" ਅਣਜਾਣ ਹੈ"
 
-#: ../src/ui/theme-parser.c:1870
+#: ../src/ui/theme-parser.c:1868
 #, c-format
 msgid "No \"start_angle\" or \"from\" attribute on element <%s>"
 msgstr "<%s> ਐਲੀਮੈਂਟ ਉੱਤੇ ਕੋਈ \"ਸ਼ੁਰੂ_ਕੋਣ\" ਜਾਂ \"ਇਸ ਤੋਂ\"ਗੁਣ ਨਹੀਂ ਹੈ ।"
 
-#: ../src/ui/theme-parser.c:1877
+#: ../src/ui/theme-parser.c:1875
 #, c-format
 msgid "No \"extent_angle\" or \"to\" attribute on element <%s>"
 msgstr "<%s> ਐਲੀਮੈਂਟ ਉੱਤੇ ਕੋਈ \"ਸੀਮਾਂ_ਕੋਣ\" ਜਾਂ \"ਵੱਲ\" ਗੁਣ ਨਹੀਂ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:2117
+#: ../src/ui/theme-parser.c:2115
 #, c-format
 msgid "Did not understand value \"%s\" for type of gradient"
 msgstr "ਢਾਲ ਦੇ ਅਨੁਪਾਤ ਦੀ ਕਿਸਮ ਵਾਸਤੇ ਕੀਮਤ \"%s\" ਨਹੀਂ ਸਮਝਿਆ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:2195 ../src/ui/theme-parser.c:2570
+#: ../src/ui/theme-parser.c:2193 ../src/ui/theme-parser.c:2568
 #, c-format
 msgid "Did not understand fill type \"%s\" for <%s> element"
 msgstr "ਐਲੀਮੈਂਟ <%s> ਵਾਸਤੇ ਭਰਨ ਕਿਸਮ \"%s\" ਨਹੀਂ ਸਮਝਿਆ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:2362 ../src/ui/theme-parser.c:2445
-#: ../src/ui/theme-parser.c:2508
+#: ../src/ui/theme-parser.c:2360 ../src/ui/theme-parser.c:2443
+#: ../src/ui/theme-parser.c:2506
 #, c-format
 msgid "Did not understand state \"%s\" for <%s> element"
 msgstr "ਐਲੀਮੈਂਟ <%s> ਲਈ ਸਥਿਤੀ \"%s\" ਨਹੀਂ ਸਮਝਿਆ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:2372 ../src/ui/theme-parser.c:2455
+#: ../src/ui/theme-parser.c:2370 ../src/ui/theme-parser.c:2453
 #, c-format
 msgid "Did not understand shadow \"%s\" for <%s> element"
 msgstr "ਐਲੀਮੈਂਟ <%s> ਲਈ ਪਰਛਾਂਵਾਂ \"%s\" ਨਹੀਂ ਸਮਝਿਆ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:2382
+#: ../src/ui/theme-parser.c:2380
 #, c-format
 msgid "Did not understand arrow \"%s\" for <%s> element"
 msgstr "ਐਲੀਮੈਂਟ <%s> ਲਈ ਤੀਰ \"%s\" ਨਹੀਂ ਸਮਝਿਆ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:2696 ../src/ui/theme-parser.c:2792
+#: ../src/ui/theme-parser.c:2694 ../src/ui/theme-parser.c:2790
 #, c-format
 msgid "No <draw_ops> called \"%s\" has been defined"
 msgstr "ਕੋਈ <draw_ops> \"%s\" ਪਰਭਾਸ਼ਿਤ ਨਹੀਂ ਕੀਤੀ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:2708 ../src/ui/theme-parser.c:2804
+#: ../src/ui/theme-parser.c:2706 ../src/ui/theme-parser.c:2802
 #, c-format
 msgid "Including draw_ops \"%s\" here would create a circular reference"
 msgstr "draw_ops ਦੇ ਨਾਲ \"%s\" ਇੱਥੇ ਗੋਲਾਕਾਰ ਸੰਬੰਧ ਬਣਾਏਗਾ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:2919
+#: ../src/ui/theme-parser.c:2917
 #, c-format
 msgid "Unknown position \"%s\" for frame piece"
 msgstr "ਫਰੇਮ ਟੁਕੜੇ ਲਈ ਅਣਜਾਣੀ ਸਥਿਤੀ \"%s\" ਹੈ।"
 
-#: ../src/ui/theme-parser.c:2927
+#: ../src/ui/theme-parser.c:2925
 #, c-format
 msgid "Frame style already has a piece at position %s"
 msgstr "ਫਰੇਮ ਸਟਾਇਲ ਵਿੱਚ ਪਹਿਲਾਂ ਹੀ %s ਸਥਿਤੀ ਉੱਤੇ ਇੱਕ ਟੁਕੜਾ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:2944 ../src/ui/theme-parser.c:3021
+#: ../src/ui/theme-parser.c:2942 ../src/ui/theme-parser.c:3019
 #, c-format
 msgid "No <draw_ops> with the name \"%s\" has been defined"
 msgstr "\"%s\" ਨਾਂ ਨਾਲ <draw_ops> ਪਰਭਾਸ਼ਿਤ ਨਹੀਂ ਕੀਤੀਆਂ"
 
-#: ../src/ui/theme-parser.c:2974
+#: ../src/ui/theme-parser.c:2972
 #, c-format
 msgid "Unknown function \"%s\" for button"
 msgstr "ਬਟਨ ਲਈ ਅਣਜਾਣ ਕੰਮ \"%s\" ਹੈ।"
 
-#: ../src/ui/theme-parser.c:2984
+#: ../src/ui/theme-parser.c:2982
 #, c-format
 msgid "Button function \"%s\" does not exist in this version (%d, need %d)"
 msgstr "ਬਟਨ ਫੰਕਸ਼ਨ \"%s\" ਇਹ ਵਰਜਨ 'ਚ ਮੌਜੂਦ ਨਹੀਂ ਹੈ (%d, %d ਲੋੜੀਦਾ ਹੈ)"
 
-#: ../src/ui/theme-parser.c:2996
+#: ../src/ui/theme-parser.c:2994
 #, c-format
 msgid "Unknown state \"%s\" for button"
 msgstr "ਬਟਨ ਲਈ ਅਣਜਾਣ ਹਾਲਤ \"%s\"  ਹੈ।"
 
-#: ../src/ui/theme-parser.c:3004
+#: ../src/ui/theme-parser.c:3002
 #, c-format
 msgid "Frame style already has a button for function %s state %s"
 msgstr "ਫਰੇਮ ਸਟਾਇਲ ਵਿੱਚ ਪਹਿਲਾਂ ਹੀ ਕੰਮ %s ਹਾਲਤ %s ਬਟਨ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:3075
+#: ../src/ui/theme-parser.c:3073
 #, c-format
 msgid "\"%s\" is not a valid value for focus attribute"
 msgstr "ਫੋਕਸ ਗੁਣ ਲਈ \"%s\" ਯੋਗ ਕੀਮਤ ਨਹੀਂ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:3084
+#: ../src/ui/theme-parser.c:3082
 #, c-format
 msgid "\"%s\" is not a valid value for state attribute"
 msgstr "ਹਾਲਤ ਗੁਣ ਲਈ \"%s\" ਯੋਗ ਕੀਮਤ ਨਹੀਂ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:3094
+#: ../src/ui/theme-parser.c:3092
 #, c-format
 msgid "A style called \"%s\" has not been defined"
 msgstr "ਇੱਕ ਸਟਾਇਲ \"%s\" ਪਰਭਾਸ਼ਿਤ ਨਹੀਂ ਕੀਤਾ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:3115 ../src/ui/theme-parser.c:3138
+#: ../src/ui/theme-parser.c:3113 ../src/ui/theme-parser.c:3136
 #, c-format
 msgid "\"%s\" is not a valid value for resize attribute"
 msgstr "ਮੁੜ ਆਕਾਰ ਦਿਓ ਗੁਣ ਲਈ \"%s\" ਯੋਗ ਕੀਮਤ ਨਹੀਂ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:3149
+#: ../src/ui/theme-parser.c:3147
 #, c-format
 msgid ""
 "Should not have \"resize\" attribute on <%s> element for maximized/shaded "
@@ -1502,26 +1467,26 @@ msgid ""
 msgstr ""
 "<%s> ਐਲੀਮੈਂਟ ਉੱਤੇ ਵੱਡਾ/ਰੰਗਤ ਹਾਲਤ ਲਈ \"ਮੁੜ ਆਕਾਰ ਦਿਓ\" ਗੁਣ ਨਹੀਂ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:3163
+#: ../src/ui/theme-parser.c:3161
 #, c-format
 msgid ""
 "Should not have \"resize\" attribute on <%s> element for maximized states"
 msgstr ""
 "<%s> ਐਲੀਮੈਂਟ ਲਈ ਵੱਧ ਤੋਂ ਵੱਧ ਹਾਲਤਾਂ ਲਈ \"ਮੁੜ ਆਕਾਰ\" ਗੁਣ ਨਹੀਂ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ।"
 
-#: ../src/ui/theme-parser.c:3177 ../src/ui/theme-parser.c:3221
+#: ../src/ui/theme-parser.c:3175 ../src/ui/theme-parser.c:3222
 #, c-format
 msgid "Style has already been specified for state %s resize %s focus %s"
 msgstr "ਹਾਲਤ %s ਮੁੜ ਅਕਾਰ ਦਿਓ %s ਫੋਕਸ %s ਬਾਰੇ ਸਟਾਇਲ ਪਹਿਲਾਂ ਦਿੱਤਾ ਗਿਆ ਹੈ"
 
-#: ../src/ui/theme-parser.c:3188 ../src/ui/theme-parser.c:3199
-#: ../src/ui/theme-parser.c:3210 ../src/ui/theme-parser.c:3232
-#: ../src/ui/theme-parser.c:3243 ../src/ui/theme-parser.c:3254
+#: ../src/ui/theme-parser.c:3186 ../src/ui/theme-parser.c:3197
+#: ../src/ui/theme-parser.c:3208 ../src/ui/theme-parser.c:3233
+#: ../src/ui/theme-parser.c:3244 ../src/ui/theme-parser.c:3255
 #, c-format
 msgid "Style has already been specified for state %s focus %s"
 msgstr "ਹਾਲਤ %s ਫੋਕਸ %s ਬਾਰੇ ਸਟਾਇਲ ਪਹਿਲਾਂ ਦਿੱਤਾ ਹੈ"
 
-#: ../src/ui/theme-parser.c:3293
+#: ../src/ui/theme-parser.c:3294
 msgid ""
 "Can't have a two draw_ops for a <piece> element (theme specified a draw_ops "
 "attribute and also a <draw_ops> element, or specified two elements)"
@@ -1530,7 +1495,7 @@ msgstr ""
 "draw_ops> "
 "ਐਲੀਮੈਂਟ ਵੀ ਹੋ ਸਕਦੀ ਹੈ ਜਾਂ ਦੋ ਐਲੀਮੈਂਟ ਦਿੱਤੀਆਂ ਹੋ ਸਕਦੀਆਂ ਹਨ)"
 
-#: ../src/ui/theme-parser.c:3331
+#: ../src/ui/theme-parser.c:3332
 msgid ""
 "Can't have a two draw_ops for a <button> element (theme specified a draw_ops "
 "attribute and also a <draw_ops> element, or specified two elements)"
@@ -1539,7 +1504,7 @@ msgstr ""
 "draw_ops> "
 "ਐਲੀਮੈਂਟ ਵੀ ਦਿੱਤਾ ਹੈ, ਜਾਂ ਦੋ ਐਲੀਮੈਂਟ ਦਿੱਤੇ ਹਨ)"
 
-#: ../src/ui/theme-parser.c:3369
+#: ../src/ui/theme-parser.c:3370
 msgid ""
 "Can't have a two draw_ops for a <menu_icon> element (theme specified a "
 "draw_ops attribute and also a <draw_ops> element, or specified two elements)"
@@ -1548,12 +1513,12 @@ msgstr ""
 "ਅਤੇ "
 "<draw_ops> ਇਕਾਈਆਂ ਦਿੱਤੀਆਂ ਹਨ, ਜਾਂ ਦੋ ਇਕਾਈਆਂ ਦਿੱਤੀਆਂ ਹਨ)"
 
-#: ../src/ui/theme-parser.c:3433
+#: ../src/ui/theme-parser.c:3434
 #, c-format
 msgid "Bad version specification '%s'"
 msgstr "ਗਲਤ ਵਰਜਨ ਹਦਾਇਤਾਂ '%s'"
 
-#: ../src/ui/theme-parser.c:3506
+#: ../src/ui/theme-parser.c:3507
 msgid ""
 "\"version\" attribute cannot be used in metacity-theme-1.xml or metacity-"
 "theme-2.xml"
@@ -1562,28 +1527,28 @@ msgstr ""
 "ਜਾ "
 "ਸਕਦਾ"
 
-#: ../src/ui/theme-parser.c:3529
+#: ../src/ui/theme-parser.c:3530
 #, c-format
 msgid "Theme requires version %s but latest supported theme version is %d.%d"
 msgstr "ਥੀਮ ਲਈ %s ਵਰਜਨ ਚਾਹੀਦਾ ਹੈ, ਪਰ ਸਭ ਤੋਂ ਨਵਾਂ ਸਹਾਇਕ ਥੀਮ ਵਰਜਨ ਹੈ %d.%d"
 
-#: ../src/ui/theme-parser.c:3561
+#: ../src/ui/theme-parser.c:3562
 #, c-format
 msgid "Outermost element in theme must be <metacity_theme> not <%s>"
 msgstr "ਥੀਮ ਵਿੱਚ ਸਭ ਤੋਂ ਬਾਹਰੀ ਐਲੀਮੈਂਟ <metacity_theme> ਹੋਵੇ <%s> ਨਹੀਂ"
 
-#: ../src/ui/theme-parser.c:3581
+#: ../src/ui/theme-parser.c:3582
 #, c-format
 msgid ""
 "Element <%s> is not allowed inside a name/author/date/description element"
 msgstr "<%s> ਐਲੀਮੈਂਟ ਨੂੰ ਨਾਂ/ਲੇਖਕ/ਮਿਤੀ/ਵੇਰਵਾ ਐਲੀਮੈਂਟ ਵਿੱਚ ਇਜਾਜ਼ਤ ਨਹੀਂ ਹੈ"
 
-#: ../src/ui/theme-parser.c:3586
+#: ../src/ui/theme-parser.c:3587
 #, c-format
 msgid "Element <%s> is not allowed inside a <constant> element"
 msgstr "<%s> ਐਲੀਮੈਂਟ ਨੂੰ <constant> ਐਲੀਮੈਂਟ ਵਿੱਚ ਇਜਾਜ਼ਤ ਨਹੀਂ ਹੈ"
 
-#: ../src/ui/theme-parser.c:3598
+#: ../src/ui/theme-parser.c:3599
 #, c-format
 msgid ""
 "Element <%s> is not allowed inside a distance/border/aspect_ratio element"
@@ -1591,185 +1556,239 @@ msgstr ""
 "<%s> ਐਲੀਮੈਂਟ ਨੂੰ ਫਾਸਲਾ/ਹਾਸ਼ੀਆ/ਅਕਾਰ ਅਨੁਪਾਤ(aspect_ratio) ਐਲੀਮੈਂਟ ਵਿੱਚ ਇਜਾਜ਼ਤ "
 "ਨਹੀਂ ਹੈ"
 
-#: ../src/ui/theme-parser.c:3620
+#: ../src/ui/theme-parser.c:3621
 #, c-format
 msgid "Element <%s> is not allowed inside a draw operation element"
 msgstr "<%s> ਐਲੀਮੈਂਟ ਨੂੰ ਉਲੀਕ ਕਿਰਿਆ ਐਲੀਮੈਂਟ ਵਿੱਚ ਇਜਾਜ਼ਤ ਨਹੀਂ ਹੈ"
 
-#: ../src/ui/theme-parser.c:3630 ../src/ui/theme-parser.c:3660
-#: ../src/ui/theme-parser.c:3665 ../src/ui/theme-parser.c:3670
+#: ../src/ui/theme-parser.c:3631 ../src/ui/theme-parser.c:3661
+#: ../src/ui/theme-parser.c:3666 ../src/ui/theme-parser.c:3671
 #, c-format
 msgid "Element <%s> is not allowed inside a <%s> element"
 msgstr "<%s> ਐਲੀਮੈਂਟ ਨੂੰ <%s> ਐਲੀਮੈਂਟ ਵਿੱਚ ਇਜਾਜ਼ਤ ਨਹੀਂ ਹੈ"
 
-#: ../src/ui/theme-parser.c:3898
+#: ../src/ui/theme-parser.c:3899
 msgid "No draw_ops provided for frame piece"
 msgstr "ਫਰੇਮ ਟੁਕੜੇ ਲਈ ਕੋਈ draw_ops ਨਹੀਂ ਦਿੱਤੀ ਗਈ"
 
-#: ../src/ui/theme-parser.c:3913
+#: ../src/ui/theme-parser.c:3914
 msgid "No draw_ops provided for button"
 msgstr "ਬਟਨ ਲਈ ਕੋਈ ਉਲੀਕ ਕਿਰਿਆ ਨਹੀ ਦਿੱਤੀ ਗਈ"
 
-#: ../src/ui/theme-parser.c:3967
+#: ../src/ui/theme-parser.c:3968
 #, c-format
 msgid "No text is allowed inside element <%s>"
 msgstr "<%s> ਐਲੀਮੈਂਟ ਵਿੱਚ ਕਿਸੇ ਪਾਠ ਨੂੰ ਇਜਾਜ਼ਤ ਨਹੀਂ"
 
-#: ../src/ui/theme-parser.c:4025 ../src/ui/theme-parser.c:4037
-#: ../src/ui/theme-parser.c:4049 ../src/ui/theme-parser.c:4061
-#: ../src/ui/theme-parser.c:4073
+#: ../src/ui/theme-parser.c:4026 ../src/ui/theme-parser.c:4038
+#: ../src/ui/theme-parser.c:4050 ../src/ui/theme-parser.c:4062
+#: ../src/ui/theme-parser.c:4074
 #, c-format
 msgid "<%s> specified twice for this theme"
 msgstr "ਇਸ ਥੀਮ ਲਈ <%s> ਦੋ ਵਾਰ ਦਿੱਤਾ ਗਿਆ"
 
-#: ../src/ui/theme-parser.c:4335
+#: ../src/ui/theme-parser.c:4334
 #, c-format
 msgid "Failed to find a valid file for theme %s\n"
 msgstr "ਥੀਮ %s ਲਈ ਇੱਕ ਢੁੱਕਵੀਂ ਫਾਇਲ ਲੱਭਣ ਲਈ ਫੇਲ੍ਹ\n"
 
-#~ msgid "Usage: %s\n"
-#~ msgstr "ਵਰਤੋਂ: %s\n"
+#: ../src/ui/theme-viewer.c:99
+msgid "_Windows"
+msgstr "ਵਿੰਡੋ(_W)"
 
-#~ msgid "_Windows"
-#~ msgstr "ਵਿੰਡੋ(_W)"
+#: ../src/ui/theme-viewer.c:100
+msgid "_Dialog"
+msgstr "ਡਾਈਲਾਗ(_D)"
 
-#~ msgid "_Dialog"
-#~ msgstr "ਡਾਈਲਾਗ(_D)"
+#: ../src/ui/theme-viewer.c:101
+msgid "_Modal dialog"
+msgstr "ਮਾਡਲ ਡਾਈਲਾਗ(_M)"
 
-#~ msgid "_Modal dialog"
-#~ msgstr "ਮਾਡਲ ਡਾਈਲਾਗ(_M)"
+#: ../src/ui/theme-viewer.c:102
+msgid "_Utility"
+msgstr "ਸਹੂਲਤ(_U)"
 
-#~ msgid "_Utility"
-#~ msgstr "ਸਹੂਲਤ(_U)"
+#: ../src/ui/theme-viewer.c:103
+msgid "_Splashscreen"
+msgstr "ਸਵਾਗਤੀ ਸਕਰੀਨ(_S)"
 
-#~ msgid "_Splashscreen"
-#~ msgstr "ਸਵਾਗਤੀ ਸਕਰੀਨ(_S)"
+#: ../src/ui/theme-viewer.c:104
+msgid "_Top dock"
+msgstr "ਉੱਤੇ ਡੌਕ(_T)"
 
-#~ msgid "_Top dock"
-#~ msgstr "ਉੱਤੇ ਡੌਕ(_T)"
+#: ../src/ui/theme-viewer.c:105
+msgid "_Bottom dock"
+msgstr "ਹੇਠਾਂ ਡੌਕ(_B)"
 
-#~ msgid "_Bottom dock"
-#~ msgstr "ਹੇਠਾਂ ਡੌਕ(_B)"
+#: ../src/ui/theme-viewer.c:106
+msgid "_Left dock"
+msgstr "ਖੱਬੇ ਡੌਕ(_L)"
 
-#~ msgid "_Left dock"
-#~ msgstr "ਖੱਬੇ ਡੌਕ(_L)"
+#: ../src/ui/theme-viewer.c:107
+msgid "_Right dock"
+msgstr "ਸੱਜੇ ਡੌਕ(_R)"
 
-#~ msgid "_Right dock"
-#~ msgstr "ਸੱਜੇ ਡੌਕ(_R)"
+#: ../src/ui/theme-viewer.c:108
+msgid "_All docks"
+msgstr "ਸਭ ਡੌਕ(_A)"
 
-#~ msgid "_All docks"
-#~ msgstr "ਸਭ ਡੌਕ(_A)"
+#: ../src/ui/theme-viewer.c:109
+msgid "Des_ktop"
+msgstr "ਡੈਸਕਟਾਪ(_k)"
 
-#~ msgid "Des_ktop"
-#~ msgstr "ਡੈਸਕਟਾਪ(_k)"
+#: ../src/ui/theme-viewer.c:115
+msgid "Open another one of these windows"
+msgstr "ਇਹਨਾਂ ਵਿੰਡੋਜ਼ ਵਿੱਚੋਂ ਕੋਈ ਹੋਰ ਖੋਲ੍ਹੋ"
 
-#~ msgid "Open another one of these windows"
-#~ msgstr "ਇਹਨਾਂ ਵਿੰਡੋਜ਼ ਵਿੱਚੋਂ ਕੋਈ ਹੋਰ ਖੋਲ੍ਹੋ"
+#: ../src/ui/theme-viewer.c:117
+msgid "This is a demo button with an 'open' icon"
+msgstr "ਇਹ 'ਖੋਲ੍ਹੋ' ਆਈਕਾਨ ਨਾਲ ਡੈਮੋ ਬਟਨ ਹੈ"
 
-#~ msgid "This is a demo button with an 'open' icon"
-#~ msgstr "ਇਹ 'ਖੋਲ੍ਹੋ' ਆਈਕਾਨ ਨਾਲ ਡੈਮੋ ਬਟਨ ਹੈ"
+#: ../src/ui/theme-viewer.c:119
+msgid "This is a demo button with a 'quit' icon"
+msgstr "ਇਹ 'ਬਾਹਰ ਜਾਓ' ਆਈਕਾਨ ਨਾਲ ਡੈਮੋ ਬਟਨ ਹੈ"
 
-#~ msgid "This is a demo button with a 'quit' icon"
-#~ msgstr "ਇਹ 'ਬਾਹਰ ਜਾਓ' ਆਈਕਾਨ ਨਾਲ ਡੈਮੋ ਬਟਨ ਹੈ"
+#: ../src/ui/theme-viewer.c:248
+msgid "This is a sample message in a sample dialog"
+msgstr "ਇਹ ਸੈਂਪਲ ਡਾਈਲਾਗ ਵਿੱਚ ਸੈਂਪਲ ਸੁਨੇਹਾ ਹੈ"
 
-#~ msgid "This is a sample message in a sample dialog"
-#~ msgstr "ਇਹ ਸੈਂਪਲ ਡਾਈਲਾਗ ਵਿੱਚ ਸੈਂਪਲ ਸੁਨੇਹਾ ਹੈ"
+#: ../src/ui/theme-viewer.c:328
+#, c-format
+msgid "Fake menu item %d\n"
+msgstr "ਨਕਲੀ ਮੇਨੂ ਆਈਟਮ %d\n"
 
-#~ msgid "Fake menu item %d\n"
-#~ msgstr "ਨਕਲੀ ਮੇਨੂ ਆਈਟਮ %d\n"
+#: ../src/ui/theme-viewer.c:363
+msgid "Border-only window"
+msgstr "ਕੇਵਲ ਬਾਰਡਰ ਵਿੰਡੋ"
 
-#~ msgid "Border-only window"
-#~ msgstr "ਕੇਵਲ ਬਾਰਡਰ ਵਿੰਡੋ"
+#: ../src/ui/theme-viewer.c:365
+msgid "Bar"
+msgstr "ਬਾਰ"
 
-#~ msgid "Bar"
-#~ msgstr "ਬਾਰ"
+#: ../src/ui/theme-viewer.c:382
+msgid "Normal Application Window"
+msgstr "ਸਾਧਾਰਨ ਐਪਲੀਕੇਸ਼ਨ ਵਿੰਡੋ"
 
-#~ msgid "Normal Application Window"
-#~ msgstr "ਸਾਧਾਰਨ ਐਪਲੀਕੇਸ਼ਨ ਵਿੰਡੋ"
+#: ../src/ui/theme-viewer.c:386
+msgid "Dialog Box"
+msgstr "ਡਾਈਲਾਗ ਡੱਬਾ"
 
-#~ msgid "Dialog Box"
-#~ msgstr "ਡਾਈਲਾਗ ਡੱਬਾ"
+#: ../src/ui/theme-viewer.c:390
+msgid "Modal Dialog Box"
+msgstr "ਮਾਡਲ ਡਾਈਲਾਗ ਡੱਬਾ"
 
-#~ msgid "Modal Dialog Box"
-#~ msgstr "ਮਾਡਲ ਡਾਈਲਾਗ ਡੱਬਾ"
+#: ../src/ui/theme-viewer.c:394
+msgid "Utility Palette"
+msgstr "ਸਹੂਲਤ ਪਲੇਅਟ"
 
-#~ msgid "Utility Palette"
-#~ msgstr "ਸਹੂਲਤ ਪਲੇਅਟ"
+#: ../src/ui/theme-viewer.c:398
+msgid "Torn-off Menu"
+msgstr "ਮੇਨੂ ਵੱਖ ਕਰੋ"
 
-#~ msgid "Torn-off Menu"
-#~ msgstr "ਮੇਨੂ ਵੱਖ ਕਰੋ"
+#: ../src/ui/theme-viewer.c:402
+msgid "Border"
+msgstr "ਬਾਰਡਰ"
 
-#~ msgid "Border"
-#~ msgstr "ਬਾਰਡਰ"
+#: ../src/ui/theme-viewer.c:406
+msgid "Attached Modal Dialog"
+msgstr "ਮਾਡਲ ਡਾਈਲਾਗ ਅਟੈਚ ਹੈ"
 
-#~ msgid "Attached Modal Dialog"
-#~ msgstr "ਮਾਡਲ ਡਾਈਲਾਗ ਅਟੈਚ ਹੈ"
+#: ../src/ui/theme-viewer.c:737
+#, c-format
+msgid "Button layout test %d"
+msgstr "ਬਟਨ ਲੇਆਉਟ ਟੈਸਟ %d"
 
-#~ msgid "Button layout test %d"
-#~ msgstr "ਬਟਨ ਲੇਆਉਟ ਟੈਸਟ %d"
+#: ../src/ui/theme-viewer.c:766
+#, c-format
+msgid "%g milliseconds to draw one window frame"
+msgstr "ਇੱਕ ਵਿੰਡੋ ਫਰੇਮ ਉਲੀਕਣ ਲਈ %g ਮਿਲੀ ਸਕਿੰਟ"
 
-#~ msgid "%g milliseconds to draw one window frame"
-#~ msgstr "ਇੱਕ ਵਿੰਡੋ ਫਰੇਮ ਉਲੀਕਣ ਲਈ %g ਮਿਲੀ ਸਕਿੰਟ"
+#: ../src/ui/theme-viewer.c:811
+#, c-format
+msgid "Usage: metacity-theme-viewer [THEMENAME]\n"
+msgstr "ਵਰਤੋਂ: metacity-theme-viewer [THEMENAME]\n"
 
-#~ msgid "Usage: metacity-theme-viewer [THEMENAME]\n"
-#~ msgstr "ਵਰਤੋਂ: metacity-theme-viewer [THEMENAME]\n"
+#: ../src/ui/theme-viewer.c:818
+#, c-format
+msgid "Error loading theme: %s\n"
+msgstr "ਥੀਮ ਲੋਡ ਕਰਨ ਵਿੱਚ ਗਲਤੀ: %s\n"
 
-#~ msgid "Error loading theme: %s\n"
-#~ msgstr "ਥੀਮ ਲੋਡ ਕਰਨ ਵਿੱਚ ਗਲਤੀ: %s\n"
+#: ../src/ui/theme-viewer.c:824
+#, c-format
+msgid "Loaded theme \"%s\" in %g seconds\n"
+msgstr "ਥੀਮ \"%s\" ਨੂੰ ਲੋਡ ਕਰਨ ਵਿੱਚ ਲੱਗਾ ਸਮਾਂ %g ਸਕਿੰਟਾਂ ਵਿੱਚ \n"
 
-#~ msgid "Loaded theme \"%s\" in %g seconds\n"
-#~ msgstr "ਥੀਮ \"%s\" ਨੂੰ ਲੋਡ ਕਰਨ ਵਿੱਚ ਲੱਗਾ ਸਮਾਂ %g ਸਕਿੰਟਾਂ ਵਿੱਚ \n"
+#: ../src/ui/theme-viewer.c:869
+msgid "Normal Title Font"
+msgstr "ਸਾਧਾਰਨ ਟਾਇਟਲ ਫੋਂਟ"
 
-#~ msgid "Normal Title Font"
-#~ msgstr "ਸਾਧਾਰਨ ਟਾਇਟਲ ਫੋਂਟ"
+#: ../src/ui/theme-viewer.c:875
+msgid "Small Title Font"
+msgstr "ਛੋਟੇ ਟਾਇਟਲ ਫੋਂਟ"
 
-#~ msgid "Small Title Font"
-#~ msgstr "ਛੋਟੇ ਟਾਇਟਲ ਫੋਂਟ"
+#: ../src/ui/theme-viewer.c:881
+msgid "Large Title Font"
+msgstr "ਵੱਡੇ ਟਾਇਟਲ ਫੋਂਟ"
 
-#~ msgid "Large Title Font"
-#~ msgstr "ਵੱਡੇ ਟਾਇਟਲ ਫੋਂਟ"
+#: ../src/ui/theme-viewer.c:886
+msgid "Button Layouts"
+msgstr "ਬਟਨ ਲੇਆਉਟ"
 
-#~ msgid "Button Layouts"
-#~ msgstr "ਬਟਨ ਲੇਆਉਟ"
+#: ../src/ui/theme-viewer.c:891
+msgid "Benchmark"
+msgstr "ਬੈਂਚਮਾਰਕ"
 
-#~ msgid "Benchmark"
-#~ msgstr "ਬੈਂਚਮਾਰਕ"
+#: ../src/ui/theme-viewer.c:947
+msgid "Window Title Goes Here"
+msgstr "ਵਿੰਡੋ ਟਾਇਟਲ ਇੱਥੇ ਹੋਵੇਗਾ"
 
-#~ msgid "Window Title Goes Here"
-#~ msgstr "ਵਿੰਡੋ ਟਾਇਟਲ ਇੱਥੇ ਹੋਵੇਗਾ"
+#: ../src/ui/theme-viewer.c:1053
+#, c-format
+msgid ""
+"Drew %d frames in %g client-side seconds (%g milliseconds per frame) and %g "
+"seconds wall clock time including X server resources (%g milliseconds per "
+"frame)\n"
+msgstr ""
+"%d ਫਰੇਮ ਉਲੀਕੇ %g ਕਲਾਈਂਟ ਸਾਈਡ ਸਕਿੰਟਾਂ ਵਿੱਚ (%g ਮਿਲੀ ਸਕਿੰਟ ਪ੍ਰਤੀ ਫਰੇਮ) ਅਤੇ X "
+"ਸਰਵਰ ਸਮੇਤ %g "
+"ਸਕਿੰਟ ਕੰਧ ਘੜੀ ਸਮਾਂ (%g ਮਿਲੀ ਸਕਿੰਟ ਪ੍ਰਤੀ ਫਰੇਮ)\n"
 
-#~ msgid ""
-#~ "Drew %d frames in %g client-side seconds (%g milliseconds per frame) and "
-#~ "%g seconds wall clock time including X server resources (%g milliseconds "
-#~ "per frame)\n"
-#~ msgstr ""
-#~ "%d ਫਰੇਮ ਉਲੀਕੇ %g ਕਲਾਈਂਟ ਸਾਈਡ ਸਕਿੰਟਾਂ ਵਿੱਚ (%g ਮਿਲੀ ਸਕਿੰਟ ਪ੍ਰਤੀ ਫਰੇਮ) ਅਤੇ X ਸਰਵਰ ਸਮੇਤ "
-#~ "%g ਸਕਿੰਟ ਕੰਧ ਘੜੀ ਸਮਾਂ (%g ਮਿਲੀ ਸਕਿੰਟ ਪ੍ਰਤੀ ਫਰੇਮ)\n"
+#: ../src/ui/theme-viewer.c:1273
+msgid "position expression test returned TRUE but set error"
+msgstr "ਸਥਿਤੀ ਕਥਨ ਜਾਂਚ ਨੇ ਜਵਾਬ ਠੀਕ(TRUE) ਦਿੱਤਾ ਪਰ ਗਲਤੀ ਕੱਢੀ ਹੈ"
 
-#~ msgid "position expression test returned TRUE but set error"
-#~ msgstr "ਸਥਿਤੀ ਕਥਨ ਜਾਂਚ ਨੇ ਜਵਾਬ ਠੀਕ(TRUE) ਦਿੱਤਾ ਪਰ ਗਲਤੀ ਕੱਢੀ ਹੈ"
+#: ../src/ui/theme-viewer.c:1275
+msgid "position expression test returned FALSE but didn't set error"
+msgstr "ਸਥਿਤੀ ਕਥਨ ਜਾਂਚ ਨੇ ਜਵਾਬ ਗਲਤ(FALSE) ਦਿੱਤਾ ਪਰ ਗਲਤੀ ਨਹੀਂ ਕੱਢੀ ਹੈ"
 
-#~ msgid "position expression test returned FALSE but didn't set error"
-#~ msgstr "ਸਥਿਤੀ ਕਥਨ ਜਾਂਚ ਨੇ ਜਵਾਬ ਗਲਤ(FALSE) ਦਿੱਤਾ ਪਰ ਗਲਤੀ ਨਹੀਂ ਕੱਢੀ ਹੈ"
+#: ../src/ui/theme-viewer.c:1279
+msgid "Error was expected but none given"
+msgstr "ਗਲਤੀ ਦੀ ਉਮੀਦ ਸੀ ਪਰ ਕੋਈ ਵਿਖਾਈ ਨਹੀਂ"
 
-#~ msgid "Error was expected but none given"
-#~ msgstr "ਗਲਤੀ ਦੀ ਉਮੀਦ ਸੀ ਪਰ ਕੋਈ ਵਿਖਾਈ ਨਹੀਂ"
+#: ../src/ui/theme-viewer.c:1281
+#, c-format
+msgid "Error %d was expected but %d given"
+msgstr "ਗਲਤੀ %d ਦੀ ਉਮੀਦ ਸੀ ਪਰ ਵਿਖਾਈ %d"
 
-#~ msgid "Error %d was expected but %d given"
-#~ msgstr "ਗਲਤੀ %d ਦੀ ਉਮੀਦ ਸੀ ਪਰ ਵਿਖਾਈ %d"
+#: ../src/ui/theme-viewer.c:1287
+#, c-format
+msgid "Error not expected but one was returned: %s"
+msgstr "ਗਲਤੀ ਦੀ ਉਮੀਦ ਨਹੀਂ ਸੀ ਪਰ ਇੱਕ ਨਿਕਲੀ: %s"
 
-#~ msgid "Error not expected but one was returned: %s"
-#~ msgstr "ਗਲਤੀ ਦੀ ਉਮੀਦ ਨਹੀਂ ਸੀ ਪਰ ਇੱਕ ਨਿਕਲੀ: %s"
+#: ../src/ui/theme-viewer.c:1291
+#, c-format
+msgid "x value was %d, %d was expected"
+msgstr "x ਕੀਮਤ %d ਹੈ, %d ਦੀ ਉਮੀਦ ਸੀ"
 
-#~ msgid "x value was %d, %d was expected"
-#~ msgstr "x ਕੀਮਤ %d ਹੈ, %d ਦੀ ਉਮੀਦ ਸੀ"
+#: ../src/ui/theme-viewer.c:1294
+#, c-format
+msgid "y value was %d, %d was expected"
+msgstr "y ਕੀਮਤ %d ਸੀ, %d ਦੀ ਉਮੀਦ ਸੀ"
 
-#~ msgid "y value was %d, %d was expected"
-#~ msgstr "y ਕੀਮਤ %d ਸੀ, %d ਦੀ ਉਮੀਦ ਸੀ"
-
-#~ msgid ""
-#~ "%d coordinate expressions parsed in %g seconds (%g seconds average)\n"
-#~ msgstr "%d ਕੋਆਰਡੀਨੇਟਰ ਸਮੀਕਰਨ ਪਾਰਸ %g ਸਕਿੰਟਾਂ ਵਿੱਚ ਕੀਤੀ (ਔਸਤਨ %g ਸਕਿੰਟ)\n"
+#: ../src/ui/theme-viewer.c:1359
+#, c-format
+msgid "%d coordinate expressions parsed in %g seconds (%g seconds average)\n"
+msgstr "%d ਕੋਆਰਡੀਨੇਟਰ ਸਮੀਕਰਨ ਪਾਰਸ %g ਸਕਿੰਟਾਂ ਵਿੱਚ ਕੀਤੀ (ਔਸਤਨ %g ਸਕਿੰਟ)\n"
 
 #~ msgid "Minimize window"
 #~ msgstr "ਵਿੰਡੋ ਘੱਟੋ-ਘੱਟ"

@@ -17,6 +17,8 @@ struct _MetaCompositor
 {
   MetaDisplay    *display;
 
+  Atom            atom_x_root_pixmap;
+  Atom            atom_net_wm_window_opacity;
   guint           repaint_func_id;
 
   ClutterActor   *shadow_src;
@@ -46,8 +48,11 @@ struct _MetaCompScreen
   CoglFrameClosure      *frame_closure;
 
   /* Used for unredirecting fullscreen windows */
-  guint                  disable_unredirect_count;
-  MetaWindow            *unredirected_window;
+  guint                   disable_unredirect_count;
+  MetaWindowActor             *unredirected_window;
+
+  /* Before we create the output window */
+  XserverRegion     pending_input_region;
 
   gint                   switch_workspace_in_progress;
 
@@ -61,6 +66,8 @@ void meta_switch_workspace_completed (MetaScreen    *screen);
 
 gboolean meta_begin_modal_for_plugin (MetaScreen       *screen,
                                       MetaPlugin       *plugin,
+                                      Window            grab_window,
+                                      Cursor            cursor,
                                       MetaModalOptions  options,
                                       guint32           timestamp);
 void     meta_end_modal_for_plugin   (MetaScreen       *screen,

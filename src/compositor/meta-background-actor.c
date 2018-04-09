@@ -14,7 +14,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  *
  * Portions adapted from gnome-shell/src/shell-global.c
  */
@@ -39,35 +41,20 @@
 #include <meta/errors.h>
 #include <meta/meta-background.h>
 #include "meta-background-actor-private.h"
-#include "meta-cullable.h"
 
 struct _MetaBackgroundActorPrivate
 {
-  cairo_region_t *clip_region;
+  cairo_region_t *visible_region;
 };
 
-static void cullable_iface_init (MetaCullableInterface *iface);
-
-G_DEFINE_TYPE_WITH_CODE (MetaBackgroundActor, meta_background_actor, CLUTTER_TYPE_ACTOR,
-                         G_IMPLEMENT_INTERFACE (META_TYPE_CULLABLE, cullable_iface_init));
-
-static void
-set_clip_region (MetaBackgroundActor *self,
-                 cairo_region_t      *clip_region)
-{
-  MetaBackgroundActorPrivate *priv = self->priv;
-
-  g_clear_pointer (&priv->clip_region, (GDestroyNotify) cairo_region_destroy);
-  if (clip_region)
-    priv->clip_region = cairo_region_copy (clip_region);
-}
+G_DEFINE_TYPE (MetaBackgroundActor, meta_background_actor, CLUTTER_TYPE_ACTOR);
 
 static void
 meta_background_actor_dispose (GObject *object)
 {
   MetaBackgroundActor *self = META_BACKGROUND_ACTOR (object);
 
-  set_clip_region (self, NULL);
+  meta_background_actor_set_visible_region (self, NULL);
 
   G_OBJECT_CLASS (meta_background_actor_parent_class)->dispose (object);
 }
@@ -117,6 +104,26 @@ meta_background_actor_get_preferred_height (ClutterActor *actor,
     *natural_height_p = height;
 }
 
+static gboolean
+meta_background_actor_get_paint_volume (ClutterActor       *actor,
+                                        ClutterPaintVolume *volume)
+{
+  ClutterContent *content;
+  gfloat width, height;
+
+  content = clutter_actor_get_content (actor);
+
+  if (!content)
+    return FALSE;
+
+  clutter_content_get_preferred_size (content, &width, &height);
+
+  clutter_paint_volume_set_width (volume, width);
+  clutter_paint_volume_set_height (volume, height);
+
+  return TRUE;
+}
+
 static void
 meta_background_actor_class_init (MetaBackgroundActorClass *klass)
 {
@@ -129,6 +136,7 @@ meta_background_actor_class_init (MetaBackgroundActorClass *klass)
 
   actor_class->get_preferred_width = meta_background_actor_get_preferred_width;
   actor_class->get_preferred_height = meta_background_actor_get_preferred_height;
+  actor_class->get_paint_volume = meta_background_actor_get_paint_volume;
 }
 
 static void
@@ -158,31 +166,35 @@ meta_background_actor_new (void)
   return CLUTTER_ACTOR (self);
 }
 
-static void
-meta_background_actor_cull_out (MetaCullable   *cullable,
-                                cairo_region_t *unobscured_region,
-                                cairo_region_t *clip_region)
+/**
+ * meta_background_actor_set_visible_region:
+ * @self: a #MetaBackgroundActor
+ * @visible_region: (allow-none): the area of the actor (in allocate-relative
+ *   coordinates) that is visible.
+ *
+ * Sets the area of the background that is unobscured by overlapping windows.
+ * This is used to optimize and only paint the visible portions.
+ */
+void
+meta_background_actor_set_visible_region (MetaBackgroundActor *self,
+                                          cairo_region_t      *visible_region)
 {
-  MetaBackgroundActor *self = META_BACKGROUND_ACTOR (cullable);
-  set_clip_region (self, clip_region);
-}
+  MetaBackgroundActorPrivate *priv;
 
-static void
-meta_background_actor_reset_culling (MetaCullable *cullable)
-{
-  MetaBackgroundActor *self = META_BACKGROUND_ACTOR (cullable);
-  set_clip_region (self, NULL);
-}
+  g_return_if_fail (META_IS_BACKGROUND_ACTOR (self));
 
-static void
-cullable_iface_init (MetaCullableInterface *iface)
-{
-  iface->cull_out = meta_background_actor_cull_out;
-  iface->reset_culling = meta_background_actor_reset_culling;
+  priv = self->priv;
+
+  g_clear_pointer (&priv->visible_region,
+                   (GDestroyNotify)
+                   cairo_region_destroy);
+
+  if (visible_region)
+    priv->visible_region = cairo_region_copy (visible_region);
 }
 
 /**
- * meta_background_actor_get_clip_region:
+ * meta_background_actor_get_visible_region:
  * @self: a #MetaBackgroundActor
  *
  * Return value (transfer full): a #cairo_region_t that represents the part of
@@ -190,16 +202,16 @@ cullable_iface_init (MetaCullableInterface *iface)
  * #MetaWindowActor objects.
  */
 cairo_region_t *
-meta_background_actor_get_clip_region (MetaBackgroundActor *self)
+meta_background_actor_get_visible_region (MetaBackgroundActor *self)
 {
   MetaBackgroundActorPrivate *priv = self->priv;
   ClutterActorBox content_box;
   cairo_rectangle_int_t content_area = { 0 };
-  cairo_region_t *clip_region;
+  cairo_region_t *visible_region;
 
   g_return_val_if_fail (META_IS_BACKGROUND_ACTOR (self), NULL);
 
-  if (!priv->clip_region)
+  if (!priv->visible_region)
       return NULL;
 
   clutter_actor_get_content_box (CLUTTER_ACTOR (self), &content_box);
@@ -209,8 +221,8 @@ meta_background_actor_get_clip_region (MetaBackgroundActor *self)
   content_area.width = content_box.x2 - content_box.x1;
   content_area.height = content_box.y2 - content_box.y1;
 
-  clip_region = cairo_region_create_rectangle (&content_area);
-  cairo_region_intersect (clip_region, priv->clip_region);
+  visible_region = cairo_region_create_rectangle (&content_area);
+  cairo_region_intersect (visible_region, priv->visible_region);
 
-  return clip_region;
+  return visible_region;
 }

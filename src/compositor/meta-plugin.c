@@ -16,7 +16,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 /**
@@ -39,7 +41,6 @@
 
 #include "compositor-private.h"
 #include "meta-window-actor-private.h"
-#include "monitor-private.h"
 
 G_DEFINE_ABSTRACT_TYPE (MetaPlugin, meta_plugin, G_TYPE_OBJECT);
 
@@ -136,7 +137,9 @@ meta_plugin_class_init (MetaPluginClass *klass)
 static void
 meta_plugin_init (MetaPlugin *self)
 {
-  self->priv = META_PLUGIN_GET_PRIVATE (self);
+  MetaPluginPrivate *priv;
+
+  self->priv = priv = META_PLUGIN_GET_PRIVATE (self);
 }
 
 gboolean
@@ -179,18 +182,6 @@ _meta_plugin_effect_started (MetaPlugin *plugin)
   MetaPluginPrivate *priv = META_PLUGIN (plugin)->priv;
 
   priv->running++;
-}
-
-gboolean
-_meta_plugin_xevent_filter (MetaPlugin *plugin,
-                            XEvent     *xev)
-{
-  MetaPluginClass *klass = META_PLUGIN_GET_CLASS (plugin);
-
-  if (klass->xevent_filter && klass->xevent_filter (plugin, xev))
-    return TRUE;
-  else
-    return clutter_x11_handle_event (xev) != CLUTTER_X11_FILTER_CONTINUE;
 }
 
 void
@@ -275,6 +266,10 @@ meta_plugin_destroy_completed (MetaPlugin      *plugin,
 /**
  * meta_plugin_begin_modal:
  * @plugin: a #MetaPlugin
+ * @grab_window: the X window to grab the keyboard and mouse on
+ * @cursor: the cursor to use for the pointer grab, or None,
+ *          to use the normal cursor for the grab window and
+ *          its descendants.
  * @options: flags that modify the behavior of the modal grab
  * @timestamp: the timestamp used for establishing grabs
  *
@@ -295,13 +290,15 @@ meta_plugin_destroy_completed (MetaPlugin      *plugin,
  */
 gboolean
 meta_plugin_begin_modal (MetaPlugin       *plugin,
+                         Window            grab_window,
+                         Cursor            cursor,
                          MetaModalOptions  options,
                          guint32           timestamp)
 {
   MetaPluginPrivate *priv = META_PLUGIN (plugin)->priv;
 
   return meta_begin_modal_for_plugin (priv->screen, plugin,
-                                      options, timestamp);
+                                      grab_window, cursor, options, timestamp);
 }
 
 /**
@@ -340,14 +337,4 @@ meta_plugin_get_screen (MetaPlugin *plugin)
   MetaPluginPrivate *priv = META_PLUGIN (plugin)->priv;
 
   return priv->screen;
-}
-
-void
-meta_plugin_complete_display_change (MetaPlugin *plugin,
-                                     gboolean    ok)
-{
-  MetaMonitorManager *manager;
-
-  manager = meta_monitor_manager_get ();
-  meta_monitor_manager_confirm_configuration (manager, ok);
 }

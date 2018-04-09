@@ -16,7 +16,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 #ifndef META_PLUGIN_MANAGER_H_
@@ -70,14 +72,5 @@ gboolean meta_plugin_manager_filter_keybinding (MetaPluginManager  *mgr,
 
 gboolean meta_plugin_manager_xevent_filter (MetaPluginManager *mgr,
                                             XEvent            *xev);
-gboolean _meta_plugin_xevent_filter (MetaPlugin *plugin,
-                                     XEvent     *xev);
 
-void     meta_plugin_manager_confirm_display_change (MetaPluginManager *mgr);
-
-gboolean meta_plugin_manager_show_tile_preview (MetaPluginManager *mgr,
-                                                MetaWindow        *window,
-                                                MetaRectangle     *tile_rect,
-                                                int                tile_monitor_number);
-gboolean meta_plugin_manager_hide_tile_preview (MetaPluginManager *mgr);
 #endif
