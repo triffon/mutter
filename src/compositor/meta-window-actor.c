@@ -18,11 +18,11 @@
 #include <meta/errors.h>
 #include "frame.h"
 #include <meta/window.h>
+#include <meta/meta-shaped-texture.h>
 #include "xprops.h"
 
 #include "compositor-private.h"
 #include "meta-shadow-factory-private.h"
-#include "meta-shaped-texture.h"
 #include "meta-window-actor-private.h"
 
 enum {
@@ -232,15 +232,13 @@ meta_window_actor_class_init (MetaWindowActorClass *klass)
     g_signal_new ("position-changed",
                   G_TYPE_FROM_CLASS (klass),
                   G_SIGNAL_RUN_LAST,
-                  0, NULL, NULL,
-                  g_cclosure_marshal_VOID__VOID,
+                  0, NULL, NULL, NULL,
                   G_TYPE_NONE, 0);
   signals[SIZE_CHANGED] =
     g_signal_new ("size-changed",
                   G_TYPE_FROM_CLASS (klass),
                   G_SIGNAL_RUN_LAST,
-                  0, NULL, NULL,
-                  g_cclosure_marshal_VOID__VOID,
+                  0, NULL, NULL, NULL,
                   G_TYPE_NONE, 0);
 }
 
@@ -828,9 +826,9 @@ meta_window_actor_get_x_window (MetaWindowActor *self)
 /**
  * meta_window_actor_get_meta_window:
  *
- * Gets the MetaWindow object that the the MetaWindowActor is displaying
+ * Gets the #MetaWindow object that the the #MetaWindowActor is displaying
  *
- * Return value: (transfer none): the displayed MetaWindow
+ * Return value: (transfer none): the displayed #MetaWindow
  */
 MetaWindow *
 meta_window_actor_get_meta_window (MetaWindowActor *self)
@@ -843,7 +841,7 @@ meta_window_actor_get_meta_window (MetaWindowActor *self)
  *
  * Gets the ClutterActor that is used to display the contents of the window
  *
- * Return value: (transfer none): the ClutterActor for the contents
+ * Return value: (transfer none): the #ClutterActor for the contents
  */
 ClutterActor *
 meta_window_actor_get_texture (MetaWindowActor *self)
@@ -946,23 +944,20 @@ static void
 meta_window_actor_damage_all (MetaWindowActor *self)
 {
   MetaWindowActorPrivate *priv = self->priv;
-  ClutterX11TexturePixmap *texture_x11 = CLUTTER_X11_TEXTURE_PIXMAP (priv->actor);
-  guint pixmap_width = 0;
-  guint pixmap_height = 0;
+  CoglHandle texture;
 
   if (!priv->needs_damage_all)
     return;
 
-  g_object_get (texture_x11,
-                "pixmap-width", &pixmap_width,
-                "pixmap-height", &pixmap_height,
-                NULL);
+  texture = meta_shaped_texture_get_texture (META_SHAPED_TEXTURE (priv->actor));
 
-  clutter_x11_texture_pixmap_update_area (texture_x11,
-                                          0,
-                                          0,
-                                          pixmap_width,
-                                          pixmap_height);
+  if (!priv->mapped || priv->needs_pixmap)
+    return;
+
+  meta_shaped_texture_update_area (META_SHAPED_TEXTURE (priv->actor),
+                                   0, 0,
+                                   cogl_texture_get_width (texture),
+                                   cogl_texture_get_height (texture));
 
   priv->needs_damage_all = FALSE;
 }
@@ -1201,9 +1196,8 @@ meta_window_actor_detach (MetaWindowActor *self)
    * you are supposed to be able to free a GLXPixmap after freeing the underlying
    * pixmap, but it certainly doesn't work with current DRI/Mesa
    */
-  clutter_x11_texture_pixmap_set_pixmap (CLUTTER_X11_TEXTURE_PIXMAP (priv->actor),
-                                         None);
-  meta_shaped_texture_clear (META_SHAPED_TEXTURE (priv->actor));
+  meta_shaped_texture_set_pixmap (META_SHAPED_TEXTURE (priv->actor),
+                                  None);
   cogl_flush();
 
   XFreePixmap (xdisplay, priv->back_pixmap);
@@ -1755,22 +1749,9 @@ meta_window_actor_set_visible_region (MetaWindowActor *self,
                                       cairo_region_t  *visible_region)
 {
   MetaWindowActorPrivate *priv = self->priv;
-  cairo_region_t *texture_clip_region = NULL;
 
-  /* Get the area of the window texture that would be drawn if
-   * we weren't obscured at all
-   */
-  texture_clip_region = meta_shaped_texture_get_visible_pixels_region (META_SHAPED_TEXTURE (priv->actor));
-  texture_clip_region = cairo_region_copy (texture_clip_region);
-
-  /* Then intersect that with the visible region to get the region
-   * that we actually need to redraw.
-   */
-  cairo_region_intersect (texture_clip_region, visible_region);
-
-  /* Assumes ownership */
   meta_shaped_texture_set_clip_region (META_SHAPED_TEXTURE (priv->actor),
-                                       texture_clip_region);
+                                       visible_region);
 }
 
 /**
@@ -1810,7 +1791,7 @@ meta_window_actor_set_visible_region_beneath (MetaWindowActor *self,
  * @self: a #MetaWindowActor
  *
  * Unsets the regions set by meta_window_actor_reset_visible_region() and
- *meta_window_actor_reset_visible_region_beneath()
+ * meta_window_actor_reset_visible_region_beneath()
  */
 void
 meta_window_actor_reset_visible_regions (MetaWindowActor *self)
@@ -1820,19 +1801,6 @@ meta_window_actor_reset_visible_regions (MetaWindowActor *self)
   meta_shaped_texture_set_clip_region (META_SHAPED_TEXTURE (priv->actor),
                                        NULL);
   meta_window_actor_clear_shadow_clip (self);
-}
-
-static gboolean
-texture_pixmap_using_extension (ClutterX11TexturePixmap *texture)
-{
-  ClutterTexture *self = CLUTTER_TEXTURE (texture);
-  CoglHandle handle;
-
-  handle = clutter_texture_get_cogl_texture (self);
-
-  return handle != NULL &&
-         cogl_is_texture_pixmap_x11 (handle) &&
-         cogl_texture_pixmap_x11_is_using_tfp_extension (handle);
 }
 
 static void
@@ -1868,7 +1836,7 @@ check_needs_pixmap (MetaWindowActor *self)
 
   if (priv->back_pixmap == None)
     {
-      gint pxm_width, pxm_height;
+      CoglHandle texture;
 
       meta_error_trap_push (display);
 
@@ -1897,23 +1865,22 @@ check_needs_pixmap (MetaWindowActor *self)
         meta_shaped_texture_set_create_mipmaps (META_SHAPED_TEXTURE (priv->actor),
                                                 FALSE);
 
-      clutter_x11_texture_pixmap_set_pixmap
-                       (CLUTTER_X11_TEXTURE_PIXMAP (priv->actor),
-                        priv->back_pixmap);
+      meta_shaped_texture_set_pixmap (META_SHAPED_TEXTURE (priv->actor),
+                                      priv->back_pixmap);
+
+      texture = meta_shaped_texture_get_texture (META_SHAPED_TEXTURE (priv->actor));
+
       /*
        * This only works *after* actually setting the pixmap, so we have to
        * do it here.
        * See: http://bugzilla.clutter-project.org/show_bug.cgi?id=2236
        */
-      if (G_UNLIKELY (!texture_pixmap_using_extension (CLUTTER_X11_TEXTURE_PIXMAP (priv->actor))))
+      if (G_UNLIKELY (!cogl_texture_pixmap_x11_is_using_tfp_extension (texture)))
         g_warning ("NOTE: Not using GLX TFP!\n");
 
-      g_object_get (priv->actor,
-                    "pixmap-width", &pxm_width,
-                    "pixmap-height", &pxm_height,
-                    NULL);
-
-      meta_window_actor_update_bounding_region_and_borders (self, pxm_width, pxm_height);
+      meta_window_actor_update_bounding_region_and_borders (self,
+                                                            cogl_texture_get_width (texture),
+                                                            cogl_texture_get_height (texture));
     }
 
   priv->needs_pixmap = FALSE;
@@ -2006,7 +1973,6 @@ meta_window_actor_process_damage (MetaWindowActor    *self,
                                   XDamageNotifyEvent *event)
 {
   MetaWindowActorPrivate *priv = self->priv;
-  ClutterX11TexturePixmap *texture_x11 = CLUTTER_X11_TEXTURE_PIXMAP (priv->actor);
 
   priv->received_damage = TRUE;
 
@@ -2034,12 +2000,14 @@ meta_window_actor_process_damage (MetaWindowActor    *self,
       return;
     }
 
+  if (!priv->mapped || priv->needs_pixmap)
+    return;
 
-  clutter_x11_texture_pixmap_update_area (texture_x11,
-                                          event->area.x,
-                                          event->area.y,
-                                          event->area.width,
-                                          event->area.height);
+  meta_shaped_texture_update_area (META_SHAPED_TEXTURE (priv->actor),
+                                   event->area.x,
+                                   event->area.y,
+                                   event->area.width,
+                                   event->area.height);
 }
 
 void
