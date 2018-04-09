@@ -186,38 +186,6 @@ prefs_changed_callback (MetaPreference pref,
 }
 
 static GtkStyleContext *
-create_style_context (MetaFrames  *frames,
-                      const gchar *variant)
-{
-  GtkStyleContext *style;
-  GdkScreen *screen;
-  char *theme_name;
-
-  screen = gtk_widget_get_screen (GTK_WIDGET (frames));
-  g_object_get (gtk_settings_get_for_screen (screen),
-                "gtk-theme-name", &theme_name,
-                NULL);
-
-  style = gtk_style_context_new ();
-  gtk_style_context_set_path (style,
-                              gtk_widget_get_path (GTK_WIDGET (frames)));
-
-  if (theme_name && *theme_name)
-    {
-      GtkCssProvider *provider;
-
-      provider = gtk_css_provider_get_named (theme_name, variant);
-      gtk_style_context_add_provider (style,
-                                      GTK_STYLE_PROVIDER (provider),
-                                      GTK_STYLE_PROVIDER_PRIORITY_THEME);
-    }
-
-  g_free (theme_name);
-
-  return style;
-}
-
-static GtkStyleContext *
 meta_frames_get_theme_variant (MetaFrames  *frames,
                                const gchar *variant)
 {
@@ -226,7 +194,7 @@ meta_frames_get_theme_variant (MetaFrames  *frames,
   style = g_hash_table_lookup (frames->style_variants, variant);
   if (style == NULL)
     {
-      style = create_style_context (frames, variant);
+      style = meta_theme_create_style_context (gtk_widget_get_screen (GTK_WIDGET (frames)), variant);
       g_hash_table_insert (frames->style_variants, g_strdup (variant), style);
     }
 
@@ -238,15 +206,18 @@ update_style_contexts (MetaFrames *frames)
 {
   GtkStyleContext *style;
   GList *variants, *variant;
+  GdkScreen *screen;
+
+  screen = gtk_widget_get_screen (GTK_WIDGET (frames));
 
   if (frames->normal_style)
     g_object_unref (frames->normal_style);
-  frames->normal_style = create_style_context (frames, NULL);
+  frames->normal_style = meta_theme_create_style_context (screen, NULL);
 
   variants = g_hash_table_get_keys (frames->style_variants);
   for (variant = variants; variant; variant = variants->next)
     {
-      style = create_style_context (frames, (char *)variant->data);
+      style = meta_theme_create_style_context (screen, (char *)variant->data);
       g_hash_table_insert (frames->style_variants,
                            g_strdup (variant->data), style);
     }
@@ -484,7 +455,8 @@ meta_frames_ensure_layout (MetaFrames  *frames,
 
       pango_layout_set_ellipsize (frame->layout, PANGO_ELLIPSIZE_END);
       pango_layout_set_auto_dir (frame->layout, FALSE);
-      
+      pango_layout_set_single_paragraph_mode (frame->layout, TRUE);
+
       font_desc = meta_gtk_widget_get_font_desc (widget, scale,
                                                  meta_prefs_get_titlebar_font ());
 
@@ -692,20 +664,14 @@ meta_frames_lookup_window (MetaFrames *frames,
   return frame;
 }
 
-void
-meta_frames_get_borders (MetaFrames *frames,
-                         Window xwindow,
-                         MetaFrameBorders *borders)
+static void
+meta_ui_frame_get_borders (MetaFrames *frames,
+                           MetaUIFrame *frame,
+                           MetaFrameBorders *borders)
 {
   MetaFrameFlags flags;
-  MetaUIFrame *frame;
   MetaFrameType type;
-  
-  frame = meta_frames_lookup_window (frames, xwindow);
 
-  if (frame == NULL)
-    meta_bug ("No such frame 0x%lx\n", xwindow);
-  
   meta_core_get (GDK_DISPLAY_XDISPLAY (gdk_display_get_default ()), frame->xwindow,
                  META_CORE_GET_FRAME_FLAGS, &flags,
                  META_CORE_GET_FRAME_TYPE, &type,
@@ -728,17 +694,29 @@ meta_frames_get_borders (MetaFrames *frames,
 }
 
 void
-meta_frames_get_corner_radiuses (MetaFrames *frames,
-                                 Window      xwindow,
-                                 float      *top_left,
-                                 float      *top_right,
-                                 float      *bottom_left,
-                                 float      *bottom_right)
+meta_frames_get_borders (MetaFrames *frames,
+                         Window xwindow,
+                         MetaFrameBorders *borders)
 {
   MetaUIFrame *frame;
-  MetaFrameGeometry fgeom;
 
   frame = meta_frames_lookup_window (frames, xwindow);
+
+  if (frame == NULL)
+    meta_bug ("No such frame 0x%lx\n", xwindow);
+
+  meta_ui_frame_get_borders (frames, frame, borders);
+}
+
+static void
+meta_ui_frame_get_corner_radiuses (MetaFrames  *frames,
+                                   MetaUIFrame *frame,
+                                   float       *top_left,
+                                   float       *top_right,
+                                   float       *bottom_left,
+                                   float       *bottom_right)
+{
+  MetaFrameGeometry fgeom;
 
   meta_frames_calc_geometry (frames, frame, &fgeom);
 
@@ -759,6 +737,22 @@ meta_frames_get_corner_radiuses (MetaFrames *frames,
     *bottom_left = fgeom.bottom_left_corner_rounded_radius + sqrt(fgeom.bottom_left_corner_rounded_radius);
   if (bottom_right)
     *bottom_right = fgeom.bottom_right_corner_rounded_radius + sqrt(fgeom.bottom_right_corner_rounded_radius);
+}
+
+void
+meta_frames_get_corner_radiuses (MetaFrames *frames,
+                                 Window      xwindow,
+                                 float      *top_left,
+                                 float      *top_right,
+                                 float      *bottom_left,
+                                 float      *bottom_right)
+{
+  MetaUIFrame *frame;
+
+  frame = meta_frames_lookup_window (frames, xwindow);
+
+  meta_ui_frame_get_corner_radiuses (frames, frame, top_left, top_right,
+                                     bottom_left, bottom_right);
 }
 
 void
@@ -2011,17 +2005,17 @@ meta_frames_paint (MetaFrames   *frames,
 
   meta_prefs_get_button_layout (&button_layout);
 
-  meta_theme_draw_frame_with_style (meta_theme_get_current (),
-                                    frame->style,
-                                    cr,
-                                    type,
-                                    flags,
-                                    w, h,
-                                    frame->layout,
-                                    frame->text_height,
-                                    &button_layout,
-                                    button_states,
-                                    mini_icon, icon);
+  meta_theme_draw_frame (meta_theme_get_current (),
+                         frame->style,
+                         cr,
+                         type,
+                         flags,
+                         w, h,
+                         frame->layout,
+                         frame->text_height,
+                         &button_layout,
+                         button_states,
+                         mini_icon, icon);
 }
 
 static void
