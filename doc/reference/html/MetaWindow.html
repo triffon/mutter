@@ -233,6 +233,7 @@ const <span class="returnvalue">char</span> *        <a class="link" href="MetaW
   "<a class="link" href="MetaWindow.html#MetaWindow--minimized" title='The "minimized" property'>minimized</a>"                <span class="type">gboolean</span>              : Read
   "<a class="link" href="MetaWindow.html#MetaWindow--mutter-hints" title='The "mutter-hints" property'>mutter-hints</a>"             <span class="type">gchar</span>*                : Read
   "<a class="link" href="MetaWindow.html#MetaWindow--resizeable" title='The "resizeable" property'>resizeable</a>"               <span class="type">gboolean</span>              : Read
+  "<a class="link" href="MetaWindow.html#MetaWindow--skip-taskbar" title='The "skip-taskbar" property'>skip-taskbar</a>"             <span class="type">gboolean</span>              : Read
   "<a class="link" href="MetaWindow.html#MetaWindow--title" title='The "title" property'>title</a>"                    <span class="type">gchar</span>*                : Read
   "<a class="link" href="MetaWindow.html#MetaWindow--urgent" title='The "urgent" property'>urgent</a>"                   <span class="type">gboolean</span>              : Read
   "<a class="link" href="MetaWindow.html#MetaWindow--user-time" title='The "user-time" property'>user-time</a>"                <span class="type">guint</span>                 : Read
@@ -2414,6 +2415,13 @@ Get the work area for all monitors for <em class="parameter"><code>window</code>
 <a name="MetaWindow--resizeable"></a><h3>The <code class="literal">"resizeable"</code> property</h3>
 <pre class="programlisting">  "resizeable"               <span class="type">gboolean</span>              : Read</pre>
 <p>Whether the window can be resized.</p>
+<p>Default value: FALSE</p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="MetaWindow--skip-taskbar"></a><h3>The <code class="literal">"skip-taskbar"</code> property</h3>
+<pre class="programlisting">  "skip-taskbar"             <span class="type">gboolean</span>              : Read</pre>
+<p>Whether the skip-taskbar flag of WM_HINTS is set.</p>
 <p>Default value: FALSE</p>
 </div>
 <hr>

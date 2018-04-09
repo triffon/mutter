@@ -516,6 +516,7 @@
     <keyword type="property" name="The &quot;minimized&quot; property" link="MetaWindow.html#MetaWindow--minimized"/>
     <keyword type="property" name="The &quot;mutter-hints&quot; property" link="MetaWindow.html#MetaWindow--mutter-hints"/>
     <keyword type="property" name="The &quot;resizeable&quot; property" link="MetaWindow.html#MetaWindow--resizeable"/>
+    <keyword type="property" name="The &quot;skip-taskbar&quot; property" link="MetaWindow.html#MetaWindow--skip-taskbar"/>
     <keyword type="property" name="The &quot;title&quot; property" link="MetaWindow.html#MetaWindow--title"/>
     <keyword type="property" name="The &quot;urgent&quot; property" link="MetaWindow.html#MetaWindow--urgent"/>
     <keyword type="property" name="The &quot;user-time&quot; property" link="MetaWindow.html#MetaWindow--user-time"/>
