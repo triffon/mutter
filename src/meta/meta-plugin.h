@@ -16,9 +16,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef META_PLUGIN_H_
@@ -160,6 +158,11 @@ struct _MetaPluginClass
                             gint                to,
                             MetaMotionDirection direction);
 
+  void (*show_tile_preview) (MetaPlugin      *plugin,
+                             MetaWindow      *window,
+                             MetaRectangle   *tile_rect,
+                             int              tile_monitor_number);
+  void (*hide_tile_preview) (MetaPlugin      *plugin);
 
   /**
    * MetaPluginClass::kill_window_effects:
@@ -206,6 +209,21 @@ struct _MetaPluginClass
                                  MetaKeyBinding *binding);
 
   /**
+   * MetaPluginClass::confirm_display_config:
+   * @plugin: a #MetaPlugin
+   *
+   * Virtual function called when the display configuration changes.
+   * The common way to implement this function is to show some form
+   * of modal dialog that should ask the user if everything was ok.
+   *
+   * When confirmed by the user, the plugin must call meta_plugin_complete_display_change()
+   * to make the configuration permanent. If that function is not
+   * called within the timeout, the previous configuration will be
+   * reapplied.
+   */
+  void (*confirm_display_change) (MetaPlugin *plugin);
+
+  /**
    * MetaPluginClass::plugin_info:
    * @plugin: a #MetaPlugin
    *
@@ -214,6 +232,7 @@ struct _MetaPluginClass
    * Returns: a #MetaPluginInfo.
    */
   const MetaPluginInfo * (*plugin_info) (MetaPlugin *plugin);
+
 };
 
 /**
@@ -360,6 +379,10 @@ void
 meta_plugin_destroy_completed (MetaPlugin      *plugin,
                                MetaWindowActor *actor);
 
+void
+meta_plugin_complete_display_change (MetaPlugin *plugin,
+                                     gboolean    ok);
+
 /**
  * MetaModalOptions:
  * @META_MODAL_POINTER_ALREADY_GRABBED: if set the pointer is already
@@ -376,8 +399,6 @@ typedef enum {
 
 gboolean
 meta_plugin_begin_modal (MetaPlugin      *plugin,
-                         Window           grab_window,
-                         Cursor           cursor,
                          MetaModalOptions options,
                          guint32          timestamp);
 

@@ -31,13 +31,11 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #define _GNU_SOURCE
-#define _SVID_SOURCE /* for gethostname() */
+#define _XOPEN_SOURCE 500 /* for gethostname() */
 
 #include <config.h>
 #include "window-props.h"
@@ -48,6 +46,7 @@
 #include <X11/Xatom.h>
 #include <unistd.h>
 #include <string.h>
+#include "util-private.h"
 
 #ifndef HOST_NAME_MAX
 /* Solaris headers apparently don't define this so do so manually; #326745 */
@@ -287,6 +286,38 @@ reload_icon_geometry (MetaWindow    *window,
     {
       meta_window_set_icon_geometry (window, NULL);
     }
+}
+
+static void
+reload_gtk_frame_extents (MetaWindow    *window,
+                          MetaPropValue *value,
+                          gboolean       initial)
+{
+  if (value->type != META_PROP_VALUE_INVALID)
+    {
+      if (value->v.cardinal_list.n_cardinals != 4)
+        {
+          meta_verbose ("_GTK_FRAME_EXTENTS on %s has %d values instead of 4\n",
+                        window->desc, value->v.cardinal_list.n_cardinals);
+        }
+      else
+        {
+          GtkBorder *extents = &window->custom_frame_extents;
+
+          window->has_custom_frame_extents = TRUE;
+          extents->left   = (int)value->v.cardinal_list.cardinals[0];
+          extents->right  = (int)value->v.cardinal_list.cardinals[1];
+          extents->top    = (int)value->v.cardinal_list.cardinals[2];
+          extents->bottom = (int)value->v.cardinal_list.cardinals[3];
+        }
+    }
+  else
+    {
+      window->has_custom_frame_extents = FALSE;
+    }
+
+  if (!initial)
+    meta_window_queue(window, META_QUEUE_MOVE_RESIZE);
 }
 
 static void
@@ -536,7 +567,7 @@ reload_opaque_region (MetaWindow    *window,
                       MetaPropValue *value,
                       gboolean       initial)
 {
-  meta_window_update_opaque_region (window);
+  meta_window_update_opaque_region_x11 (window);
 }
 
 static void
@@ -1677,6 +1708,20 @@ reload_bypass_compositor (MetaWindow    *window,
   window->bypass_compositor = requested_value;
 }
 
+static void
+reload_window_opacity (MetaWindow    *window,
+                       MetaPropValue *value,
+                       gboolean       initial)
+
+{
+  guint8 opacity = 0xFF;
+
+  if (value->type != META_PROP_VALUE_INVALID)
+    opacity = (guint8)((gfloat)value->v.cardinal * 255.0 / ((gfloat)0xffffffff));
+
+  meta_window_set_opacity (window, opacity);
+}
+
 #define RELOAD_STRING(var_name, propname) \
   static void                                       \
   reload_ ## var_name (MetaWindow    *window,       \
@@ -1766,6 +1811,7 @@ meta_display_init_window_prop_hooks (MetaDisplay *display)
     { display->atom__GTK_WINDOW_OBJECT_PATH,           META_PROP_VALUE_UTF8,         reload_gtk_window_object_path,           TRUE, FALSE },
     { display->atom__GTK_APP_MENU_OBJECT_PATH,         META_PROP_VALUE_UTF8,         reload_gtk_app_menu_object_path,         TRUE, FALSE },
     { display->atom__GTK_MENUBAR_OBJECT_PATH,          META_PROP_VALUE_UTF8,         reload_gtk_menubar_object_path,          TRUE, FALSE },
+    { display->atom__GTK_FRAME_EXTENTS,                META_PROP_VALUE_CARDINAL_LIST,reload_gtk_frame_extents,                TRUE, FALSE },
     { display->atom__NET_WM_USER_TIME_WINDOW, META_PROP_VALUE_WINDOW, reload_net_wm_user_time_window, TRUE, FALSE },
     { display->atom_WM_STATE,          META_PROP_VALUE_INVALID,  NULL,                     FALSE, FALSE },
     { display->atom__NET_WM_ICON,      META_PROP_VALUE_INVALID,  reload_net_wm_icon,       FALSE, FALSE },
@@ -1778,6 +1824,7 @@ meta_display_init_window_prop_hooks (MetaDisplay *display)
     { display->atom__NET_WM_STRUT,         META_PROP_VALUE_INVALID, reload_struts,            FALSE, FALSE },
     { display->atom__NET_WM_STRUT_PARTIAL, META_PROP_VALUE_INVALID, reload_struts,            FALSE, FALSE },
     { display->atom__NET_WM_BYPASS_COMPOSITOR, META_PROP_VALUE_CARDINAL,  reload_bypass_compositor, FALSE, FALSE },
+    { display->atom__NET_WM_WINDOW_OPACITY, META_PROP_VALUE_CARDINAL, reload_window_opacity,  TRUE, TRUE },
     { 0 },
   };
 

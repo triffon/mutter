@@ -14,9 +14,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 /**
@@ -37,6 +35,7 @@
 #include "mutter-enum-types.h"
 #include <meta/errors.h>
 #include <meta/meta-background.h>
+#include "util-private.h"
 #include "meta-background-actor-private.h"
 
 #define FRAGMENT_SHADER_DECLARATIONS                                           \
@@ -412,13 +411,13 @@ meta_background_paint_content (ClutterContent   *content,
    */
   if (META_IS_BACKGROUND_ACTOR (actor))
     {
-      cairo_region_t *visible_region;
-      visible_region = meta_background_actor_get_visible_region (META_BACKGROUND_ACTOR (actor));
+      cairo_region_t *clip_region;
+      clip_region = meta_background_actor_get_clip_region (META_BACKGROUND_ACTOR (actor));
 
-      if (visible_region != NULL)
+      if (clip_region != NULL)
         {
-          cairo_region_intersect (paintable_region, visible_region);
-          cairo_region_destroy (visible_region);
+          cairo_region_intersect (paintable_region, clip_region);
+          cairo_region_destroy (clip_region);
         }
     }
 
@@ -891,7 +890,7 @@ meta_background_load_gradient (MetaBackground             *self,
   pixels[7] = second_color->alpha;
 
   texture = cogl_texture_new_from_data (width, height,
-                                        COGL_TEXTURE_NONE,
+                                        COGL_TEXTURE_NO_SLICING,
                                         COGL_PIXEL_FORMAT_RGBA_8888,
                                         COGL_PIXEL_FORMAT_ANY,
                                         4,
@@ -1031,7 +1030,6 @@ meta_background_load_file_finish (MetaBackground  *self,
                                   GAsyncResult    *result,
                                   GError         **error)
 {
-  static CoglUserDataKey key;
   GTask *task;
   LoadFileTaskData *task_data;
   CoglTexture *texture;
@@ -1060,7 +1058,7 @@ meta_background_load_file_finish (MetaBackground  *self,
 
   texture = cogl_texture_new_from_data (width,
                                         height,
-                                        COGL_TEXTURE_NO_SLICING,
+                                        COGL_TEXTURE_NO_ATLAS,
                                         has_alpha ?
                                         COGL_PIXEL_FORMAT_RGBA_8888 :
                                         COGL_PIXEL_FORMAT_RGB_888,
@@ -1076,12 +1074,6 @@ meta_background_load_file_finish (MetaBackground  *self,
                            _("background texture could not be created from file"));
       goto out;
     }
-
-  cogl_object_set_user_data (COGL_OBJECT (texture),
-                             &key,
-                             g_object_ref (pixbuf),
-                             (CoglUserDataDestroyCallback)
-                             g_object_unref);
 
   ensure_pipeline (self);
   unset_texture (self);

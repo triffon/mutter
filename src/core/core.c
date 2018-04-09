@@ -18,9 +18,7 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <config.h>
@@ -29,6 +27,7 @@
 #include "workspace-private.h"
 #include <meta/prefs.h>
 #include <meta/errors.h>
+#include "util-private.h"
 
 /* Looks up the MetaWindow representing the frame of the given X window.
  * Used as a helper function by a bunch of the functions below.
@@ -89,7 +88,7 @@ meta_core_get (Display *xdisplay,
   if (request != META_CORE_WINDOW_HAS_FRAME &&
       (window == NULL || window->frame == NULL)) {
     meta_bug ("No such frame window 0x%lx!\n", xwindow);
-    return;
+    goto out;
   }
 
   while (request != META_CORE_GET_END) {
@@ -99,7 +98,7 @@ meta_core_get (Display *xdisplay,
     switch (request) {
       case META_CORE_WINDOW_HAS_FRAME:
         *((gboolean*)answer) = window != NULL && window->frame != NULL;
-        if (!*((gboolean*)answer)) return; /* see above */
+        if (!*((gboolean*)answer)) goto out; /* see above */
         break; 
       case META_CORE_GET_CLIENT_WIDTH:
         *((gint*)answer) = window->rect.width;
@@ -160,6 +159,7 @@ meta_core_get (Display *xdisplay,
     request = va_arg (args, MetaCoreGetType);
   } 
 
+ out:
   va_end (args);
 }
 
@@ -170,6 +170,7 @@ meta_core_queue_frame_resize (Display *xdisplay,
   MetaWindow *window = get_window (xdisplay, frame_xwindow);
 
   meta_window_queue (window, META_QUEUE_MOVE_RESIZE);
+  meta_window_frame_size_changed (window);
 }
 
 void
@@ -278,8 +279,7 @@ meta_core_lower_beneath_grab_window (Display *xdisplay,
     return;
 
   changes.stack_mode = Below;
-  changes.sibling = grab_window->frame ? grab_window->frame->xwindow
-                                       : grab_window->xwindow;
+  changes.sibling = meta_window_get_toplevel_xwindow (grab_window);
 
   meta_stack_tracker_record_lower_below (screen->stack_tracker,
                                          xwindow,
@@ -322,8 +322,7 @@ meta_core_maximize (Display *xdisplay,
   if (meta_prefs_get_raise_on_click ())
     meta_window_raise (window);
 
-  meta_window_maximize (window, 
-                        META_MAXIMIZE_HORIZONTAL | META_MAXIMIZE_VERTICAL);
+  meta_window_maximize (window, META_MAXIMIZE_BOTH);
 }
 
 void
@@ -336,11 +335,9 @@ meta_core_toggle_maximize_vertically (Display *xdisplay,
     meta_window_raise (window);
 
   if (META_WINDOW_MAXIMIZED_VERTICALLY (window))
-    meta_window_unmaximize (window, 
-                            META_MAXIMIZE_VERTICAL);
+    meta_window_unmaximize (window, META_MAXIMIZE_VERTICAL);
   else
-    meta_window_maximize (window,
-    			    META_MAXIMIZE_VERTICAL);
+    meta_window_maximize (window, META_MAXIMIZE_VERTICAL);
 }
 
 void
@@ -353,11 +350,9 @@ meta_core_toggle_maximize_horizontally (Display *xdisplay,
     meta_window_raise (window);
 
   if (META_WINDOW_MAXIMIZED_HORIZONTALLY (window))
-    meta_window_unmaximize (window, 
-                            META_MAXIMIZE_HORIZONTAL);
+    meta_window_unmaximize (window, META_MAXIMIZE_HORIZONTAL);
   else
-    meta_window_maximize (window,
-    			    META_MAXIMIZE_HORIZONTAL);
+    meta_window_maximize (window, META_MAXIMIZE_HORIZONTAL);
 }
 
 void
@@ -370,11 +365,9 @@ meta_core_toggle_maximize (Display *xdisplay,
     meta_window_raise (window);
 
   if (META_WINDOW_MAXIMIZED (window))
-    meta_window_unmaximize (window, 
-                            META_MAXIMIZE_HORIZONTAL | META_MAXIMIZE_VERTICAL);
+    meta_window_unmaximize (window, META_MAXIMIZE_BOTH);
   else
-    meta_window_maximize (window,
-                          META_MAXIMIZE_HORIZONTAL | META_MAXIMIZE_VERTICAL);
+    meta_window_maximize (window, META_MAXIMIZE_BOTH);
 }
 
 void
@@ -386,8 +379,7 @@ meta_core_unmaximize (Display *xdisplay,
   if (meta_prefs_get_raise_on_click ())
     meta_window_raise (window);
 
-  meta_window_unmaximize (window,
-                          META_MAXIMIZE_HORIZONTAL | META_MAXIMIZE_VERTICAL);
+  meta_window_unmaximize (window, META_MAXIMIZE_BOTH);
 }
 
 void
@@ -466,26 +458,6 @@ meta_core_change_workspace (Display *xdisplay,
   meta_window_change_workspace (window,
                                 meta_screen_get_workspace_by_index (window->screen,
                                                                     new_workspace));
-}
-
-int
-meta_core_get_num_workspaces (Screen  *xscreen)
-{
-  MetaScreen *screen;
-
-  screen = meta_screen_for_x_screen (xscreen);
-
-  return meta_screen_get_n_workspaces (screen);
-}
-
-int
-meta_core_get_active_workspace (Screen *xscreen)
-{
-  MetaScreen *screen;
-
-  screen = meta_screen_for_x_screen (xscreen);
-
-  return meta_workspace_index (screen->active_workspace);
 }
 
 void

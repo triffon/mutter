@@ -16,9 +16,7 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef META_MENU_H
@@ -26,11 +24,6 @@
 
 #include <gtk/gtk.h>
 #include "frames.h"
-
-/* Stock icons */
-#define METACITY_STOCK_DELETE   "metacity-delete"
-#define METACITY_STOCK_MINIMIZE "metacity-minimize"
-#define METACITY_STOCK_MAXIMIZE "metacity-maximize"
 
 struct _MetaWindowMenu
 {

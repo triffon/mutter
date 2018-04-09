@@ -18,9 +18,7 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <config.h>
@@ -46,8 +44,6 @@
 static void meta_frames_destroy       (GtkWidget       *object);
 static void meta_frames_finalize      (GObject         *object);
 static void meta_frames_style_updated (GtkWidget       *widget);
-static void meta_frames_map           (GtkWidget       *widget);
-static void meta_frames_unmap         (GtkWidget       *widget);
 
 static void meta_frames_update_prelit_control (MetaFrames      *frames,
                                                MetaUIFrame     *frame,
@@ -136,9 +132,6 @@ meta_frames_class_init (MetaFramesClass *class)
 
   widget_class->style_updated = meta_frames_style_updated;
 
-  widget_class->map = meta_frames_map;
-  widget_class->unmap = meta_frames_unmap;
-  
   widget_class->draw = meta_frames_draw;
   widget_class->destroy_event = meta_frames_destroy_event;  
   widget_class->button_press_event = meta_frames_button_press_event;
@@ -233,6 +226,7 @@ meta_frames_init (MetaFrames *frames)
 
   frames->style_variants = g_hash_table_new_full (g_str_hash, g_str_equal,
                                                   g_free, g_object_unref);
+
   update_style_contexts (frames);
 
   gtk_widget_set_double_buffered (GTK_WIDGET (frames), FALSE);
@@ -524,13 +518,26 @@ MetaFrames*
 meta_frames_new (int screen_number)
 {
   GdkScreen *screen;
+  MetaFrames *frames;
 
   screen = gdk_display_get_screen (gdk_display_get_default (),
                                    screen_number);
 
-  return g_object_new (META_TYPE_FRAMES,
-                       "screen", screen,
-                       NULL);  
+  frames = g_object_new (META_TYPE_FRAMES,
+                         "screen", screen,
+                         "type", GTK_WINDOW_POPUP,
+                         NULL);
+
+  /* Put the window at an arbitrary offscreen location; the one place
+   * it can't be is at -100x-100, since the meta_window_new() will
+   * mistake it for a window created via meta_create_offscreen_window()
+   * and ignore it, and we need this window to get frame-synchronization
+   * messages so that GTK+'s style change handling works.
+   */
+  gtk_window_move (GTK_WINDOW (frames), -200, -200);
+  gtk_window_resize (GTK_WINDOW (frames), 1, 1);
+
+  return frames;
 }
 
 /* In order to use a style with a window it has to be attached to that
@@ -637,22 +644,6 @@ meta_frames_unmanage_window (MetaFrames *frames,
     meta_warning ("Frame 0x%lx not managed, can't unmanage\n", xwindow);
 }
 
-static void
-meta_frames_map (GtkWidget *widget)
-{
-  /* We override the parent map function to a no-op because we don't
-   * want to actually show the GDK window. But GTK needs to think that
-   * the widget is mapped or it won't deliver the events we care about.
-   */
-  gtk_widget_set_mapped (widget, TRUE);
-}
-
-static void
-meta_frames_unmap (GtkWidget *widget)
-{
-  gtk_widget_set_mapped (widget, FALSE);
-}
-
 static MetaUIFrame*
 meta_frames_lookup_window (MetaFrames *frames,
                            Window      xwindow)
@@ -737,22 +728,6 @@ meta_ui_frame_get_corner_radiuses (MetaFrames  *frames,
     *bottom_left = fgeom.bottom_left_corner_rounded_radius + sqrt(fgeom.bottom_left_corner_rounded_radius);
   if (bottom_right)
     *bottom_right = fgeom.bottom_right_corner_rounded_radius + sqrt(fgeom.bottom_right_corner_rounded_radius);
-}
-
-void
-meta_frames_get_corner_radiuses (MetaFrames *frames,
-                                 Window      xwindow,
-                                 float      *top_left,
-                                 float      *top_right,
-                                 float      *bottom_left,
-                                 float      *bottom_right)
-{
-  MetaUIFrame *frame;
-
-  frame = meta_frames_lookup_window (frames, xwindow);
-
-  meta_ui_frame_get_corner_radiuses (frames, frame, top_left, top_right,
-                                     bottom_left, bottom_right);
 }
 
 void
@@ -1849,6 +1824,102 @@ clip_region_to_visible_frame_border (cairo_region_t *region,
   cairo_region_intersect (region, frame_border);
 
   cairo_region_destroy (frame_border);
+}
+
+#define TAU (2*M_PI)
+
+/*
+ * Draw the opaque and semi-opaque pixels of this frame into a mask.
+ *
+ * (0,0) in Cairo coordinates is assumed to be the top left corner of the
+ * invisible border.
+ *
+ * The parts of @cr's surface in the clip region are assumed to be
+ * initialized to fully-transparent, and the clip region is assumed to
+ * contain the invisible border and the visible parts of the frame, but
+ * not the client area.
+ *
+ * This function uses @cr to draw pixels of arbitrary color (it will
+ * typically be drawing in a %CAIRO_FORMAT_A8 surface, so the color is
+ * discarded anyway) with appropriate alpha values to reproduce this
+ * frame's alpha channel, as a mask to be applied to an opaque pixmap.
+ *
+ * @frame: This frame
+ * @xwindow: The X window for the frame, which has the client window as a child
+ * @width: The width of the framed window including any invisible borders
+ * @height: The height of the framed window including any invisible borders
+ * @cr: Used to draw the resulting mask
+ */
+void
+meta_frames_get_mask (MetaFrames          *frames,
+                      Window               xwindow,
+                      guint                width,
+                      guint                height,
+                      cairo_t             *cr)
+{
+  MetaUIFrame *frame = meta_frames_lookup_window (frames, xwindow);
+  float top_left, top_right, bottom_left, bottom_right;
+  int x, y;
+  MetaFrameBorders borders;
+
+  if (frame == NULL)
+    meta_bug ("No such frame 0x%lx\n", xwindow);
+
+  cairo_save (cr);
+
+  meta_ui_frame_get_borders (frames, frame, &borders);
+  meta_ui_frame_get_corner_radiuses (frames, frame,
+                                     &top_left, &top_right,
+                                     &bottom_left, &bottom_right);
+
+  /* top left */
+  x = borders.invisible.left;
+  y = borders.invisible.top;
+
+  cairo_arc (cr,
+             x + top_left,
+             y + top_left,
+             top_left,
+             2 * TAU / 4,
+             3 * TAU / 4);
+
+  /* top right */
+  x = width - borders.invisible.right - top_right;
+  y = borders.invisible.top;
+
+  cairo_arc (cr,
+             x,
+             y + top_right,
+             top_right,
+             3 * TAU / 4,
+             4 * TAU / 4);
+
+  /* bottom right */
+  x = width - borders.invisible.right - bottom_right;
+  y = height - borders.invisible.bottom - bottom_right;
+
+  cairo_arc (cr,
+             x,
+             y,
+             bottom_right,
+             0 * TAU / 4,
+             1 * TAU / 4);
+
+  /* bottom left */
+  x = borders.invisible.left;
+  y = height - borders.invisible.bottom - bottom_left;
+
+  cairo_arc (cr,
+             x + bottom_left,
+             y,
+             bottom_left,
+             1 * TAU / 4,
+             2 * TAU / 4);
+
+  cairo_set_source_rgba (cr, 1, 1, 1, 1);
+  cairo_fill (cr);
+
+  cairo_restore (cr);
 }
 
 static gboolean

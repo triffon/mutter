@@ -17,9 +17,7 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef META_PREFS_H
@@ -49,7 +47,6 @@
  * @META_PREF_TITLEBAR_FONT: title-bar font
  * @META_PREF_NUM_WORKSPACES: number of workspaces
  * @META_PREF_DYNAMIC_WORKSPACES: dynamic workspaces
- * @META_PREF_APPLICATION_BASED: application-based
  * @META_PREF_KEYBINDINGS: keybindings
  * @META_PREF_DISABLE_WORKAROUNDS: disable workarounds
  * @META_PREF_BUTTON_LAYOUT: button layout
@@ -65,7 +62,6 @@
  * @META_PREF_EDGE_TILING: edge tiling
  * @META_PREF_FORCE_FULLSCREEN: force fullscreen
  * @META_PREF_WORKSPACES_ONLY_ON_PRIMARY: workspaces only on primary
- * @META_PREF_NO_TAB_POPUP: no tab popup
  * @META_PREF_DRAGGABLE_BORDER_WIDTH: draggable border width
  * @META_PREF_AUTO_MAXIMIZE: auto-maximize
  */
@@ -88,7 +84,6 @@ typedef enum
   META_PREF_TITLEBAR_FONT,
   META_PREF_NUM_WORKSPACES,
   META_PREF_DYNAMIC_WORKSPACES,
-  META_PREF_APPLICATION_BASED,
   META_PREF_KEYBINDINGS,
   META_PREF_DISABLE_WORKAROUNDS,
   META_PREF_BUTTON_LAYOUT,
@@ -104,7 +99,6 @@ typedef enum
   META_PREF_EDGE_TILING,
   META_PREF_FORCE_FULLSCREEN,
   META_PREF_WORKSPACES_ONLY_ON_PRIMARY,
-  META_PREF_NO_TAB_POPUP,
   META_PREF_DRAGGABLE_BORDER_WIDTH,
   META_PREF_AUTO_MAXIMIZE
 } MetaPreference;
@@ -136,7 +130,6 @@ const char*                 meta_prefs_get_theme              (void);
 const PangoFontDescription* meta_prefs_get_titlebar_font      (void);
 int                         meta_prefs_get_num_workspaces     (void);
 gboolean                    meta_prefs_get_dynamic_workspaces (void);
-gboolean                    meta_prefs_get_application_based  (void);
 gboolean                    meta_prefs_get_disable_workarounds (void);
 gboolean                    meta_prefs_get_auto_raise         (void);
 int                         meta_prefs_get_auto_raise_delay   (void);
@@ -167,9 +160,6 @@ gboolean    meta_prefs_get_force_fullscreen  (void);
 void meta_prefs_set_force_fullscreen (gboolean whether);
 
 gboolean meta_prefs_get_workspaces_only_on_primary (void);
-
-gboolean meta_prefs_get_no_tab_popup (void);
-void     meta_prefs_set_no_tab_popup (gboolean whether);
 
 int      meta_prefs_get_draggable_border_width (void);
 
@@ -209,8 +199,6 @@ void     meta_prefs_set_ignore_request_hide_titlebar (gboolean whether);
  * @META_KEYBINDING_ACTION_CYCLE_WINDOWS_BACKWARD: FILLME 
  * @META_KEYBINDING_ACTION_CYCLE_PANELS: FILLME 
  * @META_KEYBINDING_ACTION_CYCLE_PANELS_BACKWARD: FILLME 
- * @META_KEYBINDING_ACTION_TAB_POPUP_SELECT: FILLME 
- * @META_KEYBINDING_ACTION_TAB_POPUP_CANCEL: FILLME 
  * @META_KEYBINDING_ACTION_SHOW_DESKTOP: FILLME 
  * @META_KEYBINDING_ACTION_PANEL_MAIN_MENU: FILLME 
  * @META_KEYBINDING_ACTION_PANEL_RUN_DIALOG: FILLME 
@@ -246,6 +234,10 @@ void     meta_prefs_set_ignore_request_hide_titlebar (gboolean whether);
  * @META_KEYBINDING_ACTION_MOVE_TO_WORKSPACE_RIGHT: FILLME 
  * @META_KEYBINDING_ACTION_MOVE_TO_WORKSPACE_UP: FILLME 
  * @META_KEYBINDING_ACTION_MOVE_TO_WORKSPACE_DOWN: FILLME 
+ * @META_KEYBINDING_ACTION_MOVE_TO_MONITOR_LEFT: FILLME
+ * @META_KEYBINDING_ACTION_MOVE_TO_MONITOR_RIGHT: FILLME
+ * @META_KEYBINDING_ACTION_MOVE_TO_MONITOR_UP: FILLME
+ * @META_KEYBINDING_ACTION_MOVE_TO_MONITOR_DOWN: FILLME
  * @META_KEYBINDING_ACTION_RAISE_OR_LOWER: FILLME 
  * @META_KEYBINDING_ACTION_RAISE: FILLME 
  * @META_KEYBINDING_ACTION_LOWER: FILLME 
@@ -261,6 +253,7 @@ void     meta_prefs_set_ignore_request_hide_titlebar (gboolean whether);
  * @META_KEYBINDING_ACTION_MOVE_TO_SIDE_W: FILLME 
  * @META_KEYBINDING_ACTION_MOVE_TO_CENTER: FILLME 
  * @META_KEYBINDING_ACTION_OVERLAY_KEY: FILLME 
+ * @META_KEYBINDING_ACTION_ALWAYS_ON_TOP: FILLME 
  * @META_KEYBINDING_ACTION_LAST: FILLME 
  */
 /* XXX FIXME This should be x-macroed, but isn't yet because it would be
@@ -301,8 +294,6 @@ typedef enum _MetaKeyBindingAction
   META_KEYBINDING_ACTION_CYCLE_WINDOWS_BACKWARD,
   META_KEYBINDING_ACTION_CYCLE_PANELS,
   META_KEYBINDING_ACTION_CYCLE_PANELS_BACKWARD,
-  META_KEYBINDING_ACTION_TAB_POPUP_SELECT,
-  META_KEYBINDING_ACTION_TAB_POPUP_CANCEL,
   META_KEYBINDING_ACTION_SHOW_DESKTOP,
   META_KEYBINDING_ACTION_PANEL_MAIN_MENU,
   META_KEYBINDING_ACTION_PANEL_RUN_DIALOG,
@@ -338,6 +329,10 @@ typedef enum _MetaKeyBindingAction
   META_KEYBINDING_ACTION_MOVE_TO_WORKSPACE_RIGHT,
   META_KEYBINDING_ACTION_MOVE_TO_WORKSPACE_UP,
   META_KEYBINDING_ACTION_MOVE_TO_WORKSPACE_DOWN,
+  META_KEYBINDING_ACTION_MOVE_TO_MONITOR_LEFT,
+  META_KEYBINDING_ACTION_MOVE_TO_MONITOR_RIGHT,
+  META_KEYBINDING_ACTION_MOVE_TO_MONITOR_UP,
+  META_KEYBINDING_ACTION_MOVE_TO_MONITOR_DOWN,
   META_KEYBINDING_ACTION_RAISE_OR_LOWER,
   META_KEYBINDING_ACTION_RAISE,
   META_KEYBINDING_ACTION_LOWER,
@@ -354,6 +349,7 @@ typedef enum _MetaKeyBindingAction
   META_KEYBINDING_ACTION_MOVE_TO_CENTER,
   META_KEYBINDING_ACTION_OVERLAY_KEY,
   META_KEYBINDING_ACTION_ISO_NEXT_GROUP,
+  META_KEYBINDING_ACTION_ALWAYS_ON_TOP,
 
   META_KEYBINDING_ACTION_LAST
 } MetaKeyBindingAction;
@@ -376,20 +372,6 @@ typedef enum
 } MetaKeyBindingFlags;
 
 /**
- * MetaKeyCombo:
- * @keysym: keysym
- * @keycode: keycode
- * @modifiers: modifiers
- */
-typedef struct _MetaKeyCombo MetaKeyCombo;
-struct _MetaKeyCombo
-{
-  unsigned int keysym;
-  unsigned int keycode;
-  MetaVirtualModifier modifiers;
-};
-
-/**
  * MetaKeyHandlerFunc:
  * @display: a #MetaDisplay
  * @screen: a #MetaScreen
@@ -406,44 +388,13 @@ typedef void (* MetaKeyHandlerFunc) (MetaDisplay    *display,
                                      MetaKeyBinding *binding,
                                      gpointer        user_data);
 
-typedef struct _MetaKeyHandler MetaKeyHandler;
-
-typedef struct
-{
-  char *name;
-  GSettings *settings;
-
-  MetaKeyBindingAction action;
-
-  /*
-   * A list of MetaKeyCombos. Each of them is bound to
-   * this keypref. If one has keysym==modifiers==0, it is
-   * ignored.
-   */
-  GSList *bindings;
-
-  /** for keybindings that can have shift or not like Alt+Tab */
-  gboolean      add_shift:1;
-
-  /** for keybindings that apply only to a window */
-  gboolean      per_window:1;
-
-  /** for keybindings not added with meta_display_add_keybinding() */
-  gboolean      builtin:1;
-} MetaKeyPref;
-
 GType meta_key_binding_get_type    (void);
-
-GList *meta_prefs_get_keybindings (void);
 
 MetaKeyBindingAction meta_prefs_get_keybinding_action (const char *name);
 
 void meta_prefs_get_window_binding (const char          *name,
                                     unsigned int        *keysym,
                                     MetaVirtualModifier *modifiers);
-
-void meta_prefs_get_overlay_binding (MetaKeyCombo *combo);
-const char *meta_prefs_get_iso_next_group_option (void);
 
 gboolean           meta_prefs_get_visual_bell      (void);
 gboolean           meta_prefs_bell_is_audible      (void);

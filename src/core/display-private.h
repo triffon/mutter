@@ -19,9 +19,7 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef META_DISPLAY_PRIVATE_H
@@ -103,19 +101,20 @@ struct _MetaDisplay
 #include <meta/atomnames.h>
 #undef item
 
-  /* This is the actual window from focus events,
-   * not the one we last set
+  /* The window and serial of the most recent FocusIn event. */
+  Window server_focus_window;
+  gulong server_focus_serial;
+
+  /* Our best guess as to the "currently" focused window (that is, the
+   * window that we expect will be focused at the point when the X
+   * server processes our next request), and the serial of the request
+   * or event that caused this.
    */
   MetaWindow *focus_window;
-
-  /* window we are expecting a FocusIn event for or the current focus
-   * window if we are not expecting any FocusIn/FocusOut events; not
-   * perfect because applications can call XSetInputFocus directly.
-   * (It could also be messed up if a timestamp later than current
-   * time is sent to meta_display_set_input_focus_window, though that
-   * would be a programming error).  See bug 154598 for more info.
-   */
-  MetaWindow *expected_focus_window;
+  /* For windows we've focused that don't necessarily have an X window,
+   * like the no_focus_window or the stage X window. */
+  Window focus_xwindow;
+  gulong focus_serial;
 
   /* last timestamp passed to XSetInputFocus */
   guint32 last_focus_time;
@@ -136,6 +135,14 @@ struct _MetaDisplay
    * clicking on a dock), then we will allow the transfer.
    */
   guint allow_terminal_deactivation : 1;
+
+  /* If true, server->focus_serial refers to us changing the focus; in
+   * this case, we can ignore focus events that have exactly focus_serial,
+   * since we take care to make another request immediately afterwards.
+   * But if focus is being changed by another client, we have to accept
+   * multiple events with the same serial.
+   */
+  guint focused_by_us : 1;
 
   guint static_gravity_works : 1;
   
@@ -223,8 +230,8 @@ struct _MetaDisplay
   int	      grab_resize_timeout_id;
 
   /* Keybindings stuff */
-  MetaKeyBinding *key_bindings;
-  int             n_key_bindings;
+  GHashTable     *key_bindings;
+  GHashTable     *key_bindings_index;
   int             min_keycode;
   int             max_keycode;
   KeySym *keymap;
@@ -459,7 +466,8 @@ void meta_display_remove_autoraise_callback (MetaDisplay *display);
 void meta_display_overlay_key_activate (MetaDisplay *display);
 void meta_display_accelerator_activate (MetaDisplay *display,
                                         guint        action,
-                                        guint        deviceid);
+                                        guint        deviceid,
+                                        guint        timestamp);
 gboolean meta_display_modifiers_accelerator_activate (MetaDisplay *display);
 
 /* In above-tab-keycode.c */
@@ -469,5 +477,10 @@ guint meta_display_get_above_tab_keycode (MetaDisplay *display);
 gboolean meta_display_process_barrier_event (MetaDisplay    *display,
                                              XIBarrierEvent *event);
 #endif /* HAVE_XI23 */
+
+void meta_display_set_input_focus_xwindow (MetaDisplay *display,
+                                           MetaScreen  *screen,
+                                           Window       window,
+                                           guint32      timestamp);
 
 #endif

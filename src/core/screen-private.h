@@ -25,9 +25,7 @@
  * General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef META_SCREEN_PRIVATE_H
@@ -38,17 +36,7 @@
 #include <X11/Xutil.h>
 #include "stack-tracker.h"
 #include "ui.h"
-
-typedef struct _MetaMonitorInfo MetaMonitorInfo;
-
-struct _MetaMonitorInfo
-{
-  int number;
-  MetaRectangle rect;
-  gboolean is_primary;
-  gboolean in_fullscreen;
-  XID output; /* The primary or first output for this crtc, None if no xrandr */
-};
+#include "monitor-private.h"
 
 typedef void (* MetaScreenWindowFunc) (MetaScreen *screen, MetaWindow *window,
                                        gpointer user_data);
@@ -76,8 +64,6 @@ struct _MetaScreen
   Visual *default_xvisual;
   MetaRectangle rect;  /* Size of screen; rect.x & rect.y are always 0 */
   MetaUI *ui;
-  MetaTabPopup *tab_popup, *ws_popup;
-  MetaTilePreview *tile_preview;
 
   guint tile_preview_timeout_id;
 
@@ -93,6 +79,7 @@ struct _MetaScreen
   MetaStack *stack;
   MetaStackTracker *stack_tracker;
 
+  MetaCursorTracker *cursor_tracker;
   MetaCursor current_cursor;
 
   Window flash_window;
@@ -100,10 +87,11 @@ struct _MetaScreen
   Window wm_sn_selection_window;
   Atom wm_sn_atom;
   guint32 wm_sn_timestamp;
-  
+
   MetaMonitorInfo *monitor_infos;
-  int primary_monitor_index;
   int n_monitor_infos;
+  int primary_monitor_index;
+  gboolean has_xinerama_indices;
 
   /* Cache the current monitor */
   int last_monitor_index;
@@ -159,29 +147,11 @@ void          meta_screen_foreach_window      (MetaScreen                 *scree
                                                MetaScreenWindowFunc        func,
                                                gpointer                    data);
 
-void          meta_screen_set_cursor          (MetaScreen                 *screen,
-                                               MetaCursor                  cursor);
 void          meta_screen_update_cursor       (MetaScreen                 *screen);
 
-void          meta_screen_tab_popup_create       (MetaScreen              *screen,
-                                                  MetaTabList              list_type,
-                                                  MetaTabShowType          show_type,
-                                                  MetaWindow              *initial_window);
-void          meta_screen_tab_popup_forward      (MetaScreen              *screen);
-void          meta_screen_tab_popup_backward     (MetaScreen              *screen);
-MetaWindow*   meta_screen_tab_popup_get_selected (MetaScreen              *screen);
-void          meta_screen_tab_popup_destroy      (MetaScreen              *screen);
-
-void          meta_screen_workspace_popup_create       (MetaScreen    *screen,
-                                                        MetaWorkspace *initial_selection);
-void          meta_screen_workspace_popup_select       (MetaScreen    *screen,
-                                                        MetaWorkspace *workspace);
-MetaWorkspace*meta_screen_workspace_popup_get_selected (MetaScreen    *screen);
-void          meta_screen_workspace_popup_destroy      (MetaScreen    *screen);
-
-void          meta_screen_tile_preview_update          (MetaScreen    *screen,
+void          meta_screen_update_tile_preview          (MetaScreen    *screen,
                                                         gboolean       delay);
-void          meta_screen_tile_preview_hide            (MetaScreen    *screen);
+void          meta_screen_hide_tile_preview            (MetaScreen    *screen);
 
 MetaWindow*   meta_screen_get_mouse_window     (MetaScreen                 *screen,
                                                 MetaWindow                 *not_this_one);
@@ -231,10 +201,6 @@ void meta_screen_calc_workspace_layout (MetaScreen          *screen,
                                         MetaWorkspaceLayout *layout);
 void meta_screen_free_workspace_layout (MetaWorkspaceLayout *layout);
 
-void meta_screen_resize (MetaScreen *screen,
-                         int         width,
-                         int         height);
-
 void     meta_screen_minimize_all_on_active_workspace_except (MetaScreen *screen,
                                                               MetaWindow *keep);
 
@@ -256,5 +222,13 @@ void     meta_screen_workspace_switched (MetaScreen         *screen,
                                          MetaMotionDirection direction);
 
 void meta_screen_set_active_workspace_hint (MetaScreen *screen);
+
+int meta_screen_xinerama_index_to_monitor_index (MetaScreen *screen,
+                                                 int         index);
+int meta_screen_monitor_index_to_xinerama_index (MetaScreen *screen,
+                                                 int         index);
+
+gboolean meta_screen_handle_xevent (MetaScreen *screen,
+                                    XEvent     *xevent);
 
 #endif
