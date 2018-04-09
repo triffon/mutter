@@ -1,33 +1,160 @@
-3.18.4
+3.20.3
 ======
-* Fix mouse cursor disappearing in some multi-monitor setups [Rui; #763159]
-* Do not assert on non-fatal runtime errors [Florian; #765058]
+* Fix grabbing random keys for disabled shortcuts [Rui; #766270]
+* Crash fixes [Marek, Rui; #751847, #767969]
+* Improve multi-monitor handling on wayland [Rui; #766528]
+* Don't create invalid UTF-8 window description strings [Rui; #765535]
+* Convert window titles and wm_class to UTF-8 [Rui; #752788]
+* Use kill() to force-quit unresponsive wayland clients [Olivier; #767464]
+* Fix window position when unmaximizing via DND on wayland [Olivier; #764180]
+* Avoid full window redraws when using extended frame sync [Florian; #767798]
+* Fix missing frame border around GTK+ dialogs [Florian; #745060]
+* Improve X11 <-> wayland copy and paste interaction [Carlos; #768007]
 
 Contributors:
-  Rui Matos, Florian Müllner
+  Marek Chalupa, Olivier Fourdan, Carlos Garnacho, Rui Matos, Florian Müllner
 
 Translations:
-  Cédric Valmary [oc]
+  Kjartan Maraas [nb], Muhammet Kara [tr], Andika Triwidada [id]
 
-3.18.3
+3.20.2
 ======
-* Fix initialization of bypass compositor hint [Rui; #758544]
+* Notify clients of pending modifier state changes [Rui; #748526]
+* Add get_is_builtin_display_on() method [Florian; #765267]
+* Fix 2-finger titlebar taps on wayland [Carlos; #764519]
+* Misc. bug fixes [Florian, Victor, Jonas; #765058, #765252, #765062]
+
+Contributors:
+  Jonas Ådahl, Olivier Fourdan, Carlos Garnacho, Rui Matos, Florian Müllner,
+  Victor Toso
+
+Translations:
+  GNOME Translation Robot [ja], Tiago Santos [pt]
+
+3.20.1
+======
+* Constrain window move/resizes on wayland as on X11 [Rui; #748819]
+* Don't crash with invalid previous monitor configurations [Rui; #764286]
+* Misc. bug fixes and cleanups [Jonas, Cosimo; #762828, #764807]
+
+Contributors:
+  Jonas Ådahl, Cosimo Cecchi, Rui Matos, Jasper St. Pierre
+
+Translations:
+  Inaki Larranaga Murgoitio [eu], Reinout van Schouwen [nl], Fabio Tomat [fur],
+  Trần Ngọc Quân [vi]
+
+3.20.0
+======
+* Fix crash when using visual bell [Jonas; #763858]
+
+Contributors:
+  Jonas Ådahl, Jasper St. Pierre
+
+Translations:
+  Milo Casagrande [it], Ask Hjorth Larsen [da]
+
+3.19.92
+=======
+* Add system bell support on wayland [Jonas; #763284]
+* Add gtk_surface.present to gtk-shell [Jonas; #763295]
+* Handle DND drops on the root window [Carlos; #762104]
+* Misc. bug fixes [Jonas, Carlos, Rui; #762828, #760745, #763125, #762763,
+  #762661, #762639, #763159]
+
+Contributors:
+  Jonas Ådahl, Carlos Garnacho, Rui Matos, Florian Müllner
+
+Translations:
+  Rūdolfs Mazurs [lv], Balázs Úr [hu], Claude Paroz [fr], Matej Urbančič [sl],
+  Мирослав Николић [sr, sr@latin], Sebastian Rasmussen [sv], Changwoo Ryu [ko],
+  Gil Forcada [ca], Tom Tryfonidis [el]
+
+3.19.91
+=======
+* Add --nested CLI argument to fix nested wayland session [Jonas; #758658]
+* Fix stack - scene graph stacking synchronization issues [Jonas; #755605]
+* Rate-limit last-device changes to fix freezes [Carlos; #753527]
+* Implement primary selection protocol [Carlos; #762560]
+* Misc. bug fixes [Carlos, Jonas; #762878, #762716]
+
+Contributors:
+  Jonas Ådahl, Carlos Garnacho, Tim Lunn
+
+Translations:
+  Piotr Drąg [pl], Artur de Aquino Morais [pt_BR], Marek Černocký [cs],
+  Cédric Valmary [oc], Mario Blättermann [de], Dušan Kazik [sk],
+  Fran Dieguez [gl], Aurimas Černius [lt], Daniel Mustieles [es],
+  Stas Solovey [ru], Yosef Or Boczko [he]
+
+3.19.90
+=======
+* Release buffer after processing commit [Ray; #761312, #761613]
+* Implement pointer motion, locks and confinement on wayland [Jonas; #744104]
+* Add basic startup notification support on wayland [Carlos; #762268]
+* Misc. bug fixes [Rui, Alberts, Florian; #760670, #761543, #752794, #761557]
+
+Contributors:
+  Jonas Ådahl, Olivier Fourdan, Carlos Garnacho, Rui Matos,
+  Alberts Muktupāvels, Florian Müllner, Jasper St. Pierre, Ray Strode
+
+3.19.4
+======
+* Fix updating stacking order when setting transient_for [Jonas; #755606]
+* Support screen rotation when supported by the driver [Carlos; #745079]
+* Protect against broken WM_CLASS property implementations [Sebastian; #759658]
+* Handle wl_pointer v5 events on wayland [Carlos; #760637]
+* Implement DND actions on wayland [Carlos; #760805]
+* Misc. bug fixes [Jonas, Rui, Ray, Marek; #754711, #756789, #759297, #758613,
+  #760330, #760476, #759222, #760670]
+
+Contributors:
+  Jonas Ådahl, Marek Chalupa, Carlos Garnacho, Sebastian Keller, Rui Matos,
+  Florian Müllner, Jasper St. Pierre, Ray Strode
+
+Translations:
+  Aurimas Černius [lt]
+
+3.19.3
+======
+* Correct refresh rate units on KMS/Wayland [Daniel; #758653]
 * Fix crash when initial cursor position is not on a monitor [Marek; #756698]
 * Fix crash when more CRTs are enabled than outputs connected [Rui; #751638]
+* Fix touch pointer emulation on wayland [Carlos; #756754]
+* Allow minimizing windows that don't advertise supporting it [Jasper; #758186]
+* Force 2-finger scroll by default if available [Bastien; #759304]
 * Fix crash during XWayland initialization [Marek; #751845]
 * Ensure to send a ConfigureNotify to just mapped windows [Rui; #759492]
+* Misc. bug fixes and cleanups [Carlos, Jonas, Lionel; #758239, #758633,
+  #755503, #759374]
 
 Contributors:
-  Marek Chalupa, Rui Matos, Jasper St. Pierre
+  Jonas Ådahl, Marek Chalupa, Carlos Garnacho, Lionel Landwerlin, Rui Matos,
+  Bastien Nocera, Daniel Stone, Jasper St. Pierre
 
-3.18.2
+3.19.2
 ======
-* Misc. crash fixes [Jonas, Rui; #756675, #756660, #757148, #756796]
-* Fix modifiers-only input source switching on Ubuntu [Alberts; #756543]
+* Fix crash on monitor unplug [Rui; #756796]
 * Exit cleanly on initialization errors [Owen; #757311]
+* Allow to determine backend setting from session type [Ray; #741666]
+* Fix DRM device detection for non-PCI devices [Alban; #754911]
+* Don't force placement of windows without buffer on wayland [Marek; #751887]
+* Fix initialization of bypass compositor hint [Rui; #758544]
 
 Contributors:
-  Jonas Ådahl, Rui Matos, Alberts Muktupāvels, Florian Müllner, Owen W. Taylor
+  Alban Browaeys, Marek Chalupa, Rui Matos, Florian Müllner, Ray Strode,
+  Owen W. Taylor
+
+3.19.1
+======
+* wayland: Allow to trigger popups through keyboard/touch [Carlos; #756296]
+* Fix modifiers-only input source switching on Ubuntu [Alberts; #756543]
+* Misc. bug fixes [Jonas, Rui, Giovanni, Florian; #756675, #756660, #746420,
+  #756548, #756796, #757101, #757148]
+
+Contributors:
+  Jonas Ådahl, Giovanni Campagna, Carlos Garnacho, Rui Matos,
+  Alberts Muktupāvels, Florian Müllner
 
 Translations:
   Daniel Șerbănescu [ro]

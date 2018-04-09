@@ -27,9 +27,12 @@
 #include "meta-window-wayland.h"
 
 #include <meta/errors.h>
+#include <errno.h>
+#include <string.h> /* for strerror () */
 #include "window-private.h"
 #include "boxes-private.h"
 #include "stack-tracker.h"
+#include "meta-wayland-private.h"
 #include "meta-wayland-surface.h"
 #include "compositor/meta-surface-actor-wayland.h"
 
@@ -108,6 +111,24 @@ meta_window_wayland_kill (MetaWindow *window)
 {
   MetaWaylandSurface *surface = window->surface;
   struct wl_resource *resource = surface->resource;
+  pid_t pid;
+  uid_t uid;
+  gid_t gid;
+
+  wl_client_get_credentials (wl_resource_get_client (resource), &pid, &uid, &gid);
+  if (pid > 0)
+    {
+      meta_topic (META_DEBUG_WINDOW_OPS,
+                  "Killing %s with kill()\n",
+                  window->desc);
+
+      if (kill (pid, 9) == 0)
+        return;
+
+      meta_topic (META_DEBUG_WINDOW_OPS,
+                  "Failed to signal %s: %s\n",
+                  window->desc, strerror (errno));
+    }
 
   /* Send the client an unrecoverable error to kill the client. */
   wl_resource_post_error (resource,
@@ -129,6 +150,10 @@ static void
 surface_state_changed (MetaWindow *window)
 {
   MetaWindowWayland *wl_window = META_WINDOW_WAYLAND (window);
+
+  /* don't send notify when the window is being unmanaged */
+  if (window->unmanaging)
+    return;
 
   meta_wayland_surface_configure_notify (window->surface,
                                          wl_window->last_sent_width,
@@ -171,6 +196,10 @@ meta_window_wayland_move_resize_internal (MetaWindow                *window,
   int monitor_scale;
 
   g_assert (window->frame == NULL);
+
+  /* don't do anything if we're dropping the window, see #751847 */
+  if (window->unmanaging)
+    return;
 
   /* The scale the window is drawn in might change depending on what monitor it
    * is mainly on. Scale the configured rectangle to be in logical pixel
@@ -281,6 +310,7 @@ meta_window_wayland_move_resize_internal (MetaWindow                *window,
 
       if (new_x != window->rect.x || new_y != window->rect.y)
         {
+          *result |= META_MOVE_RESIZE_RESULT_MOVED;
           wl_window->has_pending_move = TRUE;
           wl_window->pending_move_x = new_x;
           wl_window->pending_move_y = new_y;
@@ -402,12 +432,6 @@ appears_focused_changed (GObject    *object,
                          gpointer    user_data)
 {
   MetaWindow *window = META_WINDOW (object);
-
-  /* When we're unmanaging, we remove focus from the window,
-   * causing this to fire. Don't do anything in that case. */
-  if (window->unmanaging)
-    return;
-
   surface_state_changed (window);
 }
 

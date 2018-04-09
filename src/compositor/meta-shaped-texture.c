@@ -303,6 +303,7 @@ set_cogl_texture (MetaShapedTexture *stex,
     {
       priv->tex_width = width;
       priv->tex_height = height;
+      meta_shaped_texture_set_mask_texture (stex, NULL);
       clutter_actor_queue_relayout (CLUTTER_ACTOR (stex));
       g_signal_emit (stex, signals[SIZE_CHANGED], 0);
     }
@@ -787,6 +788,13 @@ meta_shaped_texture_set_opaque_region (MetaShapedTexture *stex,
     priv->opaque_region = cairo_region_reference (opaque_region);
   else
     priv->opaque_region = NULL;
+}
+
+cairo_region_t *
+meta_shaped_texture_get_opaque_region (MetaShapedTexture *stex)
+{
+  MetaShapedTexturePrivate *priv = stex->priv;
+  return priv->opaque_region;
 }
 
 /**
