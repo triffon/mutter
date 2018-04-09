@@ -24,8 +24,8 @@
 
 #include <X11/Xlib.h>
 #include <glib-object.h>
-#include "types.h"
-#include "workspace.h"
+#include <meta/types.h>
+#include <meta/workspace.h>
 
 #define META_TYPE_SCREEN            (meta_screen_get_type ())
 #define META_SCREEN(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), META_TYPE_SCREEN, MetaScreen))
@@ -76,6 +76,7 @@ int meta_screen_get_active_workspace_index (MetaScreen *screen);
 MetaWorkspace * meta_screen_get_active_workspace (MetaScreen *screen);
 
 int  meta_screen_get_n_monitors       (MetaScreen    *screen);
+int  meta_screen_get_primary_monitor  (MetaScreen    *screen);
 void meta_screen_get_monitor_geometry (MetaScreen    *screen,
                                        int            monitor,
                                        MetaRectangle *geometry);

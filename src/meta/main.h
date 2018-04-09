@@ -1,11 +1,10 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 
-/*
- * Copyright (C) 2008 Matthew Allum
- * Copyright (C) 2007 Iain Holmes
- * Based on xcompmgr - (c) 2003 Keith Packard
- *          xfwm4    - (c) 2005-2007 Olivier Fourdan
- *
+/* Mutter main */
+
+/* 
+ * Copyright (C) 2001 Havoc Pennington
+ * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; either version 2 of the
@@ -15,30 +14,33 @@
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- *
+ * 
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
  * 02111-1307, USA.
  */
 
-#ifndef MUTTER_H_
-#define MUTTER_H_
+#ifndef META_MAIN_H
+#define META_MAIN_H
 
-#include <clutter/clutter.h>
-#include <X11/Xlib.h>
+#include <glib.h>
 
-#include "types.h"
-#include "compositor.h"
-#include "meta-window-actor.h"
+GOptionContext *meta_get_option_context (void);
+void            meta_init               (void);
+int             meta_run                (void);
+gboolean        meta_get_replace_current_wm (void);  /* Actually defined in util.c */
 
-/* Public compositor API */
-ClutterActor *meta_get_stage_for_screen         (MetaScreen *screen);
-ClutterActor *meta_get_overlay_group_for_screen (MetaScreen *screen);
-Window        meta_get_overlay_window           (MetaScreen *screen);
-GList        *meta_get_window_actors            (MetaScreen *screen);
-ClutterActor *meta_get_window_group_for_screen  (MetaScreen *screen);
+typedef enum
+{
+  META_EXIT_SUCCESS,
+  META_EXIT_ERROR
+} MetaExitCode;
 
-ClutterActor *meta_get_background_actor_for_screen (MetaScreen *screen);
+/* exit immediately */
+void meta_exit (MetaExitCode code);
+
+/* g_main_loop_quit() then fall out of main() */
+void meta_quit (MetaExitCode code);
 
 #endif

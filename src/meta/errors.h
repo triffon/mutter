@@ -1,6 +1,6 @@
 /* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 
-/* Mutter main */
+/* Mutter X error handling */
 
 /* 
  * Copyright (C) 2001 Havoc Pennington
@@ -21,23 +21,20 @@
  * 02111-1307, USA.
  */
 
-#ifndef META_MAIN_H
-#define META_MAIN_H
+#ifndef META_ERRORS_H
+#define META_ERRORS_H
 
-#include <glib.h>
+#include <X11/Xlib.h>
 
-typedef enum
-{
-  META_EXIT_SUCCESS,
-  META_EXIT_ERROR
-} MetaExitCode;
+#include <meta/util.h>
+#include <meta/display.h>
 
-/* exit immediately */
-void meta_exit (MetaExitCode code);
+void      meta_error_trap_push (MetaDisplay *display);
+void      meta_error_trap_pop  (MetaDisplay *display);
 
-/* g_main_loop_quit() then fall out of main() */
-void meta_quit (MetaExitCode code);
+void      meta_error_trap_push_with_return (MetaDisplay *display);
+/* returns X error code, or 0 for no error */
+int       meta_error_trap_pop_with_return  (MetaDisplay *display);
 
-void meta_restart (void);
 
 #endif
