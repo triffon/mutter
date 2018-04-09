@@ -87,6 +87,10 @@ G_DEFINE_TYPE (MetaWaylandPointer, meta_wayland_pointer,
                META_TYPE_WAYLAND_INPUT_DEVICE)
 
 static void
+meta_wayland_pointer_set_current (MetaWaylandPointer *pointer,
+                                  MetaWaylandSurface *surface);
+
+static void
 meta_wayland_pointer_reset_grab (MetaWaylandPointer *pointer);
 
 static void
@@ -244,14 +248,6 @@ sync_focus_surface (MetaWaylandPointer *pointer)
       g_assert_not_reached ();
     }
 
-}
-
-static void
-pointer_handle_focus_surface_destroy (struct wl_listener *listener, void *data)
-{
-  MetaWaylandPointer *pointer = wl_container_of (listener, pointer, focus_surface_listener);
-
-  meta_wayland_pointer_set_focus (pointer, NULL);
 }
 
 static void
@@ -488,8 +484,6 @@ meta_wayland_pointer_enable (MetaWaylandPointer *pointer)
     g_hash_table_new_full (NULL, NULL, NULL,
                            (GDestroyNotify) meta_wayland_pointer_client_free);
 
-  pointer->focus_surface_listener.notify = pointer_handle_focus_surface_destroy;
-
   pointer->cursor_surface = NULL;
 
   manager = clutter_device_manager_get_default ();
@@ -520,6 +514,7 @@ meta_wayland_pointer_disable (MetaWaylandPointer *pointer)
   meta_wayland_pointer_cancel_grab (pointer);
   meta_wayland_pointer_reset_grab (pointer);
   meta_wayland_pointer_set_focus (pointer, NULL);
+  meta_wayland_pointer_set_current (pointer, NULL);
 
   g_clear_pointer (&pointer->pointer_clients, g_hash_table_unref);
   pointer->cursor_surface = NULL;
@@ -548,10 +543,39 @@ count_buttons (const ClutterEvent *event)
 }
 
 static void
+current_surface_destroyed (MetaWaylandSurface *surface,
+                           MetaWaylandPointer *pointer)
+{
+  meta_wayland_pointer_set_current (pointer, NULL);
+}
+
+static void
+meta_wayland_pointer_set_current (MetaWaylandPointer *pointer,
+                                  MetaWaylandSurface *surface)
+{
+  if (pointer->current)
+    {
+      g_signal_handler_disconnect (pointer->current,
+                                   pointer->current_surface_destroyed_handler_id);
+      pointer->current = NULL;
+    }
+
+  if (surface)
+    {
+      pointer->current = surface;
+      pointer->current_surface_destroyed_handler_id =
+        g_signal_connect (surface, "destroy",
+                          G_CALLBACK (current_surface_destroyed),
+                          pointer);
+    }
+}
+
+static void
 repick_for_event (MetaWaylandPointer *pointer,
                   const ClutterEvent *for_event)
 {
   ClutterActor *actor;
+  MetaWaylandSurface *surface;
 
   if (for_event)
     actor = clutter_event_get_source (for_event);
@@ -559,10 +583,18 @@ repick_for_event (MetaWaylandPointer *pointer,
     actor = clutter_input_device_get_pointer_actor (pointer->device);
 
   if (META_IS_SURFACE_ACTOR_WAYLAND (actor))
-    pointer->current =
-      meta_surface_actor_wayland_get_surface (META_SURFACE_ACTOR_WAYLAND (actor));
+    {
+      MetaSurfaceActorWayland *actor_wayland =
+        META_SURFACE_ACTOR_WAYLAND (actor);
+
+      surface = meta_surface_actor_wayland_get_surface (actor_wayland);
+    }
   else
-    pointer->current = NULL;
+    {
+      surface = NULL;
+    }
+
+  meta_wayland_pointer_set_current (pointer, surface);
 
   sync_focus_surface (pointer);
   meta_wayland_pointer_update_cursor_surface (pointer);
@@ -815,6 +847,13 @@ meta_wayland_pointer_broadcast_leave (MetaWaylandPointer *pointer,
   meta_wayland_pointer_broadcast_frame (pointer);
 }
 
+static void
+focus_surface_destroyed (MetaWaylandSurface *surface,
+                         MetaWaylandPointer *pointer)
+{
+  meta_wayland_pointer_set_focus (pointer, NULL);
+}
+
 void
 meta_wayland_pointer_set_focus (MetaWaylandPointer *pointer,
                                 MetaWaylandSurface *surface)
@@ -838,7 +877,9 @@ meta_wayland_pointer_set_focus (MetaWaylandPointer *pointer,
           pointer->focus_client = NULL;
         }
 
-      wl_list_remove (&pointer->focus_surface_listener.link);
+      g_signal_handler_disconnect (pointer->focus_surface,
+                                   pointer->focus_surface_destroyed_handler_id);
+      pointer->focus_surface_destroyed_handler_id = 0;
       pointer->focus_surface = NULL;
     }
 
@@ -848,8 +889,11 @@ meta_wayland_pointer_set_focus (MetaWaylandPointer *pointer,
       ClutterPoint pos;
 
       pointer->focus_surface = surface;
-      wl_resource_add_destroy_listener (pointer->focus_surface->resource,
-                                        &pointer->focus_surface_listener);
+
+      pointer->focus_surface_destroyed_handler_id =
+        g_signal_connect_after (pointer->focus_surface, "destroy",
+                                G_CALLBACK (focus_surface_destroyed),
+                                pointer);
 
       clutter_input_device_get_coords (pointer->device, NULL, &pos);
 
@@ -1118,13 +1162,33 @@ meta_wayland_pointer_create_new_resource (MetaWaylandPointer *pointer,
     }
 }
 
+static gboolean
+pointer_can_grab_surface (MetaWaylandPointer *pointer,
+                          MetaWaylandSurface *surface)
+{
+  GList *l;
+
+  if (pointer->focus_surface == surface)
+    return TRUE;
+
+  for (l = surface->subsurfaces; l; l = l->next)
+    {
+      MetaWaylandSurface *subsurface = l->data;
+
+      if (pointer_can_grab_surface (pointer, subsurface))
+        return TRUE;
+    }
+
+  return FALSE;
+}
+
 gboolean
 meta_wayland_pointer_can_grab_surface (MetaWaylandPointer *pointer,
                                        MetaWaylandSurface *surface,
                                        uint32_t            serial)
 {
   return (pointer->grab_serial == serial &&
-          pointer->focus_surface == surface);
+          pointer_can_grab_surface (pointer, surface));
 }
 
 gboolean

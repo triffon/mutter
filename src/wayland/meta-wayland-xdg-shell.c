@@ -348,6 +348,7 @@ xdg_toplevel_set_maximized (struct wl_client   *client,
 {
   MetaWaylandSurface *surface = surface_from_xdg_toplevel_resource (resource);
 
+  meta_window_force_placement (surface->window);
   meta_window_maximize (surface->window, META_MAXIMIZE_BOTH);
 }
 
@@ -624,20 +625,18 @@ xdg_toplevel_role_commit (MetaWaylandSurfaceRole  *surface_role,
   if (!window)
     return;
 
-  if (!pending->has_new_geometry)
+  if (pending->has_new_geometry)
     {
-      if (pending->dx != 0 || pending->dx != 0)
-        {
-          g_warning ("XXX: Attach-initiated move without a new geometry. This is unimplemented right now.");
-        }
-      return;
+      window_geometry = meta_wayland_xdg_surface_get_window_geometry (xdg_surface);
+      meta_window_wayland_move_resize (window,
+                                       &xdg_surface_priv->acked_configure_serial,
+                                       window_geometry,
+                                       pending->dx, pending->dy);
     }
-
-  window_geometry = meta_wayland_xdg_surface_get_window_geometry (xdg_surface);
-  meta_window_wayland_move_resize (window,
-                                   &xdg_surface_priv->acked_configure_serial,
-                                   window_geometry,
-                                   pending->dx, pending->dy);
+  else if (pending->dx != 0 || pending->dx != 0)
+    {
+      g_warning ("XXX: Attach-initiated move without a new geometry. This is unimplemented right now.");
+    }
 
   /* When we get to this point, we ought to have valid size hints */
   if (pending->has_new_min_size || pending->has_new_max_size)
@@ -1272,11 +1271,19 @@ xdg_surface_role_commit (MetaWaylandSurfaceRole  *surface_role,
     }
   else if (!priv->has_set_geometry)
     {
+      MetaRectangle new_geometry = { 0 };
+
       /* If the surface has never set any geometry, calculate
        * a default one unioning the surface and all subsurfaces together. */
+
       meta_wayland_surface_calculate_window_geometry (surface,
-                                                      &priv->geometry,
+                                                      &new_geometry,
                                                       0, 0);
+      if (!meta_rectangle_equal (&new_geometry, &priv->geometry))
+        {
+          pending->has_new_geometry = TRUE;
+          priv->geometry = new_geometry;
+        }
     }
 }
 

@@ -122,6 +122,25 @@ meta_input_settings_native_set_tap_enabled (MetaInputSettings  *settings,
 }
 
 static void
+meta_input_settings_native_set_disable_while_typing (MetaInputSettings  *settings,
+                                                     ClutterInputDevice *device,
+                                                     gboolean            enabled)
+{
+  struct libinput_device *libinput_device;
+
+  libinput_device = clutter_evdev_input_device_get_libinput_device (device);
+
+  if (!libinput_device)
+    return;
+
+  if (libinput_device_config_dwt_is_available (libinput_device))
+    libinput_device_config_dwt_set_enabled (libinput_device,
+                                            enabled ?
+                                            LIBINPUT_CONFIG_DWT_ENABLED :
+                                            LIBINPUT_CONFIG_DWT_DISABLED);
+}
+
+static void
 meta_input_settings_native_set_invert_scroll (MetaInputSettings  *settings,
                                               ClutterInputDevice *device,
                                               gboolean            inverted)
@@ -432,8 +451,18 @@ meta_input_settings_native_set_tablet_area (MetaInputSettings  *settings,
                                             gdouble             padding_bottom)
 {
   struct libinput_device *libinput_device;
-  gfloat matrix[6] = { 1. - (padding_left + padding_right), 0., padding_left,
-                       0., 1. - (padding_top + padding_bottom), padding_top };
+  gfloat scale_x;
+  gfloat scale_y;
+  gfloat offset_x;
+  gfloat offset_y;
+
+  scale_x = 1. / (1. - (padding_left + padding_right));
+  scale_y = 1. / (1. - (padding_top + padding_bottom));
+  offset_x = -padding_left * scale_x;
+  offset_y = -padding_top * scale_y;
+
+  gfloat matrix[6] = { scale_x, 0., offset_x,
+                       0., scale_y, offset_y };
 
   libinput_device = clutter_evdev_input_device_get_libinput_device (device);
   if (!libinput_device ||
@@ -507,6 +536,7 @@ meta_input_settings_native_class_init (MetaInputSettingsNativeClass *klass)
   input_settings_class->set_scroll_button = meta_input_settings_native_set_scroll_button;
   input_settings_class->set_click_method = meta_input_settings_native_set_click_method;
   input_settings_class->set_keyboard_repeat = meta_input_settings_native_set_keyboard_repeat;
+  input_settings_class->set_disable_while_typing = meta_input_settings_native_set_disable_while_typing;
 
   input_settings_class->set_tablet_mapping = meta_input_settings_native_set_tablet_mapping;
   input_settings_class->set_tablet_keep_aspect = meta_input_settings_native_set_tablet_keep_aspect;
