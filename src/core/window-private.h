@@ -9,12 +9,12 @@
  * which the rest of the world is allowed to use.)
  */
 
-/*
+/* 
  * Copyright (C) 2001 Havoc Pennington
  * Copyright (C) 2002 Red Hat, Inc.
  * Copyright (C) 2003, 2004 Rob Adams
  * Copyright (C) 2004-2006 Elijah Newren
- *
+ * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; either version 2 of the
@@ -24,31 +24,30 @@
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- *
+ * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 #ifndef META_WINDOW_PRIVATE_H
 #define META_WINDOW_PRIVATE_H
 
 #include <config.h>
-#include <meta/compositor.h>
-#include <meta/window.h>
-#include <meta/meta-close-dialog.h>
+#include "compositor.h"
+#include "window.h"
 #include "screen-private.h"
-#include <meta/util.h>
+#include "util.h"
 #include "stack.h"
+#include "iconcache.h"
 #include <X11/Xutil.h>
-#include <cairo.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
-#include <clutter/clutter.h>
-
-#include "x11/group-private.h"
-
-#include "wayland/meta-wayland-types.h"
 
 typedef struct _MetaWindowQueue MetaWindowQueue;
+
+typedef gboolean (*MetaWindowForeachFunc) (MetaWindow *window,
+                                           void       *data);
 
 typedef enum {
   META_CLIENT_TYPE_UNKNOWN = 0,
@@ -65,103 +64,32 @@ typedef enum {
 
 #define NUMBER_OF_QUEUES 3
 
-typedef enum {
-  _NET_WM_BYPASS_COMPOSITOR_HINT_AUTO = 0,
-  _NET_WM_BYPASS_COMPOSITOR_HINT_ON = 1,
-  _NET_WM_BYPASS_COMPOSITOR_HINT_OFF = 2,
-} MetaBypassCompositorHintValue;
-
-typedef enum
-{
-  META_MOVE_RESIZE_CONFIGURE_REQUEST = 1 << 0,
-  META_MOVE_RESIZE_USER_ACTION = 1 << 1,
-  META_MOVE_RESIZE_MOVE_ACTION = 1 << 2,
-  META_MOVE_RESIZE_RESIZE_ACTION = 1 << 3,
-  META_MOVE_RESIZE_WAYLAND_RESIZE = 1 << 4,
-  META_MOVE_RESIZE_STATE_CHANGED = 1 << 5,
-  META_MOVE_RESIZE_UNMAXIMIZE = 1 << 6,
-  META_MOVE_RESIZE_FORCE_MOVE = 1 << 7,
-} MetaMoveResizeFlags;
-
-typedef enum
-{
-  META_MOVE_RESIZE_RESULT_MOVED               = 1 << 0,
-  META_MOVE_RESIZE_RESULT_RESIZED             = 1 << 1,
-  META_MOVE_RESIZE_RESULT_FRAME_SHAPE_CHANGED = 1 << 2,
-} MetaMoveResizeResultFlags;
-
-typedef enum
-{
-  META_PLACEMENT_GRAVITY_NONE   = 0,
-  META_PLACEMENT_GRAVITY_TOP    = 1 << 0,
-  META_PLACEMENT_GRAVITY_BOTTOM = 1 << 1,
-  META_PLACEMENT_GRAVITY_LEFT   = 1 << 2,
-  META_PLACEMENT_GRAVITY_RIGHT  = 1 << 3,
-} MetaPlacementGravity;
-
-typedef enum
-{
-  META_PLACEMENT_ANCHOR_NONE   = 0,
-  META_PLACEMENT_ANCHOR_TOP    = 1 << 0,
-  META_PLACEMENT_ANCHOR_BOTTOM = 1 << 1,
-  META_PLACEMENT_ANCHOR_LEFT   = 1 << 2,
-  META_PLACEMENT_ANCHOR_RIGHT  = 1 << 3,
-} MetaPlacementAnchor;
-
-typedef enum
-{
-  META_PLACEMENT_CONSTRAINT_ADJUSTMENT_NONE     = 0,
-  META_PLACEMENT_CONSTRAINT_ADJUSTMENT_SLIDE_X  = 1 << 0,
-  META_PLACEMENT_CONSTRAINT_ADJUSTMENT_SLIDE_Y  = 1 << 1,
-  META_PLACEMENT_CONSTRAINT_ADJUSTMENT_FLIP_X   = 1 << 2,
-  META_PLACEMENT_CONSTRAINT_ADJUSTMENT_FLIP_Y   = 1 << 3,
-  META_PLACEMENT_CONSTRAINT_ADJUSTMENT_RESIZE_X = 1 << 4,
-  META_PLACEMENT_CONSTRAINT_ADJUSTMENT_RESIZE_Y = 1 << 5,
-} MetaPlacementConstraintAdjustment;
-
-typedef struct _MetaPlacementRule
-{
-  MetaRectangle anchor_rect;
-  MetaPlacementGravity gravity;
-  MetaPlacementAnchor anchor;
-  MetaPlacementConstraintAdjustment constraint_adjustment;
-  int offset_x;
-  int offset_y;
-  int width;
-  int height;
-} MetaPlacementRule;
-
-typedef enum
-{
-  META_EDGE_CONSTRAINT_NONE    = 0,
-  META_EDGE_CONSTRAINT_WINDOW  = 1,
-  META_EDGE_CONSTRAINT_MONITOR = 2,
-} MetaEdgeConstraint;
-
 struct _MetaWindow
 {
   GObject parent_instance;
-
+  
   MetaDisplay *display;
   MetaScreen *screen;
-  guint64 stamp;
-  MetaLogicalMonitor *monitor;
   MetaWorkspace *workspace;
-  MetaWindowClientType client_type;
-  MetaWaylandSurface *surface;
   Window xwindow;
   /* may be NULL! not all windows get decorated */
   MetaFrame *frame;
   int depth;
   Visual *xvisual;
+  Colormap colormap;
   char *desc; /* used in debug spew */
   char *title;
 
-  cairo_surface_t *icon;
-  cairo_surface_t *mini_icon;
-
+  char *icon_name;
+  GdkPixbuf *icon;
+  GdkPixbuf *mini_icon;
+  MetaIconCache icon_cache;
+  Pixmap wm_hints_pixmap;
+  Pixmap wm_hints_mask;
+  
   MetaWindowType type;
-
+  Atom type_atom;
+  
   /* NOTE these five are not in UTF-8, we just treat them as random
    * binary data
    */
@@ -170,32 +98,20 @@ struct _MetaWindow
   char *role;
   char *sm_client_id;
   char *wm_client_machine;
-
   char *startup_id;
-  char *mutter_hints;
-  char *sandboxed_app_id;
-  char *gtk_theme_variant;
-  char *gtk_application_id;
-  char *gtk_unique_bus_name;
-  char *gtk_application_object_path;
-  char *gtk_window_object_path;
-  char *gtk_app_menu_object_path;
-  char *gtk_menubar_object_path;
 
-  int hide_titlebar_when_maximized;
   int net_wm_pid;
-
+  
   Window xtransient_for;
   Window xgroup_leader;
   Window xclient_leader;
-  MetaWindow *transient_for;
 
   /* Initial workspace property */
-  int initial_workspace;
-
+  int initial_workspace;  
+  
   /* Initial timestamp property */
-  guint32 initial_timestamp;
-
+  guint32 initial_timestamp;  
+  
   /* Whether this is an override redirect window or not */
   guint override_redirect : 1;
 
@@ -208,48 +124,23 @@ struct _MetaWindow
   guint maximize_vertically_after_placement : 1;
   guint minimize_after_placement : 1;
 
-  /* The current tile mode */
-  guint tile_mode : 2;
-  /* The last "full" maximized/unmaximized state. We need to keep track of
-   * that to toggle between normal/tiled or maximized/tiled states. */
-  guint saved_maximize : 1;
-  int tile_monitor_number;
-
-  /* 0 - top
-   * 1 - right
-   * 2 - bottom
-   * 3 - left */
-  MetaEdgeConstraint edge_constraints[4];
-
-  double tile_hfraction;
-
-  int preferred_output_winsys_id;
-
   /* Whether we're shaded */
   guint shaded : 1;
 
   /* Whether we're fullscreen */
   guint fullscreen : 1;
 
-  /* Whether the window is marked as urgent */
-  guint urgent : 1;
-
   /* Area to cover when in fullscreen mode.  If _NET_WM_FULLSCREEN_MONITORS has
    * been overridden (via a client message), the window will cover the union of
    * these monitors.  If not, this is the single monitor which the window's
    * origin is on. */
-  struct {
-    MetaLogicalMonitor *top;
-    MetaLogicalMonitor *bottom;
-    MetaLogicalMonitor *left;
-    MetaLogicalMonitor *right;
-  } fullscreen_monitors;
-
+  long fullscreen_monitors[4];
+  
   /* Whether we're trying to constrain the window to be fully onscreen */
   guint require_fully_onscreen : 1;
 
-  /* Whether we're trying to constrain the window to be on a single monitor */
-  guint require_on_single_monitor : 1;
+  /* Whether we're trying to constrain the window to be on a single xinerama */
+  guint require_on_single_xinerama : 1;
 
   /* Whether we're trying to constrain the window's titlebar to be onscreen */
   guint require_titlebar_visible : 1;
@@ -260,11 +151,6 @@ struct _MetaWindow
    */
   guint on_all_workspaces : 1;
 
-  /* This is true if the client requested sticky, and implies on_all_workspaces == TRUE,
-   * however on_all_workspaces can be set TRUE for other internal reasons too, such as
-   * being override_redirect or being on the non-primary monitor. */
-  guint on_all_workspaces_requested : 1;
-
   /* Minimize is the state controlled by the minimize button */
   guint minimized : 1;
   guint tab_unminimized : 1;
@@ -273,23 +159,15 @@ struct _MetaWindow
    * see also unmaps_pending
    */
   guint mapped : 1;
-
+  
   /* Whether window has been hidden from view by lowering it to the bottom
    * of window stack.
    */
   guint hidden : 1;
 
-  /* Whether the compositor thinks the window is visible.
-   * This should match up with calls to meta_compositor_show_window /
-   * meta_compositor_hide_window.
+  /* Whether the compositor thinks the window is visible
    */
   guint visible_to_compositor : 1;
-
-  /* Whether the compositor knows about the window.
-   * This should match up with calls to meta_compositor_add_window /
-   * meta_compositor_remove_window.
-   */
-  guint known_to_compositor : 1;
 
   /* When we next show or hide the window, what effect we should
    * tell the compositor to perform.
@@ -307,23 +185,20 @@ struct _MetaWindow
 
   /* whether an initial workspace was explicitly set */
   guint initial_workspace_set : 1;
-
+  
   /* whether an initial timestamp was explicitly set */
   guint initial_timestamp_set : 1;
-
+  
   /* whether net_wm_user_time has been set yet */
   guint net_wm_user_time_set : 1;
-
-  /* whether net_wm_icon_geometry has been set */
-  guint icon_geometry_set : 1;
-
+  
   /* These are the flags from WM_PROTOCOLS */
   guint take_focus : 1;
   guint delete_window : 1;
-  guint can_ping : 1;
+  guint net_wm_ping : 1;
   /* Globally active / No input */
   guint input : 1;
-
+  
   /* MWM hints about features of window */
   guint mwm_decorated : 1;
   guint mwm_border_only : 1;
@@ -332,7 +207,7 @@ struct _MetaWindow
   guint mwm_has_maximize_func : 1;
   guint mwm_has_move_func : 1;
   guint mwm_has_resize_func : 1;
-
+  
   /* Computed features of window */
   guint decorated : 1;
   guint border_only : 1;
@@ -344,6 +219,13 @@ struct _MetaWindow
   guint has_move_func : 1;
   guint has_resize_func : 1;
   guint has_fullscreen_func : 1;
+  
+  /* Weird "_NET_WM_STATE_MODAL" flag */
+  guint wm_state_modal : 1;
+
+  /* TRUE if the client forced these on */
+  guint wm_state_skip_taskbar : 1;
+  guint wm_state_skip_pager : 1;
 
   /* Computed whether to skip taskbar or not */
   guint skip_taskbar : 1;
@@ -355,10 +237,12 @@ struct _MetaWindow
 
   /* EWHH demands attention flag */
   guint wm_state_demands_attention : 1;
-
-  /* TRUE iff window == window->display->focus_window */
+  
+  /* this flag tracks receipt of focus_in focus_out and
+   * determines whether we draw the focus
+   */
   guint has_focus : 1;
-
+  
   /* Have we placed this window? */
   guint placed : 1;
 
@@ -373,15 +257,15 @@ struct _MetaWindow
 
   /* Are we in meta_window_new()? */
   guint constructing : 1;
-
+  
   /* Are we in the various queues? (Bitfield: see META_WINDOW_IS_IN_QUEUE) */
   guint is_in_queues : NUMBER_OF_QUEUES;
-
+ 
   /* Used by keybindings.c */
   guint keys_grabbed : 1;     /* normal keybindings grabbed */
   guint grab_on_frame : 1;    /* grabs are on the frame */
   guint all_keys_grabbed : 1; /* AnyKey grabbed */
-
+  
   /* Set if the reason for unmanaging the window is that
    * it was withdrawn
    */
@@ -392,6 +276,21 @@ struct _MetaWindow
    */
   guint calc_placement : 1;
 
+  /* Transient parent is a root window */
+  guint transient_parent_is_root_window : 1;
+
+  /* Info on which props we got our attributes from */
+  guint using_net_wm_name              : 1; /* vs. plain wm_name */
+  guint using_net_wm_visible_name      : 1; /* tracked so we can clear it */
+  guint using_net_wm_icon_name         : 1; /* vs. plain wm_icon_name */
+  guint using_net_wm_visible_icon_name : 1; /* tracked so we can clear it */
+
+  /* has a shape mask */
+  guint has_shape : 1;
+
+  /* icon props have changed */
+  guint need_reread_icon : 1;
+  
   /* if TRUE, window was maximized at start of current grab op */
   guint shaken_loose : 1;
 
@@ -401,51 +300,21 @@ struct _MetaWindow
   /* if TRUE, application is buggy and SYNC resizing is turned off */
   guint disable_sync : 1;
 
-  /* if TRUE, window is attached to its parent */
-  guint attached : 1;
-
-  /* whether or not the window is from a program running on another machine */
-  guint is_remote : 1;
-
-  /* if non-NULL, the bounds of the window frame */
-  cairo_region_t *frame_bounds;
-
-  /* if non-NULL, the bounding shape region of the window. Relative to
-   * the server-side client window. */
-  cairo_region_t *shape_region;
-
-  /* if non-NULL, the opaque region _NET_WM_OPAQUE_REGION */
-  cairo_region_t *opaque_region;
-
-  /* the input shape region for picking */
-  cairo_region_t *input_region;
-
-  /* _NET_WM_WINDOW_OPACITY rescaled to 0xFF */
-  guint8 opacity;
-
-  /* if TRUE, the we have the new form of sync request counter which
-   * also handles application frames */
-  guint extended_sync_request_counter : 1;
-
   /* Note: can be NULL */
   GSList *struts;
 
+#ifdef HAVE_XSYNC
   /* XSync update counter */
   XSyncCounter sync_request_counter;
-  gint64 sync_request_serial;
-  gint64 sync_request_wait_serial;
-  guint sync_request_timeout_id;
-  /* alarm monitoring client's _NET_WM_SYNC_REQUEST_COUNTER */
-  XSyncAlarm sync_request_alarm;
-
+  guint sync_request_serial;
+  GTimeVal sync_request_time;
+#endif
+  
   /* Number of UnmapNotify that are caused by us, if
    * we get UnmapNotify with none pending then the client
    * is withdrawing the window.
    */
   int unmaps_pending;
-
-  /* See docs for meta_window_get_stable_sequence() */
-  guint32 stable_sequence;
 
   /* set to the most recent user-interaction event timestamp that we
      know about for this window */
@@ -453,109 +322,61 @@ struct _MetaWindow
 
   /* window that gets updated net_wm_user_time values */
   Window user_time_window;
-
-  gboolean has_custom_frame_extents;
-  GtkBorder custom_frame_extents;
-
-  /* The rectangles here are in "frame rect" coordinates. See the
-   * comment at the top of meta_window_move_resize_internal() for more
-   * information. */
-
-  /* The current window geometry of the window. */
+  
+  /* The size we set the window to last (i.e. what we believe
+   * to be its actual size on the server). The x, y are
+   * the actual server-side x,y so are relative to the frame
+   * (meaning that they just hold the frame width and height) 
+   * or the root window (meaning they specify the location
+   * of the top left of the inner window) as appropriate.
+   */
   MetaRectangle rect;
 
-  /* The geometry to restore when we unmaximize. */
+  /* The geometry to restore when we unmaximize.  The position is in
+   * root window coords, even if there's a frame, which contrasts with
+   * window->rect above.  Note that this gives the position and size
+   * of the client window (i.e. ignoring the frame).
+   */
   MetaRectangle saved_rect;
 
-  /* This is the geometry the window will have if no constraints have
-   * applied. We use this whenever we are moving implicitly (for example,
-   * if we move to avoid a panel, we can snap back to this position if
-   * the panel moves again).
-   */
-  MetaRectangle unconstrained_rect;
-
-  /* The rectangle of the "server-side" geometry of the buffer,
-   * in root coordinates.
+  /* This is the geometry the window had after the last user-initiated
+   * move/resize operations. We use this whenever we are moving the
+   * implicitly (for example, if we move to avoid a panel, we can snap
+   * back to this position if the panel moves again).  Note that this
+   * gives the position and size of the client window (i.e. ignoring
+   * the frame).
    *
-   * For X11 windows, this matches XGetGeometry of the toplevel.
+   * Position valid if user_has_moved, size valid if user_has_resized
    *
-   * For Wayland windows, the position matches the position of the
-   * surface associated with shell surface (wl_shell_surface, xdg_surface
-   * etc). The size matches the size surface size as displayed in the stage.
+   * Position always in root coords, unlike window->rect.
    */
-  MetaRectangle buffer_rect;
-
-  /* Cached net_wm_icon_geometry */
-  MetaRectangle icon_geometry;
-
+  MetaRectangle user_rect;
+  
+  /* Requested geometry */
+  int border_width;
   /* x/y/w/h here get filled with ConfigureRequest values */
   XSizeHints size_hints;
 
   /* Managed by stack.c */
   MetaStackLayer layer;
   int stack_position; /* see comment in stack.h */
-
-  /* Managed by delete.c */
-  MetaCloseDialog *close_dialog;
+  
+  /* Current dialog open for this window */
+  int dialog_pid;
 
   /* maintained by group.c */
   MetaGroup *group;
 
   GObject *compositor_private;
-
-  /* Focused window that is (directly or indirectly) attached to this one */
-  MetaWindow *attached_focus_window;
-
-  /* The currently complementary tiled window, if any */
-  MetaWindow *tile_match;
-
-  /* Bypass compositor hints */
-  guint bypass_compositor;
-
-  MetaPlacementRule *placement_rule;
 };
 
 struct _MetaWindowClass
 {
   GObjectClass parent_class;
 
-  void (*manage)                 (MetaWindow *window);
-  void (*unmanage)               (MetaWindow *window);
-  void (*ping)                   (MetaWindow *window,
-                                  guint32     serial);
-  void (*delete)                 (MetaWindow *window,
-                                  guint32     timestamp);
-  void (*kill)                   (MetaWindow *window);
-  void (*focus)                  (MetaWindow *window,
-                                  guint32     timestamp);
-  void (*grab_op_began)          (MetaWindow *window,
-                                  MetaGrabOp  op);
-  void (*grab_op_ended)          (MetaWindow *window,
-                                  MetaGrabOp  op);
-  void (*current_workspace_changed) (MetaWindow *window);
-  void (*move_resize_internal)   (MetaWindow                *window,
-                                  int                        gravity,
-                                  MetaRectangle              unconstrained_rect,
-                                  MetaRectangle              constrained_rect,
-                                  MetaMoveResizeFlags        flags,
-                                  MetaMoveResizeResultFlags *result);
-  gboolean (*update_struts)      (MetaWindow *window);
-  void (*get_default_skip_hints) (MetaWindow *window,
-                                  gboolean   *skip_taskbar_out,
-                                  gboolean   *skip_pager_out);
-  gboolean (*update_icon)        (MetaWindow       *window,
-                                  cairo_surface_t **icon,
-                                  cairo_surface_t **mini_icon);
-  uint32_t (*get_client_pid)     (MetaWindow *window);
-  void (*update_main_monitor)    (MetaWindow *window,
-                                  gboolean    user_op);
-  void (*main_monitor_changed)   (MetaWindow *window,
-                                  const MetaLogicalMonitor *old);
-  void (*force_restore_shortcuts) (MetaWindow         *window,
-                                   ClutterInputDevice *source);
-  gboolean (*shortcuts_inhibited) (MetaWindow         *window,
-                                   ClutterInputDevice *source);
-  gboolean (*is_stackable)        (MetaWindow *window);
+  void (*workspace_changed) (MetaWindow *window, int  old_workspace);
+  void (*focus)             (MetaWindow *window);
+  void (*raised)            (MetaWindow *window);
 };
 
 /* These differ from window->has_foo_func in that they consider
@@ -566,15 +387,6 @@ struct _MetaWindowClass
                                         (w)->maximized_vertically)
 #define META_WINDOW_MAXIMIZED_VERTICALLY(w)    ((w)->maximized_vertically)
 #define META_WINDOW_MAXIMIZED_HORIZONTALLY(w)  ((w)->maximized_horizontally)
-#define META_WINDOW_TILED_SIDE_BY_SIDE(w)      ((w)->maximized_vertically && \
-                                                !(w)->maximized_horizontally && \
-                                                 (w)->tile_mode != META_TILE_NONE)
-#define META_WINDOW_TILED_LEFT(w)     (META_WINDOW_TILED_SIDE_BY_SIDE(w) && \
-                                       (w)->tile_mode == META_TILE_LEFT)
-#define META_WINDOW_TILED_RIGHT(w)    (META_WINDOW_TILED_SIDE_BY_SIDE(w) && \
-                                       (w)->tile_mode == META_TILE_RIGHT)
-#define META_WINDOW_TILED_MAXIMIZED(w)(META_WINDOW_MAXIMIZED(w) && \
-                                       (w)->tile_mode == META_TILE_MAXIMIZED)
 #define META_WINDOW_ALLOWS_MOVE(w)     ((w)->has_move_func && !(w)->fullscreen)
 #define META_WINDOW_ALLOWS_RESIZE_EXCEPT_HINTS(w)   ((w)->has_resize_func && !META_WINDOW_MAXIMIZED (w) && !(w)->fullscreen && !(w)->shaded)
 #define META_WINDOW_ALLOWS_RESIZE(w)   (META_WINDOW_ALLOWS_RESIZE_EXCEPT_HINTS (w) &&                \
@@ -583,48 +395,84 @@ struct _MetaWindowClass
 #define META_WINDOW_ALLOWS_HORIZONTAL_RESIZE(w) (META_WINDOW_ALLOWS_RESIZE_EXCEPT_HINTS (w) && (w)->size_hints.min_width < (w)->size_hints.max_width)
 #define META_WINDOW_ALLOWS_VERTICAL_RESIZE(w)   (META_WINDOW_ALLOWS_RESIZE_EXCEPT_HINTS (w) && (w)->size_hints.min_height < (w)->size_hints.max_height)
 
-MetaWindow * _meta_window_shared_new       (MetaDisplay         *display,
-                                            MetaScreen          *screen,
-                                            MetaWindowClientType client_type,
-                                            MetaWaylandSurface  *surface,
-                                            Window               xwindow,
-                                            gulong               existing_wm_state,
-                                            MetaCompEffect       effect,
-                                            XWindowAttributes   *attrs);
-
+MetaWindow* meta_window_new                (MetaDisplay *display,
+                                            Window       xwindow,
+                                            gboolean     must_be_viewable);
+MetaWindow* meta_window_new_with_attrs     (MetaDisplay       *display,
+                                            Window             xwindow,
+                                            gboolean           must_be_viewable,
+                                            MetaCompEffect     effect,
+                                            XWindowAttributes *attrs);
 void        meta_window_unmanage           (MetaWindow  *window,
                                             guint32      timestamp);
+void        meta_window_calc_showing       (MetaWindow  *window);
 void        meta_window_queue              (MetaWindow  *window,
                                             guint queuebits);
-void        meta_window_tile               (MetaWindow        *window,
-                                            MetaTileMode       mode);
-void        meta_window_restore_tile       (MetaWindow        *window,
-                                            MetaTileMode       mode,
-                                            int                width,
-                                            int                height);
 void        meta_window_maximize_internal  (MetaWindow        *window,
                                             MetaMaximizeFlags  directions,
                                             MetaRectangle     *saved_rect);
+void        meta_window_make_above         (MetaWindow  *window);
+void        meta_window_unmake_above       (MetaWindow  *window);
+void        meta_window_shade              (MetaWindow  *window,
+                                            guint32      timestamp);
+void        meta_window_unshade            (MetaWindow  *window,
+                                            guint32      timestamp);
+void        meta_window_change_workspace   (MetaWindow  *window,
+                                            MetaWorkspace *workspace);
+void        meta_window_stick              (MetaWindow  *window);
+void        meta_window_unstick            (MetaWindow  *window);
 
 void        meta_window_make_fullscreen_internal (MetaWindow    *window);
-void        meta_window_update_fullscreen_monitors (MetaWindow         *window,
-                                                    MetaLogicalMonitor *top,
-                                                    MetaLogicalMonitor *bottom,
-                                                    MetaLogicalMonitor *left,
-                                                    MetaLogicalMonitor *right);
+void        meta_window_make_fullscreen    (MetaWindow  *window);
+void        meta_window_unmake_fullscreen  (MetaWindow  *window);
+void        meta_window_update_fullscreen_monitors (MetaWindow    *window,
+                                                    unsigned long  top,
+                                                    unsigned long  bottom,
+                                                    unsigned long  left,
+                                                    unsigned long  right);
 
-gboolean    meta_window_has_fullscreen_monitors (MetaWindow *window);
+/* args to move are window pos, not frame pos */
+void        meta_window_move               (MetaWindow  *window,
+                                            gboolean     user_op,
+                                            int          root_x_nw,
+                                            int          root_y_nw);
+void        meta_window_resize             (MetaWindow  *window,
+                                            gboolean     user_op,
+                                            int          w,
+                                            int          h);
+void        meta_window_move_resize        (MetaWindow  *window,
+                                            gboolean     user_op,
+                                            int          root_x_nw,
+                                            int          root_y_nw,
+                                            int          w,
+                                            int          h);
+void        meta_window_resize_with_gravity (MetaWindow  *window,
+                                             gboolean     user_op,
+                                             int          w,
+                                             int          h,
+                                             int          gravity);
 
-void        meta_window_resize_frame_with_gravity (MetaWindow  *window,
-                                                   gboolean     user_op,
-                                                   int          w,
-                                                   int          h,
-                                                   int          gravity);
 
 /* Return whether the window should be currently mapped */
 gboolean    meta_window_should_be_showing   (MetaWindow  *window);
 
+gboolean    meta_window_toplevel_is_mapped  (MetaWindow  *window);
+
+/* See warning in window.c about this function */
+gboolean    __window_is_terminal (MetaWindow *window);
+
 void        meta_window_update_struts      (MetaWindow  *window);
+
+/* this gets root coords */
+void        meta_window_get_position       (MetaWindow  *window,
+                                            int         *x,
+                                            int         *y);
+
+/* Gets root coords for x, y, width & height of client window; uses
+ * meta_window_get_position for x & y.
+ */
+void        meta_window_get_client_root_coords (MetaWindow    *window,
+                                                MetaRectangle *rect);
 
 /* gets position we need to set to stay in current position,
  * assuming position will be gravity-compensated. i.e.
@@ -638,41 +486,73 @@ void        meta_window_get_gravity_position (MetaWindow  *window,
 /* Get geometry for saving in the session; x/y are gravity
  * position, and w/h are in resize inc above the base size.
  */
-void        meta_window_get_session_geometry (MetaWindow  *window,
+void        meta_window_get_geometry         (MetaWindow  *window,
                                               int         *x,
                                               int         *y,
                                               int         *width,
                                               int         *height);
 
+void        meta_window_kill               (MetaWindow  *window);
+void        meta_window_focus              (MetaWindow  *window,
+                                            guint32      timestamp);
+void        meta_window_raise              (MetaWindow  *window);
+void        meta_window_lower              (MetaWindow  *window);
+
 void        meta_window_update_unfocused_button_grabs (MetaWindow *window);
 
-void     meta_window_set_focused_internal (MetaWindow *window,
-                                           gboolean    focused);
+/* Sends a client message */
+void meta_window_send_icccm_message (MetaWindow *window,
+                                     Atom        atom,
+                                     guint32     timestamp);
 
-void     meta_window_current_workspace_changed (MetaWindow *window);
 
-void meta_window_show_menu (MetaWindow         *window,
-                            MetaWindowMenuType  menu,
-                            int                 x,
-                            int                 y);
+void     meta_window_move_resize_request(MetaWindow *window,
+                                         guint       value_mask,
+                                         int         gravity,
+                                         int         x,
+                                         int         y,
+                                         int         width,
+                                         int         height);
+gboolean meta_window_configure_request (MetaWindow *window,
+                                        XEvent     *event);
+gboolean meta_window_property_notify   (MetaWindow *window,
+                                        XEvent     *event);
+gboolean meta_window_client_message    (MetaWindow *window,
+                                        XEvent     *event);
+gboolean meta_window_notify_focus      (MetaWindow *window,
+                                        XEvent     *event);
 
-void meta_window_show_menu_for_rect (MetaWindow         *window,
-                                     MetaWindowMenuType  menu,
-                                     MetaRectangle      *rect);
+void     meta_window_set_current_workspace_hint (MetaWindow *window);
 
-gboolean meta_window_handle_mouse_grab_op_event  (MetaWindow         *window,
-                                                  const ClutterEvent *event);
+unsigned long meta_window_get_net_wm_desktop (MetaWindow *window);
+
+void meta_window_show_menu (MetaWindow *window,
+                            int         root_x,
+                            int         root_y,
+                            int         button,
+                            guint32     timestamp);
+
+gboolean meta_window_titlebar_is_onscreen    (MetaWindow *window);
+void     meta_window_shove_titlebar_onscreen (MetaWindow *window);
+
+void meta_window_set_gravity (MetaWindow *window,
+                              int         gravity);
+
+void meta_window_handle_mouse_grab_op_event (MetaWindow *window,
+                                             XEvent     *event);
 
 GList* meta_window_get_workspaces (MetaWindow *window);
 
-void meta_window_get_work_area_for_logical_monitor (MetaWindow         *window,
-                                                    MetaLogicalMonitor *logical_monitor,
-                                                    MetaRectangle      *area);
+gboolean meta_window_located_on_workspace (MetaWindow    *window,
+                                           MetaWorkspace *workspace);
 
-int meta_window_get_current_tile_monitor_number (MetaWindow *window);
-void meta_window_get_tile_area                  (MetaWindow    *window,
-                                                 MetaTileMode   mode,
-                                                 MetaRectangle *tile_area);
+void meta_window_get_work_area_current_xinerama (MetaWindow    *window,
+                                                 MetaRectangle *area);
+void meta_window_get_work_area_for_xinerama     (MetaWindow    *window,
+                                                 int            which_xinerama,
+                                                 MetaRectangle *area);
+void meta_window_get_work_area_all_xineramas    (MetaWindow    *window,
+                                                 MetaRectangle *area);
 
 
 gboolean meta_window_same_application (MetaWindow *window,
@@ -687,7 +567,23 @@ gboolean meta_window_same_application (MetaWindow *window,
 #define META_WINDOW_IN_GROUP_TAB_CHAIN(w, g) \
   (((w)->input || (w)->take_focus) && (!g || meta_window_get_group(w)==g))
 
+void meta_window_refresh_resize_popup (MetaWindow *window);
+
 void meta_window_free_delete_dialog (MetaWindow *window);
+
+void     meta_window_foreach_transient        (MetaWindow            *window,
+                                               MetaWindowForeachFunc  func,
+                                               void                  *data);
+gboolean meta_window_is_ancestor_of_transient (MetaWindow            *window,
+                                               MetaWindow            *transient);
+void     meta_window_foreach_ancestor         (MetaWindow            *window,
+                                               MetaWindowForeachFunc  func,
+                                               void                  *data);
+
+void meta_window_begin_grab_op (MetaWindow *window,
+                                MetaGrabOp  op,
+                                gboolean    frame_action,
+                                guint32     timestamp);
 
 void meta_window_update_keyboard_resize (MetaWindow *window,
                                          gboolean    update_cursor);
@@ -697,109 +593,21 @@ void meta_window_update_layer (MetaWindow *window);
 
 void meta_window_recalc_features    (MetaWindow *window);
 
-void meta_window_set_type (MetaWindow     *window,
-                           MetaWindowType  type);
-
-void meta_window_frame_size_changed (MetaWindow *window);
-
-gboolean meta_window_is_in_stack (MetaWindow *window);
+void meta_window_recalc_window_type (MetaWindow *window);
 
 void meta_window_stack_just_below (MetaWindow *window,
                                    MetaWindow *below_this_one);
 
-void meta_window_stack_just_above (MetaWindow *window,
-                                   MetaWindow *above_this_one);
-
 void meta_window_set_user_time (MetaWindow *window,
                                 guint32     timestamp);
 
-void meta_window_update_for_monitors_changed (MetaWindow *window);
-void meta_window_on_all_workspaces_changed (MetaWindow *window);
+void meta_window_set_demands_attention (MetaWindow *window);
 
-gboolean meta_window_should_attach_to_parent (MetaWindow *window);
-gboolean meta_window_can_tile_side_by_side   (MetaWindow *window);
+void meta_window_unset_demands_attention (MetaWindow *window);
 
-void meta_window_compute_tile_match (MetaWindow *window);
+void meta_window_update_icon_now (MetaWindow *window);
 
-gboolean meta_window_updates_are_frozen (MetaWindow *window);
+void meta_window_update_role (MetaWindow *window);
+void meta_window_update_net_wm_type (MetaWindow *window);
 
-void meta_window_set_title                (MetaWindow *window,
-                                           const char *title);
-void meta_window_set_wm_class             (MetaWindow *window,
-                                           const char *wm_class,
-                                           const char *wm_instance);
-void meta_window_set_gtk_dbus_properties  (MetaWindow *window,
-                                           const char *application_id,
-                                           const char *unique_bus_name,
-                                           const char *appmenu_path,
-                                           const char *menubar_path,
-                                           const char *application_object_path,
-                                           const char *window_object_path);
-
-void meta_window_set_transient_for        (MetaWindow *window,
-                                           MetaWindow *parent);
-
-void meta_window_set_opacity              (MetaWindow *window,
-                                           guint8      opacity);
-
-void meta_window_handle_enter (MetaWindow  *window,
-                               guint32      timestamp,
-                               guint        root_x,
-                               guint        root_y);
-void meta_window_handle_leave (MetaWindow  *window);
-
-void meta_window_handle_ungrabbed_event (MetaWindow         *window,
-                                         const ClutterEvent *event);
-
-uint32_t meta_window_get_client_pid (MetaWindow *window);
-
-void meta_window_get_client_area_rect (const MetaWindow      *window,
-                                       cairo_rectangle_int_t *rect);
-void meta_window_get_titlebar_rect (MetaWindow    *window,
-                                    MetaRectangle *titlebar_rect);
-
-void meta_window_activate_full (MetaWindow     *window,
-                                guint32         timestamp,
-                                MetaClientType  source_indication,
-                                MetaWorkspace  *workspace);
-
-MetaLogicalMonitor * meta_window_calculate_main_logical_monitor (MetaWindow *window);
-
-MetaLogicalMonitor * meta_window_get_main_logical_monitor (MetaWindow *window);
-void meta_window_update_monitor (MetaWindow *window,
-                                 gboolean    user_op);
-
-void meta_window_set_urgent (MetaWindow *window,
-                             gboolean    urgent);
-
-void meta_window_update_resize (MetaWindow *window,
-                                gboolean    snap,
-                                int x, int y,
-                                gboolean force);
-
-void meta_window_move_resize_internal (MetaWindow          *window,
-                                       MetaMoveResizeFlags  flags,
-                                       int                  gravity,
-                                       MetaRectangle        frame_rect);
-
-void meta_window_grab_op_began (MetaWindow *window, MetaGrabOp op);
-void meta_window_grab_op_ended (MetaWindow *window, MetaGrabOp op);
-
-void meta_window_set_alive (MetaWindow *window, gboolean is_alive);
-
-gboolean meta_window_has_pointer (MetaWindow *window);
-
-void meta_window_emit_size_changed (MetaWindow *window);
-
-MetaPlacementRule *meta_window_get_placement_rule (MetaWindow *window);
-
-void meta_window_force_placement (MetaWindow *window,
-                                  gboolean    force_move);
-
-void meta_window_force_restore_shortcuts (MetaWindow         *window,
-                                          ClutterInputDevice *source);
-
-gboolean meta_window_shortcuts_inhibited (MetaWindow         *window,
-                                          ClutterInputDevice *source);
-gboolean meta_window_is_stackable (MetaWindow *window);
 #endif

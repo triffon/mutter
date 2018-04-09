@@ -18,18 +18,15 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 #include <config.h>
-#include "boxes-private.h"
 #include "constraints.h"
 #include "workspace-private.h"
 #include "place.h"
-#include <meta/prefs.h>
-#include "backends/meta-backend-private.h"
-#include "backends/meta-logical-monitor.h"
-#include "backends/meta-monitor-manager-private.h"
 
 #include <stdlib.h>
 #include <math.h>
@@ -45,7 +42,7 @@
  //      "constrain_whatever".
  //   3) Add your function to the all_constraints and all_constraint_names
  //      arrays (the latter of which is for debugging purposes)
- //
+ // 
  // An example constraint function, constrain_whatever:
  //
  // /* constrain_whatever does the following:
@@ -96,16 +93,14 @@ typedef enum
 {
   PRIORITY_MINIMUM = 0, /* Dummy value used for loop start = min(all priorities) */
   PRIORITY_ASPECT_RATIO = 0,
-  PRIORITY_ENTIRELY_VISIBLE_ON_SINGLE_MONITOR = 0,
+  PRIORITY_ENTIRELY_VISIBLE_ON_SINGLE_XINERAMA = 0,
   PRIORITY_ENTIRELY_VISIBLE_ON_WORKAREA = 1,
   PRIORITY_SIZE_HINTS_INCREMENTS = 1,
   PRIORITY_MAXIMIZATION = 2,
-  PRIORITY_TILING = 2,
   PRIORITY_FULLSCREEN = 2,
   PRIORITY_SIZE_HINTS_LIMITS = 3,
   PRIORITY_TITLEBAR_VISIBLE = 4,
   PRIORITY_PARTIALLY_VISIBLE_ON_WORKAREA = 4,
-  PRIORITY_CUSTOM_RULE = 4,
   PRIORITY_MAXIMUM = 4 /* Dummy value used for loop end = max(all priorities) */
 } ConstraintPriority;
 
@@ -120,6 +115,7 @@ typedef struct
 {
   MetaRectangle        orig;
   MetaRectangle        current;
+  MetaFrameGeometry   *fgeom;
   ActionType           action_type;
   gboolean             is_user_action;
 
@@ -131,36 +127,20 @@ typedef struct
   int                  resize_gravity;
   FixedDirections      fixed_directions;
 
-  /* work_area_monitor - current monitor region minus struts
-   * entire_monitor    - current monitor, including strut regions
+  /* work_area_xinerama - current xinerama region minus struts
+   * entire_xinerama    - current xienrama, including strut regions
    */
-  MetaRectangle        work_area_monitor;
-  MetaRectangle        entire_monitor;
+  MetaRectangle        work_area_xinerama;
+  MetaRectangle        entire_xinerama;
 
   /* Spanning rectangles for the non-covered (by struts) region of the
-   * screen and also for just the current monitor
+   * screen and also for just the current xinerama
    */
   GList  *usable_screen_region;
-  GList  *usable_monitor_region;
+  GList  *usable_xinerama_region;
 } ConstraintInfo;
 
-static gboolean do_screen_and_monitor_relative_constraints (MetaWindow     *window,
-                                                            GList          *region_spanning_rectangles,
-                                                            ConstraintInfo *info,
-                                                            gboolean        check_only);
-static gboolean constrain_custom_rule        (MetaWindow         *window,
-                                              ConstraintInfo     *info,
-                                              ConstraintPriority  priority,
-                                              gboolean            check_only);
-static gboolean constrain_modal_dialog       (MetaWindow         *window,
-                                              ConstraintInfo     *info,
-                                              ConstraintPriority  priority,
-                                              gboolean            check_only);
 static gboolean constrain_maximization       (MetaWindow         *window,
-                                              ConstraintInfo     *info,
-                                              ConstraintPriority  priority,
-                                              gboolean            check_only);
-static gboolean constrain_tiling             (MetaWindow         *window,
                                               ConstraintInfo     *info,
                                               ConstraintPriority  priority,
                                               gboolean            check_only);
@@ -180,7 +160,7 @@ static gboolean constrain_aspect_ratio       (MetaWindow         *window,
                                               ConstraintInfo     *info,
                                               ConstraintPriority  priority,
                                               gboolean            check_only);
-static gboolean constrain_to_single_monitor  (MetaWindow         *window,
+static gboolean constrain_to_single_xinerama (MetaWindow         *window,
                                               ConstraintInfo     *info,
                                               ConstraintPriority  priority,
                                               gboolean            check_only);
@@ -199,6 +179,7 @@ static gboolean constrain_partially_onscreen (MetaWindow         *window,
 
 static void setup_constraint_info        (ConstraintInfo      *info,
                                           MetaWindow          *window,
+                                          MetaFrameGeometry   *orig_fgeom,
                                           MetaMoveResizeFlags  flags,
                                           int                  resize_gravity,
                                           const MetaRectangle *orig,
@@ -207,6 +188,15 @@ static void place_window_if_needed       (MetaWindow     *window,
                                           ConstraintInfo *info);
 static void update_onscreen_requirements (MetaWindow     *window,
                                           ConstraintInfo *info);
+static void extend_by_frame              (MetaRectangle           *rect,
+                                          const MetaFrameGeometry *fgeom);
+static void unextend_by_frame            (MetaRectangle           *rect,
+                                          const MetaFrameGeometry *fgeom);
+static inline void get_size_limits       (const MetaWindow        *window,
+                                          const MetaFrameGeometry *fgeom,
+                                          gboolean include_frame,
+                                          MetaRectangle *min_size,
+                                          MetaRectangle *max_size);
 
 typedef gboolean (* ConstraintFunc) (MetaWindow         *window,
                                      ConstraintInfo     *info,
@@ -219,15 +209,12 @@ typedef struct {
 } Constraint;
 
 static const Constraint all_constraints[] = {
-  {constrain_custom_rule,        "constrain_custom_rule"},
-  {constrain_modal_dialog,       "constrain_modal_dialog"},
   {constrain_maximization,       "constrain_maximization"},
-  {constrain_tiling,             "constrain_tiling"},
   {constrain_fullscreen,         "constrain_fullscreen"},
   {constrain_size_increments,    "constrain_size_increments"},
   {constrain_size_limits,        "constrain_size_limits"},
   {constrain_aspect_ratio,       "constrain_aspect_ratio"},
-  {constrain_to_single_monitor,  "constrain_to_single_monitor"},
+  {constrain_to_single_xinerama, "constrain_to_single_xinerama"},
   {constrain_fully_onscreen,     "constrain_fully_onscreen"},
   {constrain_titlebar_visible,   "constrain_titlebar_visible"},
   {constrain_partially_onscreen, "constrain_partially_onscreen"},
@@ -255,7 +242,7 @@ do_all_constraints (MetaWindow         *window,
           /* Log how the constraint modified the position */
           meta_topic (META_DEBUG_GEOMETRY,
                       "info->current is %d,%d +%d,%d after %s\n",
-                      info->current.x, info->current.y,
+                      info->current.x, info->current.y, 
                       info->current.width, info->current.height,
                       constraint->name);
         }
@@ -275,6 +262,7 @@ do_all_constraints (MetaWindow         *window,
 
 void
 meta_window_constrain (MetaWindow          *window,
+                       MetaFrameGeometry   *orig_fgeom,
                        MetaMoveResizeFlags  flags,
                        int                  resize_gravity,
                        const MetaRectangle *orig,
@@ -284,6 +272,11 @@ meta_window_constrain (MetaWindow          *window,
   ConstraintPriority priority = PRIORITY_MINIMUM;
   gboolean satisfied = FALSE;
 
+  /* WARNING: orig and new specify positions and sizes of the inner window,
+   * not the outer.  This is a common gotcha since half the constraints
+   * deal with inner window position/size and half deal with outer.  See
+   * doc/how-constraints-works.txt for more information.
+   */
   meta_topic (META_DEBUG_GEOMETRY,
               "Constraining %s in move from %d,%d %dx%d to %d,%d %dx%d\n",
               window->desc,
@@ -291,7 +284,8 @@ meta_window_constrain (MetaWindow          *window,
               new->x,  new->y,  new->width,  new->height);
 
   setup_constraint_info (&info,
-                         window,
+                         window, 
+                         orig_fgeom, 
                          flags,
                          resize_gravity,
                          orig,
@@ -304,7 +298,7 @@ meta_window_constrain (MetaWindow          *window,
     /* Individually enforce all the high-enough priority constraints */
     do_all_constraints (window, &info, priority, !check_only);
 
-    /* Check if all high-enough priority constraints are simultaneously
+    /* Check if all high-enough priority constraints are simultaneously 
      * satisfied
      */
     satisfied = do_all_constraints (window, &info, priority, check_only);
@@ -317,45 +311,51 @@ meta_window_constrain (MetaWindow          *window,
   *new = info.current;
 
   /* We may need to update window->require_fully_onscreen,
-   * window->require_on_single_monitor, and perhaps other quantities
+   * window->require_on_single_xinerama, and perhaps other quantities
    * if this was a user move or user move-and-resize operation.
    */
   update_onscreen_requirements (window, &info);
+
+  /* Ew, what an ugly way to do things.  Destructors (in a real OOP language,
+   * not gobject-style--gobject would be more pain than it's worth) or
+   * smart pointers would be so much nicer here.  *shrug*
+   */
+  if (!orig_fgeom)
+    g_free (info.fgeom);
 }
 
 static void
 setup_constraint_info (ConstraintInfo      *info,
                        MetaWindow          *window,
+                       MetaFrameGeometry   *orig_fgeom,
                        MetaMoveResizeFlags  flags,
                        int                  resize_gravity,
                        const MetaRectangle *orig,
                        MetaRectangle       *new)
 {
-  MetaBackend *backend = meta_get_backend ();
-  MetaMonitorManager *monitor_manager =
-    meta_backend_get_monitor_manager (backend);
-  MetaLogicalMonitor *logical_monitor;
+  const MetaXineramaScreenInfo *xinerama_info;
   MetaWorkspace *cur_workspace;
 
   info->orig    = *orig;
   info->current = *new;
 
-  if (info->current.width < 1)
-    info->current.width = 1;
-  if (info->current.height < 1)
-    info->current.height = 1;
+  /* Create a fake frame geometry if none really exists */
+  if (orig_fgeom && !window->fullscreen)
+    info->fgeom = orig_fgeom;
+  else
+    info->fgeom = g_new0 (MetaFrameGeometry, 1);
 
-  if (flags & META_MOVE_RESIZE_MOVE_ACTION && flags & META_MOVE_RESIZE_RESIZE_ACTION)
+  if (flags & META_IS_MOVE_ACTION && flags & META_IS_RESIZE_ACTION)
     info->action_type = ACTION_MOVE_AND_RESIZE;
-  else if (flags & META_MOVE_RESIZE_RESIZE_ACTION)
+  else if (flags & META_IS_RESIZE_ACTION)
     info->action_type = ACTION_RESIZE;
-  else if (flags & META_MOVE_RESIZE_MOVE_ACTION)
+  else if (flags & META_IS_MOVE_ACTION)
     info->action_type = ACTION_MOVE;
   else
     g_error ("BAD, BAD developer!  No treat for you!  (Fix your calls to "
              "meta_window_move_resize_internal()).\n");
 
-  info->is_user_action = (flags & META_MOVE_RESIZE_USER_ACTION);
+  info->is_user_action = (flags & META_IS_USER_ACTION);
 
   info->resize_gravity = resize_gravity;
 
@@ -387,51 +387,74 @@ setup_constraint_info (ConstraintInfo      *info,
   if (!info->is_user_action)
     info->fixed_directions = FIXED_DIRECTION_NONE;
 
-  logical_monitor =
-    meta_monitor_manager_get_logical_monitor_from_rect (monitor_manager,
-                                                        &info->current);
-  meta_window_get_work_area_for_logical_monitor (window,
-                                                 logical_monitor,
-                                                 &info->work_area_monitor);
+  xinerama_info =
+    meta_screen_get_xinerama_for_rect (window->screen, &info->current);
+  meta_window_get_work_area_for_xinerama (window,
+                                          xinerama_info->number,
+                                          &info->work_area_xinerama);
 
-  if (!window->fullscreen || !meta_window_has_fullscreen_monitors (window))
+  if (!window->fullscreen || window->fullscreen_monitors[0] == -1)
     {
-      info->entire_monitor = logical_monitor->rect;
+      info->entire_xinerama = xinerama_info->rect;
     }
   else
     {
-      info->entire_monitor = window->fullscreen_monitors.top->rect;
-      meta_rectangle_union (&info->entire_monitor,
-                            &window->fullscreen_monitors.bottom->rect,
-                            &info->entire_monitor);
-      meta_rectangle_union (&info->entire_monitor,
-                            &window->fullscreen_monitors.left->rect,
-                            &info->entire_monitor);
-      meta_rectangle_union (&info->entire_monitor,
-                            &window->fullscreen_monitors.right->rect,
-                            &info->entire_monitor);
+      int i = 0;
+      long monitor;
+
+      monitor = window->fullscreen_monitors[i];
+      info->entire_xinerama =
+        window->screen->xinerama_infos[monitor].rect;
+      for (i = 1; i <= 3; i++)
+        {
+          monitor = window->fullscreen_monitors[i];
+          meta_rectangle_union (&info->entire_xinerama,
+                                &window->screen->xinerama_infos[monitor].rect,
+                                &info->entire_xinerama);
+        }
     }
 
   cur_workspace = window->screen->active_workspace;
-  info->usable_screen_region   =
+  info->usable_screen_region   = 
     meta_workspace_get_onscreen_region (cur_workspace);
-  info->usable_monitor_region =
-    meta_workspace_get_onmonitor_region (cur_workspace, logical_monitor);
+  info->usable_xinerama_region = 
+    meta_workspace_get_onxinerama_region (cur_workspace, 
+                                          xinerama_info->number);
+
+  /* Workaround braindead legacy apps that don't know how to
+   * fullscreen themselves properly.
+   */
+  if (meta_rectangle_equal (new, &xinerama_info->rect) &&
+      window->has_fullscreen_func &&
+      !window->fullscreen)
+    {
+      /*
+      meta_topic (META_DEBUG_GEOMETRY,
+      */
+      meta_warning (
+                  "Treating resize request of legacy application %s as a "
+                  "fullscreen request\n",
+                  window->desc);
+      meta_window_make_fullscreen_internal (window);
+    }
 
   /* Log all this information for debugging */
   meta_topic (META_DEBUG_GEOMETRY,
               "Setting up constraint info:\n"
               "  orig: %d,%d +%d,%d\n"
               "  new : %d,%d +%d,%d\n"
+              "  fgeom: %d,%d,%d,%d\n"
               "  action_type     : %s\n"
               "  is_user_action  : %s\n"
               "  resize_gravity  : %s\n"
               "  fixed_directions: %s\n"
-              "  work_area_monitor: %d,%d +%d,%d\n"
-              "  entire_monitor   : %d,%d +%d,%d\n",
+              "  work_area_xinerama: %d,%d +%d,%d\n"
+              "  entire_xinerama   : %d,%d +%d,%d\n",
               info->orig.x, info->orig.y, info->orig.width, info->orig.height,
-              info->current.x, info->current.y,
+              info->current.x, info->current.y, 
                 info->current.width, info->current.height,
+              info->fgeom->left_width, info->fgeom->right_width,
+                info->fgeom->top_height, info->fgeom->bottom_height,
               (info->action_type == ACTION_MOVE) ? "Move" :
                 (info->action_type == ACTION_RESIZE) ? "Resize" :
                 (info->action_type == ACTION_MOVE_AND_RESIZE) ? "Move&Resize" :
@@ -442,11 +465,11 @@ setup_constraint_info (ConstraintInfo      *info,
                 (info->fixed_directions == FIXED_DIRECTION_X) ? "X fixed" :
                 (info->fixed_directions == FIXED_DIRECTION_Y) ? "Y fixed" :
                 "Freakin' Invalid Stupid",
-              info->work_area_monitor.x, info->work_area_monitor.y,
-                info->work_area_monitor.width,
-                info->work_area_monitor.height,
-              info->entire_monitor.x, info->entire_monitor.y,
-                info->entire_monitor.width, info->entire_monitor.height);
+              info->work_area_xinerama.x, info->work_area_xinerama.y,
+                info->work_area_xinerama.width, 
+                info->work_area_xinerama.height,
+              info->entire_xinerama.x, info->entire_xinerama.y,
+                info->entire_xinerama.width, info->entire_xinerama.height);
 }
 
 static void
@@ -468,40 +491,28 @@ place_window_if_needed(MetaWindow     *window,
       !window->minimized &&
       !window->fullscreen)
     {
-      MetaBackend *backend = meta_get_backend ();
-      MetaMonitorManager *monitor_manager =
-        meta_backend_get_monitor_manager (backend);
-      MetaRectangle orig_rect;
-      MetaRectangle placed_rect;
+      MetaRectangle placed_rect = info->orig;
       MetaWorkspace *cur_workspace;
-      MetaLogicalMonitor *logical_monitor;
+      const MetaXineramaScreenInfo *xinerama_info;
 
-      placed_rect = (MetaRectangle) {
-        .x = window->rect.x,
-        .y = window->rect.y,
-        .width = info->current.width,
-        .height = info->current.height
-      };
-
-      orig_rect = info->orig;
-
-      meta_window_place (window, orig_rect.x, orig_rect.y,
+      meta_window_place (window, info->fgeom, info->orig.x, info->orig.y,
                          &placed_rect.x, &placed_rect.y);
       did_placement = TRUE;
 
-      /* placing the window may have changed the monitor.  Find the
-       * new monitor and update the ConstraintInfo
+      /* placing the window may have changed the xinerama.  Find the
+       * new xinerama and update the ConstraintInfo
        */
-      logical_monitor =
-        meta_monitor_manager_get_logical_monitor_from_rect (monitor_manager,
-                                                            &placed_rect);
-      info->entire_monitor = logical_monitor->rect;
-      meta_window_get_work_area_for_logical_monitor (window,
-                                                     logical_monitor,
-                                                     &info->work_area_monitor);
+      xinerama_info =
+        meta_screen_get_xinerama_for_rect (window->screen, &placed_rect);
+      info->entire_xinerama = xinerama_info->rect;
+      meta_window_get_work_area_for_xinerama (window,
+                                              xinerama_info->number,
+                                              &info->work_area_xinerama);
       cur_workspace = window->screen->active_workspace;
-      info->usable_monitor_region =
-        meta_workspace_get_onmonitor_region (cur_workspace, logical_monitor);
+      info->usable_xinerama_region = 
+        meta_workspace_get_onxinerama_region (cur_workspace, 
+                                              xinerama_info->number);
+
 
       info->current.x = placed_rect.x;
       info->current.y = placed_rect.y;
@@ -520,31 +531,30 @@ place_window_if_needed(MetaWindow     *window,
           /* define a sane saved_rect so that the user can unmaximize to
            * something reasonable.
            */
-          if (info->current.width >= info->work_area_monitor.width)
+          if (info->current.width >= info->work_area_xinerama.width)
             {
-              info->current.width = .75 * info->work_area_monitor.width;
-              info->current.x = info->work_area_monitor.x +
-                       .125 * info->work_area_monitor.width;
+              info->current.width = .75 * info->work_area_xinerama.width;
+              info->current.x = info->work_area_xinerama.x +
+                       .125 * info->work_area_xinerama.width;
             }
-          if (info->current.height >= info->work_area_monitor.height)
+          if (info->current.height >= info->work_area_xinerama.height)
             {
-              info->current.height = .75 * info->work_area_monitor.height;
-              info->current.y = info->work_area_monitor.y +
-                       .083 * info->work_area_monitor.height;
+              info->current.height = .75 * info->work_area_xinerama.height;
+              info->current.y = info->work_area_xinerama.y +
+                       .083 * info->work_area_xinerama.height;
             }
-
-          /* idle_move_resize() uses the unconstrained_rect, so make sure it
-           * uses the placed coordinates (bug #556696).
-           */
-          window->unconstrained_rect = info->current;
 
           if (window->maximize_horizontally_after_placement ||
               window->maximize_vertically_after_placement)
-            meta_window_maximize_internal (window,
+            meta_window_maximize_internal (window,   
                 (window->maximize_horizontally_after_placement ?
                  META_MAXIMIZE_HORIZONTAL : 0 ) |
                 (window->maximize_vertically_after_placement ?
                  META_MAXIMIZE_VERTICAL : 0), &info->current);
+
+          /* maximization may have changed frame geometry */
+          if (window->frame && !window->fullscreen)
+            meta_frame_calc_geometry (window->frame, info->fgeom);
 
           window->maximize_horizontally_after_placement = FALSE;
           window->maximize_vertically_after_placement = FALSE;
@@ -579,7 +589,7 @@ update_onscreen_requirements (MetaWindow     *window,
     return;
 
   /* USABILITY NOTE: Naturally, I only want the require_fully_onscreen,
-   * require_on_single_monitor, and require_titlebar_visible flags to
+   * require_on_single_xinerama, and require_titlebar_visible flags to
    * *become false* due to user interactions (which is allowed since
    * certain constraints are ignored for user interactions regardless of
    * the setting of these flags).  However, whether to make these flags
@@ -593,6 +603,11 @@ update_onscreen_requirements (MetaWindow     *window,
    * problematic case but this may need to be revisited.
    */
 
+  /* The require onscreen/on-single-xinerama and titlebar_visible
+   * stuff is relative to the outer window, not the inner
+   */
+  extend_by_frame (&info->current, info->fgeom);
+
   /* Update whether we want future constraint runs to require the
    * window to be on fully onscreen.
    */
@@ -600,324 +615,94 @@ update_onscreen_requirements (MetaWindow     *window,
   window->require_fully_onscreen =
     meta_rectangle_contained_in_region (info->usable_screen_region,
                                         &info->current);
-  if (old != window->require_fully_onscreen)
+  if (old ^ window->require_fully_onscreen)
     meta_topic (META_DEBUG_GEOMETRY,
                 "require_fully_onscreen for %s toggled to %s\n",
                 window->desc,
                 window->require_fully_onscreen ? "TRUE" : "FALSE");
 
   /* Update whether we want future constraint runs to require the
-   * window to be on a single monitor.
+   * window to be on a single xinerama.
    */
-  old = window->require_on_single_monitor;
-  window->require_on_single_monitor =
-    meta_rectangle_contained_in_region (info->usable_monitor_region,
+  old = window->require_on_single_xinerama;
+  window->require_on_single_xinerama =
+    meta_rectangle_contained_in_region (info->usable_xinerama_region,
                                         &info->current);
-  if (old != window->require_on_single_monitor)
+  if (old ^ window->require_on_single_xinerama)
     meta_topic (META_DEBUG_GEOMETRY,
-                "require_on_single_monitor for %s toggled to %s\n",
-                window->desc,
-                window->require_on_single_monitor ? "TRUE" : "FALSE");
+                "require_on_single_xinerama for %s toggled to %s\n",
+                window->desc, 
+                window->require_on_single_xinerama ? "TRUE" : "FALSE");
 
   /* Update whether we want future constraint runs to require the
    * titlebar to be visible.
    */
   if (window->frame && window->decorated)
     {
-      MetaRectangle titlebar_rect, frame_rect;
+      MetaRectangle titlebar_rect;
 
-      meta_window_get_titlebar_rect (window, &titlebar_rect);
-      meta_window_get_frame_rect (window, &frame_rect);
-
-      /* translate into screen coordinates */
-      titlebar_rect.x = frame_rect.x;
-      titlebar_rect.y = frame_rect.y;
-
+      titlebar_rect = info->current;
+      titlebar_rect.height = info->fgeom->top_height;
       old = window->require_titlebar_visible;
       window->require_titlebar_visible =
         meta_rectangle_overlaps_with_region (info->usable_screen_region,
                                              &titlebar_rect);
-      if (old != window->require_titlebar_visible)
+      if (old ^ window->require_titlebar_visible)
         meta_topic (META_DEBUG_GEOMETRY,
                     "require_titlebar_visible for %s toggled to %s\n",
                     window->desc,
                     window->require_titlebar_visible ? "TRUE" : "FALSE");
     }
+
+  /* Don't forget to restore the position of the window */
+  unextend_by_frame (&info->current, info->fgeom);
+}
+
+static void
+extend_by_frame (MetaRectangle           *rect,
+                 const MetaFrameGeometry *fgeom)
+{
+  rect->x -= fgeom->left_width;
+  rect->y -= fgeom->top_height;
+  rect->width  += fgeom->left_width + fgeom->right_width;
+  rect->height += fgeom->top_height + fgeom->bottom_height;
+}
+
+static void
+unextend_by_frame (MetaRectangle           *rect,
+                   const MetaFrameGeometry *fgeom)
+{
+  rect->x += fgeom->left_width;
+  rect->y += fgeom->top_height;
+  rect->width  -= fgeom->left_width + fgeom->right_width;
+  rect->height -= fgeom->top_height + fgeom->bottom_height;
 }
 
 static inline void
-get_size_limits (MetaWindow    *window,
+get_size_limits (const MetaWindow        *window,
+                 const MetaFrameGeometry *fgeom,
+                 gboolean                 include_frame,
                  MetaRectangle *min_size,
                  MetaRectangle *max_size)
 {
   /* We pack the results into MetaRectangle structs just for convienience; we
    * don't actually use the position of those rects.
    */
-  min_size->x = min_size->y = max_size->x = max_size->y = 0;
   min_size->width  = window->size_hints.min_width;
   min_size->height = window->size_hints.min_height;
   max_size->width  = window->size_hints.max_width;
   max_size->height = window->size_hints.max_height;
 
-  meta_window_client_rect_to_frame_rect (window, min_size, min_size);
-  meta_window_client_rect_to_frame_rect (window, max_size, max_size);
-}
-
-static void
-placement_rule_flip_horizontally (MetaPlacementRule *placement_rule)
-{
-  if (placement_rule->anchor & META_PLACEMENT_ANCHOR_LEFT)
+  if (include_frame)
     {
-      placement_rule->anchor &= ~META_PLACEMENT_ANCHOR_LEFT;
-      placement_rule->anchor |= META_PLACEMENT_ANCHOR_RIGHT;
+      int fw = fgeom->left_width + fgeom->right_width;
+      int fh = fgeom->top_height + fgeom->bottom_height;
+
+      min_size->width  += fw;
+      min_size->height += fh;
+      max_size->width  += fw;
+      max_size->height += fh;
     }
-  else if (placement_rule->anchor & META_PLACEMENT_ANCHOR_RIGHT)
-    {
-      placement_rule->anchor &= ~META_PLACEMENT_ANCHOR_RIGHT;
-      placement_rule->anchor |= META_PLACEMENT_ANCHOR_LEFT;
-    }
-
-  if (placement_rule->gravity & META_PLACEMENT_GRAVITY_LEFT)
-    {
-      placement_rule->gravity &= ~META_PLACEMENT_GRAVITY_LEFT;
-      placement_rule->gravity |= META_PLACEMENT_GRAVITY_RIGHT;
-    }
-  else if (placement_rule->gravity & META_PLACEMENT_GRAVITY_RIGHT)
-    {
-      placement_rule->gravity &= ~META_PLACEMENT_GRAVITY_RIGHT;
-      placement_rule->gravity |= META_PLACEMENT_GRAVITY_LEFT;
-    }
-}
-
-static void
-placement_rule_flip_vertically (MetaPlacementRule *placement_rule)
-{
-  if (placement_rule->anchor & META_PLACEMENT_ANCHOR_TOP)
-    {
-      placement_rule->anchor &= ~META_PLACEMENT_ANCHOR_TOP;
-      placement_rule->anchor |= META_PLACEMENT_ANCHOR_BOTTOM;
-    }
-  else if (placement_rule->anchor & META_PLACEMENT_ANCHOR_BOTTOM)
-    {
-      placement_rule->anchor &= ~META_PLACEMENT_ANCHOR_BOTTOM;
-      placement_rule->anchor |= META_PLACEMENT_ANCHOR_TOP;
-    }
-
-  if (placement_rule->gravity & META_PLACEMENT_GRAVITY_TOP)
-    {
-      placement_rule->gravity &= ~META_PLACEMENT_GRAVITY_TOP;
-      placement_rule->gravity |= META_PLACEMENT_GRAVITY_BOTTOM;
-    }
-  else if (placement_rule->gravity & META_PLACEMENT_GRAVITY_BOTTOM)
-    {
-      placement_rule->gravity &= ~META_PLACEMENT_GRAVITY_BOTTOM;
-      placement_rule->gravity |= META_PLACEMENT_GRAVITY_TOP;
-    }
-}
-
-static void
-try_flip_window_position (MetaWindow                       *window,
-                          ConstraintInfo                   *info,
-                          MetaPlacementRule                *placement_rule,
-                          MetaPlacementConstraintAdjustment constraint_adjustment,
-                          MetaRectangle                    *rect,
-                          MetaRectangle                    *intersection)
-{
-  MetaPlacementRule flipped_rule = *placement_rule;;
-  MetaRectangle flipped_rect;
-  MetaRectangle flipped_intersection;
-
-  switch (constraint_adjustment)
-    {
-    case META_PLACEMENT_CONSTRAINT_ADJUSTMENT_FLIP_X:
-      placement_rule_flip_horizontally (&flipped_rule);
-      break;
-    case META_PLACEMENT_CONSTRAINT_ADJUSTMENT_FLIP_Y:
-      placement_rule_flip_vertically (&flipped_rule);
-      break;
-
-    default:
-      g_assert_not_reached ();
-    }
-
-  flipped_rect = info->current;
-  meta_window_process_placement (window, &flipped_rule,
-                                 &flipped_rect.x, &flipped_rect.y);
-  meta_rectangle_intersect (&flipped_rect, &info->work_area_monitor,
-                            &flipped_intersection);
-
-  if ((constraint_adjustment == META_PLACEMENT_CONSTRAINT_ADJUSTMENT_FLIP_X &&
-       flipped_intersection.width == flipped_rect.width) ||
-      (constraint_adjustment == META_PLACEMENT_CONSTRAINT_ADJUSTMENT_FLIP_Y &&
-       flipped_intersection.height == flipped_rect.height))
-    {
-      *placement_rule = flipped_rule;
-      *rect = flipped_rect;
-      *intersection = flipped_intersection;
-    }
-}
-
-static gboolean
-is_custom_rule_satisfied (ConstraintInfo    *info,
-                          MetaPlacementRule *placement_rule,
-                          MetaRectangle     *intersection)
-{
-  uint32_t x_constrain_actions, y_constrain_actions;
-
-  x_constrain_actions = (META_PLACEMENT_CONSTRAINT_ADJUSTMENT_SLIDE_X |
-                         META_PLACEMENT_CONSTRAINT_ADJUSTMENT_FLIP_X);
-  y_constrain_actions = (META_PLACEMENT_CONSTRAINT_ADJUSTMENT_SLIDE_Y |
-                         META_PLACEMENT_CONSTRAINT_ADJUSTMENT_FLIP_Y);
-  if ((placement_rule->constraint_adjustment & x_constrain_actions &&
-       info->current.width != intersection->width) ||
-      (placement_rule->constraint_adjustment & y_constrain_actions &&
-       info->current.height != intersection->height))
-    return FALSE;
-  else
-    return TRUE;
-}
-
-static gboolean
-constrain_custom_rule (MetaWindow         *window,
-                       ConstraintInfo     *info,
-                       ConstraintPriority  priority,
-                       gboolean            check_only)
-{
-  MetaPlacementRule *placement_rule;
-  MetaRectangle intersection;
-  gboolean constraint_satisfied;
-  MetaPlacementRule current_rule;
-
-  if (priority > PRIORITY_CUSTOM_RULE)
-    return TRUE;
-
-  placement_rule = meta_window_get_placement_rule (window);
-  if (!placement_rule)
-    return TRUE;
-
-  meta_rectangle_intersect (&info->current, &info->work_area_monitor,
-                            &intersection);
-
-  constraint_satisfied = is_custom_rule_satisfied (info,
-                                                   placement_rule,
-                                                   &intersection);
-
-  if (constraint_satisfied || check_only)
-    return constraint_satisfied;
-
-  current_rule = *placement_rule;
-
-  if (info->current.width != intersection.width &&
-      (current_rule.constraint_adjustment &
-       META_PLACEMENT_CONSTRAINT_ADJUSTMENT_FLIP_X))
-    {
-      try_flip_window_position (window, info, &current_rule,
-                                META_PLACEMENT_CONSTRAINT_ADJUSTMENT_FLIP_X,
-                                &info->current, &intersection);
-    }
-  if (info->current.height != intersection.height &&
-      (current_rule.constraint_adjustment &
-       META_PLACEMENT_CONSTRAINT_ADJUSTMENT_FLIP_Y))
-    {
-      try_flip_window_position (window, info, &current_rule,
-                                META_PLACEMENT_CONSTRAINT_ADJUSTMENT_FLIP_Y,
-                                &info->current, &intersection);
-    }
-
-  meta_rectangle_intersect (&info->current, &info->work_area_monitor,
-                            &intersection);
-  constraint_satisfied = is_custom_rule_satisfied (info,
-                                                   placement_rule,
-                                                   &intersection);
-
-  if (constraint_satisfied)
-    return TRUE;
-
-  if (current_rule.constraint_adjustment &
-      META_PLACEMENT_CONSTRAINT_ADJUSTMENT_SLIDE_X)
-    {
-      if (info->current.x != intersection.x)
-        info->current.x = intersection.x;
-      else if (info->current.width != intersection.width)
-        info->current.x -= info->current.width - intersection.width;
-    }
-  if (current_rule.constraint_adjustment &
-      META_PLACEMENT_CONSTRAINT_ADJUSTMENT_SLIDE_Y)
-    {
-      if (info->current.y != intersection.y)
-        info->current.y = intersection.y;
-      else if (info->current.height != intersection.height)
-        info->current.y -= info->current.height - intersection.height;
-    }
-
-  meta_rectangle_intersect (&info->current, &info->work_area_monitor,
-                            &intersection);
-  constraint_satisfied = is_custom_rule_satisfied (info,
-                                                   placement_rule,
-                                                   &intersection);
-
-  if (constraint_satisfied)
-    return TRUE;
-
-  if (current_rule.constraint_adjustment &
-      META_PLACEMENT_CONSTRAINT_ADJUSTMENT_RESIZE_X)
-    {
-      info->current.x = intersection.x;
-      info->current.width = intersection.width;
-    }
-  if (current_rule.constraint_adjustment &
-      META_PLACEMENT_CONSTRAINT_ADJUSTMENT_RESIZE_Y)
-    {
-      info->current.y = intersection.y;
-      info->current.height = intersection.height;
-    }
-
-  return TRUE;
-}
-
-static gboolean
-constrain_modal_dialog (MetaWindow         *window,
-                        ConstraintInfo     *info,
-                        ConstraintPriority  priority,
-                        gboolean            check_only)
-{
-  int x, y;
-  MetaWindow *parent = meta_window_get_transient_for (window);
-  MetaRectangle child_rect, parent_rect;
-  gboolean constraint_already_satisfied;
-
-  if (!meta_window_is_attached_dialog (window) ||
-      meta_window_get_placement_rule (window))
-    return TRUE;
-
-  /* We want to center the dialog on the parent, including the decorations
-     for both of them. info->current is in client X window coordinates, so we need
-     to convert them to frame coordinates, apply the centering and then
-     convert back to client.
-  */
-
-  child_rect = info->current;
-
-  meta_window_get_frame_rect (parent, &parent_rect);
-
-  child_rect.x = parent_rect.x + (parent_rect.width / 2  - child_rect.width / 2);
-  child_rect.y = parent_rect.y + (parent_rect.height / 2 - child_rect.height / 2);
-  x = child_rect.x;
-  y = child_rect.y;
-
-  constraint_already_satisfied = (x == info->current.x) && (y == info->current.y);
-
-  if (check_only || constraint_already_satisfied)
-    return constraint_already_satisfied;
-
-  info->current.y = y;
-  info->current.x = x;
-  /* The calculated position above may need adjustment to make sure the
-   * dialog does not end up partially off-screen */
-  return do_screen_and_monitor_relative_constraints (window,
-                                                     info->usable_screen_region,
-                                                     info,
-                                                     check_only);
 }
 
 static gboolean
@@ -936,19 +721,12 @@ constrain_maximization (MetaWindow         *window,
     return TRUE;
 
   /* Determine whether constraint applies; exit if it doesn't */
-  if ((!window->maximized_horizontally && !window->maximized_vertically) ||
-      META_WINDOW_TILED_SIDE_BY_SIDE (window))
+  if (!window->maximized_horizontally && !window->maximized_vertically)
     return TRUE;
 
   /* Calculate target_size = maximized size of (window + frame) */
-  if (META_WINDOW_TILED_MAXIMIZED (window))
-    {
-      meta_window_get_tile_area (window, window->tile_mode, &target_size);
-    }
-  else if (META_WINDOW_MAXIMIZED (window))
-    {
-      target_size = info->work_area_monitor;
-    }
+  if (window->maximized_horizontally && window->maximized_vertically)
+    target_size = info->work_area_xinerama;
   else
     {
       /* Amount of maximization possible in a single direction depends
@@ -968,16 +746,19 @@ constrain_maximization (MetaWindow         *window,
       active_workspace_struts = window->screen->active_workspace->all_struts;
 
       target_size = info->current;
+      extend_by_frame (&target_size, info->fgeom);
       meta_rectangle_expand_to_avoiding_struts (&target_size,
-                                                &info->entire_monitor,
+                                                &info->entire_xinerama,
                                                 direction,
                                                 active_workspace_struts);
    }
+  /* Now make target_size = maximized size of client window */
+  unextend_by_frame (&target_size, info->fgeom);
 
   /* Check min size constraints; max size constraints are ignored for maximized
    * windows, as per bug 327543.
    */
-  get_size_limits (window, &min_size, &max_size);
+  get_size_limits (window, info->fgeom, FALSE, &min_size, &max_size);
   hminbad = target_size.width < min_size.width && window->maximized_horizontally;
   vminbad = target_size.height < min_size.height && window->maximized_vertically;
   if (hminbad || vminbad)
@@ -1009,64 +790,12 @@ constrain_maximization (MetaWindow         *window,
 }
 
 static gboolean
-constrain_tiling (MetaWindow         *window,
-                  ConstraintInfo     *info,
-                  ConstraintPriority  priority,
-                  gboolean            check_only)
-{
-  MetaRectangle target_size;
-  MetaRectangle min_size, max_size;
-  gboolean hminbad, vminbad;
-  gboolean horiz_equal, vert_equal;
-  gboolean constraint_already_satisfied;
-
-  if (priority > PRIORITY_TILING)
-    return TRUE;
-
-  /* Determine whether constraint applies; exit if it doesn't */
-  if (!META_WINDOW_TILED_SIDE_BY_SIDE (window))
-    return TRUE;
-
-  /* Calculate target_size - as the tile previews need this as well, we
-   * use an external function for the actual calculation
-   */
-  meta_window_get_tile_area (window, window->tile_mode, &target_size);
-
-  /* Check min size constraints; max size constraints are ignored as for
-   * maximized windows.
-   */
-  get_size_limits (window, &min_size, &max_size);
-  hminbad = target_size.width < min_size.width;
-  vminbad = target_size.height < min_size.height;
-  if (hminbad || vminbad)
-    return TRUE;
-
-  /* Determine whether constraint is already satisfied; exit if it is */
-  horiz_equal = target_size.x      == info->current.x &&
-                target_size.width  == info->current.width;
-  vert_equal  = target_size.y      == info->current.y &&
-                target_size.height == info->current.height;
-  constraint_already_satisfied = horiz_equal && vert_equal;
-  if (check_only || constraint_already_satisfied)
-    return constraint_already_satisfied;
-
-  /*** Enforce constraint ***/
-  info->current.x      = target_size.x;
-  info->current.width  = target_size.width;
-  info->current.y      = target_size.y;
-  info->current.height = target_size.height;
-
-  return TRUE;
-}
-
-
-static gboolean
 constrain_fullscreen (MetaWindow         *window,
                       ConstraintInfo     *info,
                       ConstraintPriority  priority,
                       gboolean            check_only)
 {
-  MetaRectangle min_size, max_size, monitor;
+  MetaRectangle min_size, max_size, xinerama;
   gboolean too_big, too_small, constraint_already_satisfied;
 
   if (priority > PRIORITY_FULLSCREEN)
@@ -1076,22 +805,22 @@ constrain_fullscreen (MetaWindow         *window,
   if (!window->fullscreen)
     return TRUE;
 
-  monitor = info->entire_monitor;
+  xinerama = info->entire_xinerama;
 
-  get_size_limits (window, &min_size, &max_size);
-  too_big =   !meta_rectangle_could_fit_rect (&monitor, &min_size);
-  too_small = !meta_rectangle_could_fit_rect (&max_size, &monitor);
+  get_size_limits (window, info->fgeom, FALSE, &min_size, &max_size);
+  too_big =   !meta_rectangle_could_fit_rect (&xinerama, &min_size);
+  too_small = !meta_rectangle_could_fit_rect (&max_size, &xinerama);
   if (too_big || too_small)
     return TRUE;
 
   /* Determine whether constraint is already satisfied; exit if it is */
   constraint_already_satisfied =
-    meta_rectangle_equal (&info->current, &monitor);
+    meta_rectangle_equal (&info->current, &xinerama);
   if (check_only || constraint_already_satisfied)
     return constraint_already_satisfied;
 
   /*** Enforce constraint ***/
-  info->current = monitor;
+  info->current = xinerama;
   return TRUE;
 }
 
@@ -1105,41 +834,37 @@ constrain_size_increments (MetaWindow         *window,
   int new_width, new_height;
   gboolean constraint_already_satisfied;
   MetaRectangle *start_rect;
-  MetaRectangle client_rect;
 
   if (priority > PRIORITY_SIZE_HINTS_INCREMENTS)
     return TRUE;
 
   /* Determine whether constraint applies; exit if it doesn't */
-  if (META_WINDOW_MAXIMIZED (window) || window->fullscreen ||
-      META_WINDOW_TILED_SIDE_BY_SIDE (window) ||
+  if (META_WINDOW_MAXIMIZED (window) || window->fullscreen || 
       info->action_type == ACTION_MOVE)
     return TRUE;
-
-  meta_window_frame_rect_to_client_rect (window, &info->current, &client_rect);
 
   /* Determine whether constraint is already satisfied; exit if it is */
   bh = window->size_hints.base_height;
   hi = window->size_hints.height_inc;
   bw = window->size_hints.base_width;
   wi = window->size_hints.width_inc;
-  extra_height = (client_rect.height - bh) % hi;
-  extra_width  = (client_rect.width  - bw) % wi;
+  extra_height = (info->current.height - bh) % hi;
+  extra_width  = (info->current.width  - bw) % wi;
   /* ignore size increments for maximized windows */
   if (window->maximized_horizontally)
     extra_width *= 0;
   if (window->maximized_vertically)
     extra_height *= 0;
   /* constraint is satisfied iff there is no extra height or width */
-  constraint_already_satisfied =
+  constraint_already_satisfied = 
     (extra_height == 0 && extra_width == 0);
 
   if (check_only || constraint_already_satisfied)
     return constraint_already_satisfied;
 
   /*** Enforce constraint ***/
-  new_width  = client_rect.width  - extra_width;
-  new_height = client_rect.height - extra_height;
+  new_width  = info->current.width  - extra_width;
+  new_height = info->current.height - extra_height;
 
   /* Adjusting down instead of up (as done in the above two lines) may
    * violate minimum size constraints; fix the adjustment if this
@@ -1150,14 +875,6 @@ constrain_size_increments (MetaWindow         *window,
   if (new_height < window->size_hints.min_height)
     new_height += ((window->size_hints.min_height - new_height)/hi + 1)*hi;
 
-  {
-    client_rect.width = new_width;
-    client_rect.height = new_height;
-    meta_window_client_rect_to_frame_rect (window, &client_rect, &client_rect);
-    new_width = client_rect.width;
-    new_height = client_rect.height;
-  }
-
   /* Figure out what original rect to pass to meta_rectangle_resize_with_gravity
    * See bug 448183
    */
@@ -1165,10 +882,10 @@ constrain_size_increments (MetaWindow         *window,
     start_rect = &info->current;
   else
     start_rect = &info->orig;
-
+    
   /* Resize to the new size */
   meta_rectangle_resize_with_gravity (start_rect,
-                                      &info->current,
+                                      &info->current, 
                                       info->resize_gravity,
                                       new_width,
                                       new_height);
@@ -1198,7 +915,7 @@ constrain_size_limits (MetaWindow         *window,
     return TRUE;
 
   /* Determine whether constraint is already satisfied; exit if it is */
-  get_size_limits (window, &min_size, &max_size);
+  get_size_limits (window, info->fgeom, FALSE, &min_size, &max_size);
   /* We ignore max-size limits for maximized windows; see #327543 */
   if (window->maximized_horizontally)
     max_size.width = MAX (max_size.width, info->current.width);
@@ -1213,7 +930,7 @@ constrain_size_limits (MetaWindow         *window,
   /*** Enforce constraint ***/
   new_width  = CLAMP (info->current.width,  min_size.width,  max_size.width);
   new_height = CLAMP (info->current.height, min_size.height, max_size.height);
-
+  
   /* Figure out what original rect to pass to meta_rectangle_resize_with_gravity
    * See bug 448183
    */
@@ -1221,9 +938,9 @@ constrain_size_limits (MetaWindow         *window,
     start_rect = &info->current;
   else
     start_rect = &info->orig;
-
+  
   meta_rectangle_resize_with_gravity (start_rect,
-                                      &info->current,
+                                      &info->current, 
                                       info->resize_gravity,
                                       new_width,
                                       new_height);
@@ -1242,7 +959,6 @@ constrain_aspect_ratio (MetaWindow         *window,
   double best_width, best_height;
   double alt_width, alt_height;
   MetaRectangle *start_rect;
-  MetaRectangle client_rect;
 
   if (priority > PRIORITY_ASPECT_RATIO)
     return TRUE;
@@ -1254,8 +970,7 @@ constrain_aspect_ratio (MetaWindow         *window,
          (double)window->size_hints.max_aspect.y;
   constraints_are_inconsistent = minr > maxr;
   if (constraints_are_inconsistent ||
-      META_WINDOW_MAXIMIZED (window) || window->fullscreen ||
-      META_WINDOW_TILED_SIDE_BY_SIDE (window) ||
+      META_WINDOW_MAXIMIZED (window) || window->fullscreen || 
       info->action_type == ACTION_MOVE)
     return TRUE;
 
@@ -1294,18 +1009,15 @@ constrain_aspect_ratio (MetaWindow         *window,
       fudge = 1;
       break;
     }
-
-  meta_window_frame_rect_to_client_rect (window, &info->current, &client_rect);
-
-  constraint_already_satisfied =
-    client_rect.width - (client_rect.height * minr ) > -minr*fudge &&
-    client_rect.width - (client_rect.height * maxr ) <  maxr*fudge;
+  constraint_already_satisfied = 
+    info->current.width - (info->current.height * minr ) > -minr*fudge &&
+    info->current.width - (info->current.height * maxr ) <  maxr*fudge;
   if (check_only || constraint_already_satisfied)
     return constraint_already_satisfied;
 
   /*** Enforce constraint ***/
-  new_width = client_rect.width;
-  new_height = client_rect.height;
+  new_width = info->current.width;
+  new_height = info->current.height;
 
   switch (info->resize_gravity)
     {
@@ -1352,14 +1064,6 @@ constrain_aspect_ratio (MetaWindow         *window,
       break;
     }
 
-  {
-    client_rect.width = new_width;
-    client_rect.height = new_height;
-    meta_window_client_rect_to_frame_rect (window, &client_rect, &client_rect);
-    new_width = client_rect.width;
-    new_height = client_rect.height;
-  }
-
   /* Figure out what original rect to pass to meta_rectangle_resize_with_gravity
    * See bug 448183
    */
@@ -1369,7 +1073,7 @@ constrain_aspect_ratio (MetaWindow         *window,
     start_rect = &info->orig;
 
   meta_rectangle_resize_with_gravity (start_rect,
-                                      &info->current,
+                                      &info->current, 
                                       info->resize_gravity,
                                       new_width,
                                       new_height);
@@ -1378,7 +1082,7 @@ constrain_aspect_ratio (MetaWindow         *window,
 }
 
 static gboolean
-do_screen_and_monitor_relative_constraints (
+do_screen_and_xinerama_relative_constraints (
   MetaWindow     *window,
   GList          *region_spanning_rectangles,
   ConstraintInfo *info,
@@ -1394,7 +1098,7 @@ do_screen_and_monitor_relative_constraints (
       char spanning_region[1 + 28 * g_list_length (region_spanning_rectangles)];
 
       meta_topic (META_DEBUG_GEOMETRY,
-             "screen/monitor constraint; region_spanning_rectangles: %s\n",
+             "screen/xinerama constraint; region_spanning_rectangles: %s\n",
              meta_rectangle_region_to_string (region_spanning_rectangles, ", ",
                                               spanning_region));
     }
@@ -1402,7 +1106,8 @@ do_screen_and_monitor_relative_constraints (
 
   /* Determine whether constraint applies; exit if it doesn't */
   how_far_it_can_be_smushed = info->current;
-  get_size_limits (window, &min_size, &max_size);
+  get_size_limits (window, info->fgeom, TRUE, &min_size, &max_size);
+  extend_by_frame (&info->current, info->fgeom);
 
   if (info->action_type != ACTION_MOVE)
     {
@@ -1417,11 +1122,14 @@ do_screen_and_monitor_relative_constraints (
     exit_early = TRUE;
 
   /* Determine whether constraint is already satisfied; exit if it is */
-  constraint_satisfied =
+  constraint_satisfied = 
     meta_rectangle_contained_in_region (region_spanning_rectangles,
                                         &info->current);
   if (exit_early || constraint_satisfied || check_only)
-    return constraint_satisfied;
+    {
+      unextend_by_frame (&info->current, info->fgeom);
+      return constraint_satisfied;
+    }
 
   /* Enforce constraint */
 
@@ -1443,41 +1151,37 @@ do_screen_and_monitor_relative_constraints (
                                       info->fixed_directions,
                                       &info->current);
 
+  unextend_by_frame (&info->current, info->fgeom);
   return TRUE;
 }
 
 static gboolean
-constrain_to_single_monitor (MetaWindow         *window,
-                             ConstraintInfo     *info,
-                             ConstraintPriority  priority,
-                             gboolean            check_only)
+constrain_to_single_xinerama (MetaWindow         *window,
+                              ConstraintInfo     *info,
+                              ConstraintPriority  priority,
+                              gboolean            check_only)
 {
-  MetaBackend *backend = meta_get_backend ();
-  MetaMonitorManager *monitor_manager =
-    meta_backend_get_monitor_manager (backend);
-
-  if (priority > PRIORITY_ENTIRELY_VISIBLE_ON_SINGLE_MONITOR)
+  if (priority > PRIORITY_ENTIRELY_VISIBLE_ON_SINGLE_XINERAMA)
     return TRUE;
 
   /* Exit early if we know the constraint won't apply--note that this constraint
-   * is only meant for normal windows (e.g. we don't want docks to be shoved
+   * is only meant for normal windows (e.g. we don't want docks to be shoved 
    * "onscreen" by their own strut) and we can't apply it to frameless windows
-   * or else users will be unable to move windows such as XMMS across monitors.
+   * or else users will be unable to move windows such as XMMS across xineramas.
    */
-  if (window->type == META_WINDOW_DESKTOP ||
-      window->type == META_WINDOW_DOCK ||
-      meta_monitor_manager_get_num_logical_monitors (monitor_manager) == 1 ||
-      !window->require_on_single_monitor ||
-      !window->frame ||
-      info->is_user_action ||
-      meta_window_get_placement_rule (window))
+  if (window->type == META_WINDOW_DESKTOP   ||
+      window->type == META_WINDOW_DOCK      ||
+      window->screen->n_xinerama_infos == 1 ||
+      !window->require_on_single_xinerama   ||
+      !window->frame                        ||
+      info->is_user_action)
     return TRUE;
 
   /* Have a helper function handle the constraint for us */
-  return do_screen_and_monitor_relative_constraints (window,
-                                                     info->usable_monitor_region,
-                                                     info,
-                                                     check_only);
+  return do_screen_and_xinerama_relative_constraints (window, 
+                                                 info->usable_xinerama_region,
+                                                 info,
+                                                 check_only);
 }
 
 static gboolean
@@ -1490,22 +1194,21 @@ constrain_fully_onscreen (MetaWindow         *window,
     return TRUE;
 
   /* Exit early if we know the constraint won't apply--note that this constraint
-   * is only meant for normal windows (e.g. we don't want docks to be shoved
+   * is only meant for normal windows (e.g. we don't want docks to be shoved 
    * "onscreen" by their own strut).
    */
   if (window->type == META_WINDOW_DESKTOP ||
       window->type == META_WINDOW_DOCK    ||
       window->fullscreen                  ||
-      !window->require_fully_onscreen     ||
-      info->is_user_action                ||
-      meta_window_get_placement_rule (window))
+      !window->require_fully_onscreen     || 
+      info->is_user_action)
     return TRUE;
 
   /* Have a helper function handle the constraint for us */
-  return do_screen_and_monitor_relative_constraints (window,
-                                                     info->usable_screen_region,
-                                                     info,
-                                                     check_only);
+  return do_screen_and_xinerama_relative_constraints (window, 
+                                                 info->usable_screen_region,
+                                                 info,
+                                                 check_only);
 }
 
 static gboolean
@@ -1530,15 +1233,15 @@ constrain_titlebar_visible (MetaWindow         *window,
     info->is_user_action && !window->display->grab_frame_action;
 
   /* Exit early if we know the constraint won't apply--note that this constraint
-   * is only meant for normal windows (e.g. we don't want docks to be shoved
+   * is only meant for normal windows (e.g. we don't want docks to be shoved 
    * "onscreen" by their own strut).
    */
   if (window->type == META_WINDOW_DESKTOP ||
       window->type == META_WINDOW_DOCK    ||
       window->fullscreen                  ||
       !window->require_titlebar_visible   ||
-      unconstrained_user_action           ||
-      meta_window_get_placement_rule (window))
+      !window->decorated                  ||
+      unconstrained_user_action)
     return TRUE;
 
   /* Determine how much offscreen things are allowed.  We first need to
@@ -1561,11 +1264,8 @@ constrain_titlebar_visible (MetaWindow         *window,
    */
   if (window->frame)
     {
-      MetaFrameBorders borders;
-      meta_frame_calc_borders (window->frame, &borders);
-
-      bottom_amount = info->current.height + borders.visible.bottom;
-      vert_amount_onscreen = borders.visible.top;
+      bottom_amount = info->current.height + info->fgeom->bottom_height;
+      vert_amount_onscreen = info->fgeom->top_height;
     }
   else
     bottom_amount = vert_amount_offscreen;
@@ -1575,16 +1275,16 @@ constrain_titlebar_visible (MetaWindow         *window,
    */
   meta_rectangle_expand_region_conditionally (info->usable_screen_region,
                                               horiz_amount_offscreen,
-                                              horiz_amount_offscreen,
+                                              horiz_amount_offscreen, 
                                               0, /* Don't let titlebar off */
                                               bottom_amount,
                                               horiz_amount_onscreen,
                                               vert_amount_onscreen);
   retval =
-    do_screen_and_monitor_relative_constraints (window,
-                                                info->usable_screen_region,
-                                                info,
-                                                check_only);
+    do_screen_and_xinerama_relative_constraints (window, 
+                                                 info->usable_screen_region,
+                                                 info,
+                                                 check_only);
   meta_rectangle_expand_region_conditionally (info->usable_screen_region,
                                               -horiz_amount_offscreen,
                                               -horiz_amount_offscreen,
@@ -1611,12 +1311,11 @@ constrain_partially_onscreen (MetaWindow         *window,
     return TRUE;
 
   /* Exit early if we know the constraint won't apply--note that this constraint
-   * is only meant for normal windows (e.g. we don't want docks to be shoved
+   * is only meant for normal windows (e.g. we don't want docks to be shoved 
    * "onscreen" by their own strut).
    */
   if (window->type == META_WINDOW_DESKTOP ||
-      window->type == META_WINDOW_DOCK    ||
-      meta_window_get_placement_rule (window))
+      window->type == META_WINDOW_DOCK)
     return TRUE;
 
   /* Determine how much offscreen things are allowed.  We first need to
@@ -1640,11 +1339,8 @@ constrain_partially_onscreen (MetaWindow         *window,
    */
   if (window->frame)
     {
-      MetaFrameBorders borders;
-      meta_frame_calc_borders (window->frame, &borders);
-
-      bottom_amount = info->current.height + borders.visible.bottom;
-      vert_amount_onscreen = borders.visible.top;
+      bottom_amount = info->current.height + info->fgeom->bottom_height;
+      vert_amount_onscreen = info->fgeom->top_height;
     }
   else
     bottom_amount = vert_amount_offscreen;
@@ -1654,16 +1350,16 @@ constrain_partially_onscreen (MetaWindow         *window,
    */
   meta_rectangle_expand_region_conditionally (info->usable_screen_region,
                                               horiz_amount_offscreen,
-                                              horiz_amount_offscreen,
+                                              horiz_amount_offscreen, 
                                               top_amount,
                                               bottom_amount,
                                               horiz_amount_onscreen,
                                               vert_amount_onscreen);
   retval =
-    do_screen_and_monitor_relative_constraints (window,
-                                                info->usable_screen_region,
-                                                info,
-                                                check_only);
+    do_screen_and_xinerama_relative_constraints (window, 
+                                                 info->usable_screen_region,
+                                                 info,
+                                                 check_only);
   meta_rectangle_expand_region_conditionally (info->usable_screen_region,
                                               -horiz_amount_offscreen,
                                               -horiz_amount_offscreen,

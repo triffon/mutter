@@ -10,10 +10,10 @@
  * are unmapped.
  */
 
-/*
+/* 
  * Copyright (C) 2001 Havoc Pennington
  * Copyright (C) 2004, 2005 Elijah Newren
- *
+ * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; either version 2 of the
@@ -23,43 +23,36 @@
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- *
+ * 
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  */
 
 #ifndef META_WORKSPACE_PRIVATE_H
 #define META_WORKSPACE_PRIVATE_H
 
-#include <meta/workspace.h>
+#include "workspace.h"
 #include "window-private.h"
 
 struct _MetaWorkspace
 {
   GObject parent_instance;
   MetaScreen *screen;
-
+  
   GList *windows;
-
-  /* The "MRU list", or "most recently used" list, is a list of
-   * MetaWindows ordered based on the time the the user interacted
-   * with the window most recently.
-   *
-   * For historical reasons, we keep an MRU list per workspace.
-   * It used to be used to calculate the default focused window,
-   * but isn't anymore, as the window next in the stacking order
-   * can sometimes be not the window the user interacted with last,
-   */
   GList *mru_list;
 
   GList  *list_containing_self;
 
-  GHashTable *logical_monitor_data;
-
   MetaRectangle work_area_screen;
+  MetaRectangle *work_area_xinerama;
   GList  *screen_region;
+  GList  **xinerama_region;
+  gint n_xinerama_regions;
   GList  *screen_edges;
-  GList  *monitor_edges;
+  GList  *xinerama_edges;
   GSList *builtin_struts;
   GSList *all_struts;
   guint work_areas_invalid : 1;
@@ -81,22 +74,29 @@ void           meta_workspace_remove_window (MetaWorkspace *workspace,
 void           meta_workspace_relocate_windows (MetaWorkspace *workspace,
                                                 MetaWorkspace *new_home);
 
-void meta_workspace_get_work_area_for_logical_monitor (MetaWorkspace      *workspace,
-                                                       MetaLogicalMonitor *logical_monitor,
-                                                       MetaRectangle      *area);
-
 void meta_workspace_invalidate_work_area (MetaWorkspace *workspace);
 
+
+void meta_workspace_get_work_area_for_xinerama  (MetaWorkspace *workspace,
+                                                 int            which_xinerama,
+                                                 MetaRectangle *area);
 GList* meta_workspace_get_onscreen_region       (MetaWorkspace *workspace);
-GList * meta_workspace_get_onmonitor_region (MetaWorkspace      *workspace,
-                                             MetaLogicalMonitor *logical_monitor);
+GList* meta_workspace_get_onxinerama_region     (MetaWorkspace *workspace,
+                                                 int            which_xinerama);
+void meta_workspace_get_work_area_all_xineramas (MetaWorkspace *workspace,
+                                                 MetaRectangle *area);
 
 void meta_workspace_focus_default_window (MetaWorkspace *workspace,
                                           MetaWindow    *not_this_one,
                                           guint32        timestamp);
 
+MetaWorkspace* meta_workspace_get_neighbor (MetaWorkspace      *workspace,
+                                            MetaMotionDirection direction);
+
 const char* meta_workspace_get_name (MetaWorkspace *workspace);
 
-void meta_workspace_index_changed (MetaWorkspace *workspace);
-
 #endif
+
+
+
+
