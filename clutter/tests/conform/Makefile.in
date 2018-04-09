@@ -804,7 +804,8 @@ top_srcdir = @top_srcdir@
 TESTS_ENVIRONMENT = G_TEST_SRCDIR="$(abs_srcdir)" \
 	G_TEST_BUILDDIR="$(abs_builddir)" G_DEBUG=gc-friendly \
 	MALLOC_CHECK_=2 MALLOC_PERTURB_=$$(($${RANDOM:-256} % 256)) \
-	G_ENABLE_DIAGNOSTIC=0 CLUTTER_ENABLE_DIAGNOSTIC=0
+	G_ENABLE_DIAGNOSTIC=0 CLUTTER_ENABLE_DIAGNOSTIC=0 \
+	CLUTTER_SCALE=1
 LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/build/autotools/tap-driver.sh
 LOG_COMPILER = $(top_srcdir)/build/autotools/tap-test
 NULL = 
