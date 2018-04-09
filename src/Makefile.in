@@ -295,9 +295,9 @@ am__libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES_DIST =  \
 	backends/meta-cursor.h backends/meta-cursor-tracker.c \
 	backends/meta-cursor-tracker-private.h \
 	backends/meta-cursor-renderer.c \
-	backends/meta-cursor-renderer.h backends/meta-egl.c \
-	backends/meta-egl.h backends/meta-egl-ext.h \
-	backends/meta-display-config-shared.h \
+	backends/meta-cursor-renderer.h backends/meta-dnd-private.h \
+	backends/meta-egl.c backends/meta-egl.h \
+	backends/meta-egl-ext.h backends/meta-display-config-shared.h \
 	backends/meta-idle-monitor.c \
 	backends/meta-idle-monitor-private.h \
 	backends/meta-idle-monitor-dbus.c \
@@ -357,7 +357,8 @@ am__libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES_DIST =  \
 	compositor/meta-background-actor-private.h \
 	compositor/meta-background-image.c \
 	compositor/meta-background-group.c compositor/meta-cullable.c \
-	compositor/meta-cullable.h compositor/meta-dnd-actor.c \
+	compositor/meta-cullable.h compositor/meta-dnd.c \
+	compositor/meta-dnd-actor.c \
 	compositor/meta-dnd-actor-private.h \
 	compositor/meta-feedback-actor.c \
 	compositor/meta-feedback-actor-private.h \
@@ -582,9 +583,10 @@ am_libmutter_@LIBMUTTER_API_VERSION@_la_OBJECTS =  \
 	compositor/meta-background-actor.lo \
 	compositor/meta-background-image.lo \
 	compositor/meta-background-group.lo \
-	compositor/meta-cullable.lo compositor/meta-dnd-actor.lo \
-	compositor/meta-feedback-actor.lo compositor/meta-module.lo \
-	compositor/meta-plugin.lo compositor/meta-plugin-manager.lo \
+	compositor/meta-cullable.lo compositor/meta-dnd.lo \
+	compositor/meta-dnd-actor.lo compositor/meta-feedback-actor.lo \
+	compositor/meta-module.lo compositor/meta-plugin.lo \
+	compositor/meta-plugin-manager.lo \
 	compositor/meta-shadow-factory.lo \
 	compositor/meta-shaped-texture.lo \
 	compositor/meta-surface-actor.lo \
@@ -1053,9 +1055,9 @@ libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES =  \
 	backends/meta-cursor.h backends/meta-cursor-tracker.c \
 	backends/meta-cursor-tracker-private.h \
 	backends/meta-cursor-renderer.c \
-	backends/meta-cursor-renderer.h backends/meta-egl.c \
-	backends/meta-egl.h backends/meta-egl-ext.h \
-	backends/meta-display-config-shared.h \
+	backends/meta-cursor-renderer.h backends/meta-dnd-private.h \
+	backends/meta-egl.c backends/meta-egl.h \
+	backends/meta-egl-ext.h backends/meta-display-config-shared.h \
 	backends/meta-idle-monitor.c \
 	backends/meta-idle-monitor-private.h \
 	backends/meta-idle-monitor-dbus.c \
@@ -1115,7 +1117,8 @@ libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES =  \
 	compositor/meta-background-actor-private.h \
 	compositor/meta-background-image.c \
 	compositor/meta-background-group.c compositor/meta-cullable.c \
-	compositor/meta-cullable.h compositor/meta-dnd-actor.c \
+	compositor/meta-cullable.h compositor/meta-dnd.c \
+	compositor/meta-dnd-actor.c \
 	compositor/meta-dnd-actor-private.h \
 	compositor/meta-feedback-actor.c \
 	compositor/meta-feedback-actor-private.h \
@@ -1197,6 +1200,7 @@ libmutterinclude_headers = \
 	meta/meta-background-image.h		\
 	meta/meta-background-group.h		\
 	meta/meta-cursor-tracker.h		\
+	meta/meta-dnd.h			\
 	meta/meta-idle-monitor.h		\
 	meta/meta-plugin.h			\
 	meta/meta-monitor-manager.h		\
@@ -1527,6 +1531,8 @@ compositor/meta-background-image.lo: compositor/$(am__dirstamp) \
 compositor/meta-background-group.lo: compositor/$(am__dirstamp) \
 	compositor/$(DEPDIR)/$(am__dirstamp)
 compositor/meta-cullable.lo: compositor/$(am__dirstamp) \
+	compositor/$(DEPDIR)/$(am__dirstamp)
+compositor/meta-dnd.lo: compositor/$(am__dirstamp) \
 	compositor/$(DEPDIR)/$(am__dirstamp)
 compositor/meta-dnd-actor.lo: compositor/$(am__dirstamp) \
 	compositor/$(DEPDIR)/$(am__dirstamp)
@@ -2030,6 +2036,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@compositor/$(DEPDIR)/meta-background.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@compositor/$(DEPDIR)/meta-cullable.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@compositor/$(DEPDIR)/meta-dnd-actor.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@compositor/$(DEPDIR)/meta-dnd.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@compositor/$(DEPDIR)/meta-feedback-actor.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@compositor/$(DEPDIR)/meta-module.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@compositor/$(DEPDIR)/meta-plugin-manager.Plo@am__quote@
