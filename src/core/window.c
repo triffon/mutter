@@ -878,8 +878,6 @@ _meta_window_shared_new (MetaDisplay         *display,
 
   window->constructing = TRUE;
 
-  window->dialog_pid = -1;
-
   window->client_type = client_type;
   window->surface = surface;
   window->xwindow = xwindow;
@@ -2892,6 +2890,7 @@ void
 meta_window_tile (MetaWindow *window)
 {
   MetaMaximizeFlags directions;
+  MetaRectangle old_frame_rect, old_buffer_rect;
 
   /* Don't do anything if no tiling is requested */
   if (window->tile_mode == META_TILE_NONE)
@@ -2905,7 +2904,19 @@ meta_window_tile (MetaWindow *window)
   meta_window_maximize_internal (window, directions, NULL);
   meta_screen_update_tile_preview (window->screen, FALSE);
 
-  meta_window_move_resize_now (window);
+  meta_window_get_frame_rect (window, &old_frame_rect);
+  meta_window_get_buffer_rect (window, &old_buffer_rect);
+
+  meta_compositor_size_change_window (window->display->compositor, window,
+                                      META_SIZE_CHANGE_MAXIMIZE,
+                                      &old_frame_rect, &old_buffer_rect);
+
+  meta_window_move_resize_internal (window,
+                                    (META_MOVE_RESIZE_MOVE_ACTION |
+                                     META_MOVE_RESIZE_RESIZE_ACTION |
+                                     META_MOVE_RESIZE_STATE_CHANGED),
+                                    NorthWestGravity,
+                                    window->unconstrained_rect);
 
   if (window->frame)
     meta_frame_queue_draw (window->frame);
@@ -4357,6 +4368,10 @@ meta_window_focus (MetaWindow  *window,
       ClutterStage *stage = CLUTTER_STAGE (meta_backend_get_stage (backend));
       clutter_stage_set_key_focus (stage, NULL);
     }
+
+  if (window->close_dialog &&
+      meta_close_dialog_is_visible (window->close_dialog))
+    meta_close_dialog_focus (window->close_dialog);
 
   if (window->wm_state_demands_attention)
     meta_window_unset_demands_attention(window);
@@ -7509,7 +7524,7 @@ check_transient_for_loop (MetaWindow *window,
 {
   while (parent)
     {
-      if (parent->transient_for == window)
+      if (parent == window)
           return TRUE;
       parent = parent->transient_for;
     }
@@ -8050,4 +8065,18 @@ MetaPlacementRule *
 meta_window_get_placement_rule (MetaWindow *window)
 {
   return window->placement_rule;
+}
+
+void
+meta_window_force_restore_shortcuts (MetaWindow         *window,
+                                     ClutterInputDevice *source)
+{
+  META_WINDOW_GET_CLASS (window)->force_restore_shortcuts (window, source);
+}
+
+gboolean
+meta_window_shortcuts_inhibited (MetaWindow         *window,
+                                 ClutterInputDevice *source)
+{
+  return META_WINDOW_GET_CLASS (window)->shortcuts_inhibited (window, source);
 }

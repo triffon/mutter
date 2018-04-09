@@ -28,7 +28,9 @@
 
 #include "backends/meta-backend-private.h"
 #include "backends/x11/meta-cursor-renderer-x11.h"
+#include "backends/x11/meta-input-settings-x11.h"
 #include "backends/x11/meta-monitor-manager-xrandr.h"
+#include "backends/x11/cm/meta-renderer-x11-cm.h"
 
 struct _MetaBackendX11Cm
 {
@@ -89,6 +91,12 @@ meta_backend_x11_cm_post_init (MetaBackend *backend)
   take_touch_grab (backend);
 }
 
+static MetaRenderer *
+meta_backend_x11_cm_create_renderer (MetaBackend *backend)
+{
+  return g_object_new (META_TYPE_RENDERER_X11_CM, NULL);
+}
+
 static MetaMonitorManager *
 meta_backend_x11_cm_create_monitor_manager (MetaBackend *backend)
 {
@@ -99,6 +107,12 @@ static MetaCursorRenderer *
 meta_backend_x11_cm_create_cursor_renderer (MetaBackend *backend)
 {
   return g_object_new (META_TYPE_CURSOR_RENDERER_X11, NULL);
+}
+
+static MetaInputSettings *
+meta_backend_x11_cm_create_input_settings (MetaBackend *backend)
+{
+  return g_object_new (META_TYPE_INPUT_SETTINGS_X11, NULL);
 }
 
 static void
@@ -380,8 +394,10 @@ meta_backend_x11_cm_class_init (MetaBackendX11CmClass *klass)
   MetaBackendX11Class *backend_x11_class = META_BACKEND_X11_CLASS (klass);
 
   backend_class->post_init = meta_backend_x11_cm_post_init;
+  backend_class->create_renderer = meta_backend_x11_cm_create_renderer;
   backend_class->create_monitor_manager = meta_backend_x11_cm_create_monitor_manager;
   backend_class->create_cursor_renderer = meta_backend_x11_cm_create_cursor_renderer;
+  backend_class->create_input_settings = meta_backend_x11_cm_create_input_settings;
   backend_class->update_screen_size = meta_backend_x11_cm_update_screen_size;
   backend_class->select_stage_events = meta_backend_x11_cm_select_stage_events;
   backend_class->lock_layout_group = meta_backend_x11_cm_lock_layout_group;

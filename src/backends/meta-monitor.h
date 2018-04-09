@@ -26,8 +26,6 @@
 
 #include "backends/meta-monitor-manager-private.h"
 
-typedef struct _MetaMonitorMode MetaMonitorMode;
-
 typedef struct _MetaMonitorSpec
 {
   char *connector;
@@ -41,12 +39,11 @@ typedef struct _MetaMonitorModeSpec
   int width;
   int height;
   float refresh_rate;
+  MetaCrtcModeFlag flags;
 } MetaMonitorModeSpec;
 
 typedef struct _MetaMonitorCrtcMode
 {
-  int x;
-  int y;
   MetaOutput *output;
   MetaCrtcMode *crtc_mode;
 } MetaMonitorCrtcMode;
@@ -56,6 +53,12 @@ typedef gboolean (* MetaMonitorModeFunc) (MetaMonitor         *monitor,
                                           MetaMonitorCrtcMode *monitor_crtc_mode,
                                           gpointer             user_data,
                                           GError             **error);
+
+typedef enum _MetaMonitorScalesConstraint
+{
+  META_MONITOR_SCALES_CONSTRAINT_NONE = 0,
+  META_MONITOR_SCALES_CONSTRAINT_NO_FRAC = (1 << 0),
+} MetaMonitorScalesConstraint;
 
 #define META_TYPE_MONITOR (meta_monitor_get_type ())
 G_DECLARE_DERIVABLE_TYPE (MetaMonitor, meta_monitor, META, MONITOR, GObject)
@@ -67,6 +70,12 @@ struct _MetaMonitorClass
   MetaOutput * (* get_main_output) (MetaMonitor *monitor);
   void (* derive_layout) (MetaMonitor   *monitor,
                           MetaRectangle *layout);
+  void (* calculate_crtc_pos) (MetaMonitor         *monitor,
+                               MetaMonitorMode     *monitor_mode,
+                               MetaOutput          *output,
+                               MetaMonitorTransform crtc_transform,
+                               int                 *out_x,
+                               int                 *out_y);
   gboolean (* get_suggested_position) (MetaMonitor *monitor,
                                        int         *width,
                                        int         *height);
@@ -96,6 +105,8 @@ MetaOutput * meta_monitor_get_main_output (MetaMonitor *monitor);
 
 gboolean meta_monitor_is_primary (MetaMonitor *monitor);
 
+gboolean meta_monitor_supports_underscanning (MetaMonitor *monitor);
+
 gboolean meta_monitor_is_underscanning (MetaMonitor *monitor);
 
 gboolean meta_monitor_is_laptop_panel (MetaMonitor *monitor);
@@ -115,11 +126,15 @@ void meta_monitor_get_physical_dimensions (MetaMonitor *monitor,
 
 CoglSubpixelOrder meta_monitor_get_subpixel_order (MetaMonitor *monitor);
 
+const char * meta_monitor_get_connector (MetaMonitor *monitor);
+
 const char * meta_monitor_get_vendor (MetaMonitor *monitor);
 
 const char * meta_monitor_get_product (MetaMonitor *monitor);
 
 const char * meta_monitor_get_serial (MetaMonitor *monitor);
+
+MetaConnectorType meta_monitor_get_connector_type (MetaMonitor *monitor);
 
 uint32_t meta_monitor_tiled_get_tile_group_id (MetaMonitorTiled *monitor_tiled);
 
@@ -128,6 +143,9 @@ gboolean meta_monitor_get_suggested_position (MetaMonitor *monitor,
                                               int         *y);
 
 MetaLogicalMonitor * meta_monitor_get_logical_monitor (MetaMonitor *monitor);
+
+MetaMonitorMode * meta_monitor_get_mode_from_id (MetaMonitor *monitor,
+                                                 const char  *monitor_mode_id);
 
 MetaMonitorMode * meta_monitor_get_mode_from_spec (MetaMonitor         *monitor,
                                                    MetaMonitorModeSpec *monitor_mode_spec);
@@ -143,6 +161,23 @@ void meta_monitor_set_current_mode (MetaMonitor     *monitor,
 
 GList * meta_monitor_get_modes (MetaMonitor *monitor);
 
+void meta_monitor_calculate_crtc_pos (MetaMonitor         *monitor,
+                                      MetaMonitorMode     *monitor_mode,
+                                      MetaOutput          *output,
+                                      MetaMonitorTransform crtc_transform,
+                                      int                 *out_x,
+                                      int                 *out_y);
+
+float meta_monitor_calculate_mode_scale (MetaMonitor     *monitor,
+                                         MetaMonitorMode *monitor_mode);
+
+float * meta_monitor_calculate_supported_scales (MetaMonitor                *monitor,
+                                                 MetaMonitorMode            *monitor_mode,
+                                                 MetaMonitorScalesConstraint constraints,
+                                                 int                        *n_supported_scales);
+
+const char * meta_monitor_mode_get_id (MetaMonitorMode *monitor_mode);
+
 MetaMonitorModeSpec * meta_monitor_mode_get_spec (MetaMonitorMode *monitor_mode);
 
 void meta_monitor_mode_get_resolution (MetaMonitorMode *monitor_mode,
@@ -150,6 +185,8 @@ void meta_monitor_mode_get_resolution (MetaMonitorMode *monitor_mode,
                                        int             *height);
 
 float meta_monitor_mode_get_refresh_rate (MetaMonitorMode *monitor_mode);
+
+MetaCrtcModeFlag meta_monitor_mode_get_flags (MetaMonitorMode *monitor_mode);
 
 gboolean meta_monitor_mode_foreach_crtc (MetaMonitor        *monitor,
                                          MetaMonitorMode    *mode,

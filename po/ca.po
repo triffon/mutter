@@ -13,16 +13,16 @@ msgstr ""
 "Project-Id-Version: metacity 2.24\n"
 "Report-Msgid-Bugs-To: https://bugzilla.gnome.org/enter_bug.cgi?"
 "product=mutter&keywords=I18N+L10N&component=general\n"
-"POT-Creation-Date: 2017-07-07 04:21+0000\n"
-"PO-Revision-Date: 2017-07-10 02:05+0200\n"
+"POT-Creation-Date: 2017-07-26 13:44+0000\n"
+"PO-Revision-Date: 2017-07-2614:45+0100\n"
 "Last-Translator: Jordi Mas <jmas@softcatala.org>\n"
 "Language-Team: Catalan <tradgnome@softcatala.org>\n"
 "Language: ca\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
+"Content-Transfer-Encoding: 8bits\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Poedit 2.0.1\n"
+"X-Generator: Gtranslator 2.91.6\n"
 
 #: data/50-mutter-navigation.xml:6
 msgid "Navigation"
@@ -439,6 +439,14 @@ msgstr "Selecció de finestra entre les emergents d'una pestanya"
 msgid "Cancel tab popup"
 msgstr "Cancel·lació de les finestres emergents a les pestanyes"
 
+#: data/org.gnome.mutter.gschema.xml.in:161
+msgid "Switch monitor configurations"
+msgstr "Canvia configuracions de monitor"
+
+#: data/org.gnome.mutter.gschema.xml.in:166
+msgid "Rotates the built-in monitor configuration"
+msgstr "Gira la configuració del monitor integrada"
+
 #: data/org.gnome.mutter.wayland.gschema.xml.in:6
 msgid "Switch to VT 1"
 msgstr "Canvia al terminal virtual 1"
@@ -490,7 +498,7 @@ msgstr "Canvia al terminal virtual 12"
 #. TRANSLATORS: This string refers to a button that switches between
 #. * different modes.
 #.
-#: src/backends/meta-input-settings.c:1871
+#: src/backends/meta-input-settings.c:2118
 #, c-format
 msgid "Mode Switch (Group %d)"
 msgstr "Mode de commutació (grup %d)"
@@ -498,30 +506,30 @@ msgstr "Mode de commutació (grup %d)"
 #. TRANSLATORS: This string refers to an action, cycles drawing tablets'
 #. * mapping through the available outputs.
 #.
-#: src/backends/meta-input-settings.c:1893
+#: src/backends/meta-input-settings.c:2141
 msgid "Switch monitor"
 msgstr "Commuta el monitor"
 
-#: src/backends/meta-input-settings.c:1895
+#: src/backends/meta-input-settings.c:2143
 msgid "Show on-screen help"
 msgstr "Mostra l'ajuda en pantalla"
 
-#: src/backends/meta-monitor-manager.c:879
+#: src/backends/meta-monitor-manager.c:925
 msgid "Built-in display"
 msgstr "Pantalla integrada"
 
-#: src/backends/meta-monitor-manager.c:902
+#: src/backends/meta-monitor-manager.c:948
 msgid "Unknown"
 msgstr "Desconeguda"
 
-#: src/backends/meta-monitor-manager.c:904
+#: src/backends/meta-monitor-manager.c:950
 msgid "Unknown Display"
 msgstr "Pantalla desconeguda"
 
 #. TRANSLATORS: this is a monitor vendor name, followed by a
 #. * size in inches, like 'Dell 15"'
 #.
-#: src/backends/meta-monitor-manager.c:912
+#: src/backends/meta-monitor-manager.c:958
 #, c-format
 msgid "%s %s"
 msgstr "%s %s"

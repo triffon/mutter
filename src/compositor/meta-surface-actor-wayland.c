@@ -35,15 +35,8 @@
 #include "wayland/meta-wayland-private.h"
 #include "wayland/meta-window-wayland.h"
 
+#include "backends/meta-backend-private.h"
 #include "compositor/region-utils.h"
-
-enum {
-  PAINTING,
-
-  LAST_SIGNAL
-};
-
-static guint signals[LAST_SIGNAL];
 
 struct _MetaSurfaceActorWaylandPrivate
 {
@@ -98,17 +91,20 @@ meta_surface_actor_wayland_get_scale (MetaSurfaceActorWayland *self)
 {
    MetaWaylandSurface *surface = meta_surface_actor_wayland_get_surface (self);
    MetaWindow *window;
-   int output_scale = 1;
+   int geometry_scale = 1;
 
    g_assert (surface);
 
    window = meta_wayland_surface_get_toplevel_window (surface);
 
-   /* XXX: We do not handle x11 clients yet */
-   if (window && window->client_type != META_WINDOW_CLIENT_TYPE_X11)
-     output_scale = meta_window_wayland_get_main_monitor_scale (window);
+   if (!meta_is_stage_views_scaled ())
+     {
+       /* XXX: We do not handle x11 clients yet */
+       if (window && window->client_type != META_WINDOW_CLIENT_TYPE_X11)
+         geometry_scale = meta_window_wayland_get_geometry_scale (window);
+     }
 
-   return (double) output_scale / (double) surface->scale;
+   return (double) geometry_scale / (double) surface->scale;
 }
 
 static void
@@ -118,16 +114,16 @@ logical_to_actor_position (MetaSurfaceActorWayland *self,
 {
   MetaWaylandSurface *surface = meta_surface_actor_wayland_get_surface (self);
   MetaWindow *toplevel_window;
-  int monitor_scale = 1;
+  int geometry_scale = 1;
 
   g_assert (surface);
 
   toplevel_window = meta_wayland_surface_get_toplevel_window (surface);
   if (toplevel_window)
-    monitor_scale = meta_window_wayland_get_main_monitor_scale (toplevel_window);
+    geometry_scale = meta_window_wayland_get_geometry_scale (toplevel_window);
 
-  *x = *x * monitor_scale;
-  *y = *y * monitor_scale;
+  *x = *x * geometry_scale;
+  *y = *y * geometry_scale;
 }
 
 /* Convert the current actor state to the corresponding subsurface rectangle
@@ -140,19 +136,19 @@ meta_surface_actor_wayland_get_subsurface_rect (MetaSurfaceActorWayland *self,
   MetaWaylandBuffer *buffer = meta_wayland_surface_get_buffer (surface);
   CoglTexture *texture;
   MetaWindow *toplevel_window;
-  int monitor_scale;
+  int geometry_scale;
   float x, y;
 
   g_assert (surface);
 
   texture = buffer->texture;
   toplevel_window = meta_wayland_surface_get_toplevel_window (surface);
-  monitor_scale = meta_window_wayland_get_main_monitor_scale (toplevel_window);
+  geometry_scale = meta_window_wayland_get_geometry_scale (toplevel_window);
 
   clutter_actor_get_position (CLUTTER_ACTOR (self), &x, &y);
   *rect = (MetaRectangle) {
-    .x = x / monitor_scale,
-    .y = y / monitor_scale,
+    .x = x / geometry_scale,
+    .y = y / geometry_scale,
     .width = cogl_texture_get_width (texture) / surface->scale,
     .height = cogl_texture_get_height (texture) / surface->scale,
   };
@@ -394,8 +390,6 @@ meta_surface_actor_wayland_paint (ClutterActor *actor)
       wl_list_init (&priv->frame_callback_list);
     }
 
-  g_signal_emit (actor, signals[PAINTING], 0);
-
   CLUTTER_ACTOR_CLASS (meta_surface_actor_wayland_parent_class)->paint (actor);
 }
 
@@ -445,13 +439,6 @@ meta_surface_actor_wayland_class_init (MetaSurfaceActorWaylandClass *klass)
   surface_actor_class->get_window = meta_surface_actor_wayland_get_window;
 
   object_class->dispose = meta_surface_actor_wayland_dispose;
-
-  signals[PAINTING] = g_signal_new ("painting",
-                                    G_TYPE_FROM_CLASS (object_class),
-                                    G_SIGNAL_RUN_LAST,
-                                    0,
-                                    NULL, NULL, NULL,
-                                    G_TYPE_NONE, 0);
 }
 
 static void

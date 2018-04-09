@@ -24,7 +24,6 @@
 #include "config.h"
 
 #include "meta-monitor-manager-kms.h"
-#include "meta-monitor-config.h"
 #include "meta-monitor-config-manager.h"
 #include "meta-backend-private.h"
 #include "meta-renderer-native.h"
@@ -110,9 +109,10 @@ struct _MetaMonitorManagerKms
   GUdevClient *udev;
   guint uevent_handler_id;
 
-  GSettings *desktop_settings;
-
   gboolean page_flips_not_supported;
+
+  int max_buffer_width;
+  int max_buffer_height;
 };
 
 struct _MetaMonitorManagerKmsClass
@@ -483,85 +483,6 @@ find_output_by_id (MetaOutput *outputs,
   return NULL;
 }
 
-/* The minimum resolution at which we turn on a window-scale of 2 */
-#define HIDPI_LIMIT 192
-
-/* The minimum screen height at which we turn on a window-scale of 2;
- * below this there just isn't enough vertical real estate for GNOME
- * apps to work, and it's better to just be tiny */
-#define HIDPI_MIN_HEIGHT 1200
-
-/* From http://en.wikipedia.org/wiki/4K_resolution#Resolutions_of_common_formats */
-#define SMALLEST_4K_WIDTH 3656
-
-/* Based on code from gnome-settings-daemon */
-static int
-compute_scale (MetaOutput *output)
-{
-  int scale = 1, width, height;
-
-  if (!output->crtc)
-    goto out;
-
-  width = output->crtc->rect.width;
-  height = output->crtc->rect.height;
-
-  /* Swap values on rotated transforms, so pixel and mm sizes
-   * from the same axes is compared.
-   */
-  if (meta_monitor_transform_is_rotated (output->crtc->transform))
-    {
-      int tmp = width;
-      width = height;
-      height = tmp;
-    }
-
-  /* Scaling makes no sense */
-  if (height < HIDPI_MIN_HEIGHT)
-    goto out;
-
-  /* 4K TV */
-  if (output->name != NULL && strstr(output->name, "HDMI") != NULL &&
-      width >= SMALLEST_4K_WIDTH)
-    goto out;
-
-  /* Somebody encoded the aspect ratio (16/9 or 16/10)
-   * instead of the physical size */
-  if ((output->width_mm == 160 && output->height_mm == 90) ||
-      (output->width_mm == 160 && output->height_mm == 100) ||
-      (output->width_mm == 16 && output->height_mm == 9) ||
-      (output->width_mm == 16 && output->height_mm == 10))
-    goto out;
-
-  if (output->width_mm > 0 && output->height_mm > 0)
-    {
-      double dpi_x, dpi_y;
-
-      dpi_x = (double)width / (output->width_mm / 25.4);
-      dpi_y = (double)height / (output->height_mm / 25.4);
-      /* We don't completely trust these values so both
-         must be high, and never pick higher ratio than
-         2 automatically */
-      if (dpi_x > HIDPI_LIMIT && dpi_y > HIDPI_LIMIT)
-        scale = 2;
-    }
-
-out:
-  return scale;
-}
-
-static int
-get_output_scale (MetaMonitorManager *manager,
-                  MetaOutput         *output)
-{
-  MetaMonitorManagerKms *manager_kms = META_MONITOR_MANAGER_KMS (manager);
-  int scale = g_settings_get_uint (manager_kms->desktop_settings, "scaling-factor");
-  if (scale > 0)
-    return scale;
-  else
-    return compute_scale (output);
-}
-
 static int
 find_property_index (MetaMonitorManager         *manager,
                      drmModeObjectPropertiesPtr  props,
@@ -930,8 +851,6 @@ init_output (MetaOutput         *output,
   /* MetaConnectorType matches DRM's connector types */
   output->connector_type = (MetaConnectorType) connector->connector_type;
 
-  output->scale = get_output_scale (manager, output);
-
   output_get_tile_info (manager_kms, output);
 
   /* FIXME: backlight is a very driver specific thing unfortunately,
@@ -1171,7 +1090,7 @@ init_outputs (MetaMonitorManager *manager,
           MetaOutput *old_output;
 
           old_output = find_output_by_id (old_outputs, n_old_outputs,
-                                          output->winsys_id);
+                                          connector->connector_id);
           init_output (output, manager, connector, old_output);
           n_actual_outputs++;
         }
@@ -1195,9 +1114,8 @@ meta_monitor_manager_kms_read_current (MetaMonitorManager *manager)
 
   resources = drmModeGetResources (manager_kms->fd);
 
-  /* TODO: max screen width only matters for stage views is not enabled. */
-  manager->max_screen_width = resources->max_width;
-  manager->max_screen_height = resources->max_height;
+  manager_kms->max_buffer_width = resources->max_width;
+  manager_kms->max_buffer_height = resources->max_height;
 
   manager->power_save_mode = META_POWER_SAVE_ON;
 
@@ -1334,10 +1252,7 @@ meta_monitor_manager_kms_ensure_initial_config (MetaMonitorManager *manager)
 
   config = meta_monitor_manager_ensure_configured (manager);
 
-  if (manager->config_manager)
-    meta_monitor_manager_update_logical_state (manager, config);
-  else
-    meta_monitor_manager_update_logical_state_derived (manager);
+  meta_monitor_manager_update_logical_state (manager, config);
 }
 
 static void
@@ -1399,7 +1314,6 @@ apply_crtc_assignments (MetaMonitorManager *manager,
 
               output->is_dirty = TRUE;
               output->crtc = crtc;
-              output->scale = get_output_scale (manager, output);
             }
         }
 
@@ -1501,9 +1415,10 @@ update_screen_size (MetaMonitorManager *manager,
 }
 
 static gboolean
-meta_monitor_manager_kms_apply_monitors_config (MetaMonitorManager *manager,
-                                                MetaMonitorsConfig *config,
-                                                GError            **error)
+meta_monitor_manager_kms_apply_monitors_config (MetaMonitorManager      *manager,
+                                                MetaMonitorsConfig      *config,
+                                                MetaMonitorsConfigMethod method,
+                                                GError                 **error)
 {
   GPtrArray *crtc_infos;
   GPtrArray *output_infos;
@@ -1512,6 +1427,7 @@ meta_monitor_manager_kms_apply_monitors_config (MetaMonitorManager *manager,
     {
       manager->screen_width = 0;
       manager->screen_height = 0;
+      meta_monitor_manager_rebuild (manager, NULL);
       return TRUE;
     }
 
@@ -1519,6 +1435,13 @@ meta_monitor_manager_kms_apply_monitors_config (MetaMonitorManager *manager,
                                            &crtc_infos, &output_infos,
                                            error))
     return FALSE;
+
+  if (method == META_MONITORS_CONFIG_METHOD_VERIFY)
+    {
+      g_ptr_array_free (crtc_infos, TRUE);
+      g_ptr_array_free (output_infos, TRUE);
+      return TRUE;
+    }
 
   apply_crtc_assignments (manager,
                           (MetaCrtcInfo **) crtc_infos->pdata,
@@ -1533,37 +1456,6 @@ meta_monitor_manager_kms_apply_monitors_config (MetaMonitorManager *manager,
   meta_monitor_manager_rebuild (manager, config);
 
   return TRUE;
-}
-
-static void
-legacy_calculate_screen_size (MetaMonitorManager *manager)
-{
-  unsigned int i;
-  int width = 0, height = 0;
-
-  for (i = 0; i < manager->n_crtcs; i++)
-    {
-      MetaCrtc *crtc = &manager->crtcs[i];
-
-      width = MAX (width, crtc->rect.x + crtc->rect.width);
-      height = MAX (height, crtc->rect.y + crtc->rect.height);
-    }
-
-  manager->screen_width = width;
-  manager->screen_height = height;
-}
-
-static void
-meta_monitor_manager_kms_apply_configuration (MetaMonitorManager *manager,
-                                              MetaCrtcInfo      **crtcs,
-                                              unsigned int        n_crtcs,
-                                              MetaOutputInfo    **outputs,
-                                              unsigned int        n_outputs)
-{
-  apply_crtc_assignments (manager, crtcs, n_crtcs, outputs, n_outputs);
-
-  legacy_calculate_screen_size (manager);
-  meta_monitor_manager_rebuild_derived (manager);
 }
 
 static void
@@ -1705,8 +1597,6 @@ meta_monitor_manager_kms_init (MetaMonitorManagerKms *manager_kms)
                                                       G_IO_IN | G_IO_ERR);
   manager_kms->source->manager_kms = manager_kms;
   g_source_attach (source, NULL);
-
-  manager_kms->desktop_settings = g_settings_new ("org.gnome.desktop.interface");
 }
 
 static void
@@ -1898,13 +1788,106 @@ meta_monitor_manager_kms_is_transform_handled (MetaMonitorManager  *manager,
     return FALSE;
 }
 
+static float
+meta_monitor_manager_kms_calculate_monitor_mode_scale (MetaMonitorManager *manager,
+                                                       MetaMonitor        *monitor,
+                                                       MetaMonitorMode    *monitor_mode)
+{
+  return meta_monitor_calculate_mode_scale (monitor, monitor_mode);
+}
+
+static float *
+meta_monitor_manager_kms_calculate_supported_scales (MetaMonitorManager          *manager,
+                                                     MetaLogicalMonitorLayoutMode layout_mode,
+                                                     MetaMonitor                 *monitor,
+                                                     MetaMonitorMode             *monitor_mode,
+                                                     int                         *n_supported_scales)
+{
+  MetaMonitorScalesConstraint constraints =
+    META_MONITOR_SCALES_CONSTRAINT_NONE;
+
+  switch (layout_mode)
+    {
+    case META_LOGICAL_MONITOR_LAYOUT_MODE_LOGICAL:
+      break;
+    case META_LOGICAL_MONITOR_LAYOUT_MODE_PHYSICAL:
+      constraints |= META_MONITOR_SCALES_CONSTRAINT_NO_FRAC;
+      break;
+    }
+
+  return meta_monitor_calculate_supported_scales (monitor, monitor_mode,
+                                                  constraints,
+                                                  n_supported_scales);
+}
+
+static MetaMonitorManagerCapability
+meta_monitor_manager_kms_get_capabilities (MetaMonitorManager *manager)
+{
+  MetaBackend *backend = meta_get_backend ();
+  MetaSettings *settings = meta_backend_get_settings (backend);
+  MetaRenderer *renderer = meta_backend_get_renderer (backend);
+  MetaRendererNative *renderer_native = META_RENDERER_NATIVE (renderer);
+  MetaMonitorManagerCapability capabilities =
+    META_MONITOR_MANAGER_CAPABILITY_NONE;
+
+  if (meta_settings_is_experimental_feature_enabled (
+        settings,
+        META_EXPERIMENTAL_FEATURE_SCALE_MONITOR_FRAMEBUFFER))
+    capabilities |= META_MONITOR_MANAGER_CAPABILITY_LAYOUT_MODE;
+
+  switch (meta_renderer_native_get_mode (renderer_native))
+    {
+    case META_RENDERER_NATIVE_MODE_GBM:
+      capabilities |= META_MONITOR_MANAGER_CAPABILITY_MIRRORING;
+      break;
+#ifdef HAVE_EGL_DEVICE
+    case META_RENDERER_NATIVE_MODE_EGL_DEVICE:
+      break;
+#endif
+    }
+
+  return capabilities;
+}
+
+static gboolean
+meta_monitor_manager_kms_get_max_screen_size (MetaMonitorManager *manager,
+                                              int                *max_width,
+                                              int                *max_height)
+{
+  MetaMonitorManagerKms *manager_kms = META_MONITOR_MANAGER_KMS (manager);
+
+  if (meta_is_stage_views_enabled ())
+    return FALSE;
+
+  *max_width = manager_kms->max_buffer_width;
+  *max_height = manager_kms->max_buffer_height;
+
+  return TRUE;
+}
+
+static MetaLogicalMonitorLayoutMode
+meta_monitor_manager_kms_get_default_layout_mode (MetaMonitorManager *manager)
+{
+  MetaBackend *backend = meta_get_backend ();
+  MetaSettings *settings = meta_backend_get_settings (backend);
+
+  if (!meta_is_stage_views_enabled ())
+    return META_LOGICAL_MONITOR_LAYOUT_MODE_PHYSICAL;
+
+  if (meta_settings_is_experimental_feature_enabled (
+        settings,
+        META_EXPERIMENTAL_FEATURE_SCALE_MONITOR_FRAMEBUFFER))
+    return META_LOGICAL_MONITOR_LAYOUT_MODE_LOGICAL;
+  else
+    return META_LOGICAL_MONITOR_LAYOUT_MODE_PHYSICAL;
+}
+
 static void
 meta_monitor_manager_kms_dispose (GObject *object)
 {
   MetaMonitorManagerKms *manager_kms = META_MONITOR_MANAGER_KMS (object);
 
   g_clear_object (&manager_kms->udev);
-  g_clear_object (&manager_kms->desktop_settings);
 
   G_OBJECT_CLASS (meta_monitor_manager_kms_parent_class)->dispose (object);
 }
@@ -1933,9 +1916,13 @@ meta_monitor_manager_kms_class_init (MetaMonitorManagerKmsClass *klass)
   manager_class->read_edid = meta_monitor_manager_kms_read_edid;
   manager_class->ensure_initial_config = meta_monitor_manager_kms_ensure_initial_config;
   manager_class->apply_monitors_config = meta_monitor_manager_kms_apply_monitors_config;
-  manager_class->apply_configuration = meta_monitor_manager_kms_apply_configuration;
   manager_class->set_power_save_mode = meta_monitor_manager_kms_set_power_save_mode;
   manager_class->get_crtc_gamma = meta_monitor_manager_kms_get_crtc_gamma;
   manager_class->set_crtc_gamma = meta_monitor_manager_kms_set_crtc_gamma;
   manager_class->is_transform_handled = meta_monitor_manager_kms_is_transform_handled;
+  manager_class->calculate_monitor_mode_scale = meta_monitor_manager_kms_calculate_monitor_mode_scale;
+  manager_class->calculate_supported_scales = meta_monitor_manager_kms_calculate_supported_scales;
+  manager_class->get_capabilities = meta_monitor_manager_kms_get_capabilities;
+  manager_class->get_max_screen_size = meta_monitor_manager_kms_get_max_screen_size;
+  manager_class->get_default_layout_mode = meta_monitor_manager_kms_get_default_layout_mode;
 }

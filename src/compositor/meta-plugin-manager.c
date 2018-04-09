@@ -27,6 +27,8 @@
 #include <meta/workspace.h>
 #include "meta-module.h"
 #include "window-private.h"
+#include "meta-close-dialog-default-private.h"
+#include "meta-inhibit-shortcuts-dialog-default-private.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -375,4 +377,30 @@ meta_plugin_manager_show_window_menu_for_rect (MetaPluginManager  *plugin_mgr,
 
   if (klass->show_window_menu_for_rect)
     klass->show_window_menu_for_rect (plugin, window, menu, rect);
+}
+
+MetaCloseDialog *
+meta_plugin_manager_create_close_dialog (MetaPluginManager *plugin_mgr,
+                                         MetaWindow        *window)
+{
+  MetaPlugin *plugin = plugin_mgr->plugin;
+  MetaPluginClass *klass = META_PLUGIN_GET_CLASS (plugin);
+
+  if (klass->create_close_dialog)
+    return klass->create_close_dialog (plugin, window);
+
+  return meta_close_dialog_default_new (window);
+}
+
+MetaInhibitShortcutsDialog *
+meta_plugin_manager_create_inhibit_shortcuts_dialog (MetaPluginManager *plugin_mgr,
+                                                     MetaWindow        *window)
+{
+  MetaPlugin *plugin = plugin_mgr->plugin;
+  MetaPluginClass *klass = META_PLUGIN_GET_CLASS (plugin);
+
+  if (klass->create_inhibit_shortcuts_dialog)
+    return klass->create_inhibit_shortcuts_dialog (plugin, window);
+
+  return meta_inhibit_shortcuts_dialog_default_new (window);
 }

@@ -40,7 +40,8 @@ struct _MetaLogicalMonitor
   gboolean is_primary;
   gboolean is_presentation; /* XXX: not yet used */
   gboolean in_fullscreen;
-  int scale;
+  float scale;
+  MetaMonitorTransform transform;
 
   /* The primary or first output for this monitor, 0 if we can't figure out.
      It can be matched to a winsys_id of a MetaOutput.
@@ -60,13 +61,14 @@ G_DECLARE_FINAL_TYPE (MetaLogicalMonitor, meta_logical_monitor,
                       META, LOGICAL_MONITOR,
                       GObject)
 
-MetaLogicalMonitor * meta_logical_monitor_new (MetaMonitorManager          *monitor_manager,
-                                               MetaLogicalMonitorConfig    *logical_monitor_config,
-                                               int                          monitor_number);
+MetaLogicalMonitor * meta_logical_monitor_new (MetaMonitorManager       *monitor_manager,
+                                               MetaLogicalMonitorConfig *logical_monitor_config,
+                                               int                       monitor_number);
 
 MetaLogicalMonitor * meta_logical_monitor_new_derived (MetaMonitorManager *monitor_manager,
                                                        MetaMonitor        *monitor,
                                                        MetaRectangle      *layout,
+                                                       float               scale,
                                                        int                 monitor_number);
 
 void meta_logical_monitor_add_monitor (MetaLogicalMonitor *logical_monitor,
@@ -76,7 +78,11 @@ gboolean meta_logical_monitor_is_primary (MetaLogicalMonitor *logical_monitor);
 
 void meta_logical_monitor_make_primary (MetaLogicalMonitor *logical_monitor);
 
-int meta_logical_monitor_get_scale (MetaLogicalMonitor *logical_monitor);
+float meta_logical_monitor_get_scale (MetaLogicalMonitor *logical_monitor);
+
+MetaMonitorTransform meta_logical_monitor_get_transform (MetaLogicalMonitor *logical_monitor);
+
+MetaRectangle meta_logical_monitor_get_layout (MetaLogicalMonitor *logical_monitor);
 
 GList * meta_logical_monitor_get_monitors (MetaLogicalMonitor *logical_monitor);
 

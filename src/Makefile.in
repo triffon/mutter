@@ -110,6 +110,10 @@ host_triplet = @host@
 @HAVE_WAYLAND_TRUE@	tablet-unstable-v2-server-protocol.h				\
 @HAVE_WAYLAND_TRUE@	xdg-foreign-unstable-v1-protocol.c				\
 @HAVE_WAYLAND_TRUE@	xdg-foreign-unstable-v1-server-protocol.h			\
+@HAVE_WAYLAND_TRUE@	linux-dmabuf-unstable-v1-protocol.c					\
+@HAVE_WAYLAND_TRUE@	linux-dmabuf-unstable-v1-server-protocol.h				\
+@HAVE_WAYLAND_TRUE@	keyboard-shortcuts-inhibit-unstable-v1-protocol.c		\
+@HAVE_WAYLAND_TRUE@	keyboard-shortcuts-inhibit-unstable-v1-server-protocol.h	\
 @HAVE_WAYLAND_TRUE@	$(NULL)
 
 @HAVE_WAYLAND_TRUE@am__append_2 = \
@@ -125,6 +129,8 @@ host_triplet = @host@
 @HAVE_WAYLAND_TRUE@	wayland/meta-xwayland-private.h		\
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-buffer.c      	\
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-buffer.h      	\
+@HAVE_WAYLAND_TRUE@	wayland/meta-wayland-dma-buf.c      	\
+@HAVE_WAYLAND_TRUE@	wayland/meta-wayland-dma-buf.h      	\
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-region.c      	\
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-region.h      	\
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-data-device.c      \
@@ -192,6 +198,10 @@ host_triplet = @host@
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-wl-shell.h		\
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-gtk-shell.c	\
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-gtk-shell.h	\
+@HAVE_WAYLAND_TRUE@	wayland/meta-wayland-inhibit-shortcuts.c \
+@HAVE_WAYLAND_TRUE@	wayland/meta-wayland-inhibit-shortcuts.h \
+@HAVE_WAYLAND_TRUE@	wayland/meta-wayland-inhibit-shortcuts-dialog.c	\
+@HAVE_WAYLAND_TRUE@	wayland/meta-wayland-inhibit-shortcuts-dialog.h	\
 @HAVE_WAYLAND_TRUE@	$(NULL)
 
 @HAVE_NATIVE_BACKEND_TRUE@am__append_3 = \
@@ -290,9 +300,10 @@ libmutter_@LIBMUTTER_API_VERSION@_la_DEPENDENCIES =  \
 	$(am__DEPENDENCIES_1)
 am__libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES_DIST =  \
 	backends/meta-backend.c meta/meta-backend.h \
-	backends/meta-backend-private.h backends/meta-barrier.c \
-	backends/meta-barrier-private.h backends/meta-cursor.c \
-	backends/meta-cursor.h backends/meta-cursor-tracker.c \
+	meta/meta-settings.h backends/meta-backend-private.h \
+	backends/meta-barrier.c backends/meta-barrier-private.h \
+	backends/meta-cursor.c backends/meta-cursor.h \
+	backends/meta-cursor-tracker.c \
 	backends/meta-cursor-tracker-private.h \
 	backends/meta-cursor-renderer.c \
 	backends/meta-cursor-renderer.h backends/meta-dnd-private.h \
@@ -305,10 +316,11 @@ am__libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES_DIST =  \
 	backends/meta-input-settings.c \
 	backends/meta-input-settings-private.h \
 	backends/meta-logical-monitor.c \
-	backends/meta-logical-monitor.h backends/meta-monitor-config.c \
-	backends/meta-monitor-config.h \
+	backends/meta-logical-monitor.h \
 	backends/meta-monitor-config-manager.c \
 	backends/meta-monitor-config-manager.h \
+	backends/meta-monitor-config-migration.c \
+	backends/meta-monitor-config-migration.h \
 	backends/meta-monitor-config-store.c \
 	backends/meta-monitor-config-store.h backends/meta-monitor.c \
 	backends/meta-monitor.h backends/meta-monitor-manager.c \
@@ -316,8 +328,11 @@ am__libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES_DIST =  \
 	backends/meta-monitor-manager-private.h \
 	backends/meta-monitor-manager-dummy.c \
 	backends/meta-monitor-manager-dummy.h \
+	backends/meta-orientation-manager.c \
+	backends/meta-orientation-manager.h \
 	backends/meta-pointer-constraint.c \
-	backends/meta-pointer-constraint.h backends/meta-stage.h \
+	backends/meta-pointer-constraint.h backends/meta-settings.c \
+	backends/meta-settings-private.h backends/meta-stage.h \
 	backends/meta-stage.c backends/meta-renderer.c \
 	backends/meta-renderer.h backends/meta-renderer-view.c \
 	backends/meta-renderer-view.h backends/edid-parse.c \
@@ -331,10 +346,14 @@ am__libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES_DIST =  \
 	backends/x11/meta-cursor-renderer-x11.h \
 	backends/x11/cm/meta-backend-x11-cm.c \
 	backends/x11/cm/meta-backend-x11-cm.h \
+	backends/x11/cm/meta-renderer-x11-cm.c \
+	backends/x11/cm/meta-renderer-x11-cm.h \
 	backends/x11/nested/meta-backend-x11-nested.c \
 	backends/x11/nested/meta-backend-x11-nested.h \
 	backends/x11/nested/meta-cursor-renderer-x11-nested.c \
 	backends/x11/nested/meta-cursor-renderer-x11-nested.h \
+	backends/x11/nested/meta-renderer-x11-nested.c \
+	backends/x11/nested/meta-renderer-x11-nested.h \
 	backends/x11/meta-idle-monitor-xsync.c \
 	backends/x11/meta-idle-monitor-xsync.h \
 	backends/x11/meta-input-settings-x11.c \
@@ -386,11 +405,17 @@ am__libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES_DIST =  \
 	meta/meta-plugin.h meta/meta-shadow-factory.h \
 	meta/meta-window-actor.h meta/meta-window-shape.h \
 	meta/compositor-mutter.h core/constraints.c core/constraints.h \
-	core/core.c core/delete.c core/display.c \
-	core/display-private.h meta/display.h core/edge-resistance.c \
-	core/edge-resistance.h core/events.c core/events.h \
-	core/errors.c meta/errors.h core/frame.c core/frame.h \
-	core/meta-gesture-tracker.c \
+	core/core.c core/meta-close-dialog.c meta/meta-close-dialog.h \
+	core/meta-close-dialog-default.c \
+	core/meta-close-dialog-default-private.h \
+	core/meta-inhibit-shortcuts-dialog.c \
+	meta/meta-inhibit-shortcuts-dialog.h \
+	core/meta-inhibit-shortcuts-dialog-default.c \
+	core/meta-inhibit-shortcuts-dialog-default-private.h \
+	core/delete.c core/display.c core/display-private.h \
+	meta/display.h core/edge-resistance.c core/edge-resistance.h \
+	core/events.c core/events.h core/errors.c meta/errors.h \
+	core/frame.c core/frame.h core/meta-gesture-tracker.c \
 	core/meta-gesture-tracker-private.h core/keybindings.c \
 	core/keybindings-private.h core/main-private.h core/main.c \
 	core/place.c core/place.h core/prefs.c meta/prefs.h \
@@ -416,7 +441,8 @@ am__libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES_DIST =  \
 	wayland/meta-xwayland-selection.c \
 	wayland/meta-xwayland-selection-private.h \
 	wayland/meta-xwayland-private.h wayland/meta-wayland-buffer.c \
-	wayland/meta-wayland-buffer.h wayland/meta-wayland-region.c \
+	wayland/meta-wayland-buffer.h wayland/meta-wayland-dma-buf.c \
+	wayland/meta-wayland-dma-buf.h wayland/meta-wayland-region.c \
 	wayland/meta-wayland-region.h \
 	wayland/meta-wayland-data-device.c \
 	wayland/meta-wayland-data-device.h \
@@ -474,6 +500,10 @@ am__libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES_DIST =  \
 	wayland/meta-wayland-wl-shell.h \
 	wayland/meta-wayland-gtk-shell.c \
 	wayland/meta-wayland-gtk-shell.h \
+	wayland/meta-wayland-inhibit-shortcuts.c \
+	wayland/meta-wayland-inhibit-shortcuts.h \
+	wayland/meta-wayland-inhibit-shortcuts-dialog.c \
+	wayland/meta-wayland-inhibit-shortcuts-dialog.h \
 	backends/native/meta-backend-native.c \
 	backends/native/meta-backend-native.h \
 	backends/native/meta-backend-native-private.h \
@@ -505,6 +535,7 @@ am__objects_1 =
 @HAVE_WAYLAND_TRUE@	wayland/meta-xwayland.lo \
 @HAVE_WAYLAND_TRUE@	wayland/meta-xwayland-selection.lo \
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-buffer.lo \
+@HAVE_WAYLAND_TRUE@	wayland/meta-wayland-dma-buf.lo \
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-region.lo \
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-data-device.lo \
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-egl-stream.lo \
@@ -537,6 +568,8 @@ am__objects_1 =
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-xdg-shell.lo \
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-wl-shell.lo \
 @HAVE_WAYLAND_TRUE@	wayland/meta-wayland-gtk-shell.lo \
+@HAVE_WAYLAND_TRUE@	wayland/meta-wayland-inhibit-shortcuts.lo \
+@HAVE_WAYLAND_TRUE@	wayland/meta-wayland-inhibit-shortcuts-dialog.lo \
 @HAVE_WAYLAND_TRUE@	$(am__objects_1)
 @HAVE_NATIVE_BACKEND_TRUE@am__objects_3 = backends/native/meta-backend-native.lo \
 @HAVE_NATIVE_BACKEND_TRUE@	backends/native/meta-barrier-native.lo \
@@ -558,20 +591,24 @@ am_libmutter_@LIBMUTTER_API_VERSION@_la_OBJECTS =  \
 	backends/meta-idle-monitor-dbus.lo \
 	backends/meta-input-settings.lo \
 	backends/meta-logical-monitor.lo \
-	backends/meta-monitor-config.lo \
 	backends/meta-monitor-config-manager.lo \
+	backends/meta-monitor-config-migration.lo \
 	backends/meta-monitor-config-store.lo backends/meta-monitor.lo \
 	backends/meta-monitor-manager.lo \
 	backends/meta-monitor-manager-dummy.lo \
-	backends/meta-pointer-constraint.lo backends/meta-stage.lo \
-	backends/meta-renderer.lo backends/meta-renderer-view.lo \
-	backends/edid-parse.lo backends/x11/meta-backend-x11.lo \
+	backends/meta-orientation-manager.lo \
+	backends/meta-pointer-constraint.lo backends/meta-settings.lo \
+	backends/meta-stage.lo backends/meta-renderer.lo \
+	backends/meta-renderer-view.lo backends/edid-parse.lo \
+	backends/x11/meta-backend-x11.lo \
 	backends/x11/meta-barrier-x11.lo \
 	backends/x11/meta-clutter-backend-x11.lo \
 	backends/x11/meta-cursor-renderer-x11.lo \
 	backends/x11/cm/meta-backend-x11-cm.lo \
+	backends/x11/cm/meta-renderer-x11-cm.lo \
 	backends/x11/nested/meta-backend-x11-nested.lo \
 	backends/x11/nested/meta-cursor-renderer-x11-nested.lo \
+	backends/x11/nested/meta-renderer-x11-nested.lo \
 	backends/x11/meta-idle-monitor-xsync.lo \
 	backends/x11/meta-input-settings-x11.lo \
 	backends/x11/meta-monitor-manager-xrandr.lo \
@@ -597,7 +634,10 @@ am_libmutter_@LIBMUTTER_API_VERSION@_la_OBJECTS =  \
 	compositor/meta-window-actor.lo \
 	compositor/meta-window-group.lo \
 	compositor/meta-window-shape.lo compositor/region-utils.lo \
-	core/constraints.lo core/core.lo core/delete.lo \
+	core/constraints.lo core/core.lo core/meta-close-dialog.lo \
+	core/meta-close-dialog-default.lo \
+	core/meta-inhibit-shortcuts-dialog.lo \
+	core/meta-inhibit-shortcuts-dialog-default.lo core/delete.lo \
 	core/display.lo core/edge-resistance.lo core/events.lo \
 	core/errors.lo core/frame.lo core/meta-gesture-tracker.lo \
 	core/keybindings.lo core/main.lo core/place.lo core/prefs.lo \
@@ -620,6 +660,8 @@ am__objects_6 = meta-dbus-login1.lo
 @HAVE_WAYLAND_TRUE@	pointer-constraints-unstable-v1-protocol.lo \
 @HAVE_WAYLAND_TRUE@	tablet-unstable-v2-protocol.lo \
 @HAVE_WAYLAND_TRUE@	xdg-foreign-unstable-v1-protocol.lo \
+@HAVE_WAYLAND_TRUE@	linux-dmabuf-unstable-v1-protocol.lo \
+@HAVE_WAYLAND_TRUE@	keyboard-shortcuts-inhibit-unstable-v1-protocol.lo \
 @HAVE_WAYLAND_TRUE@	$(am__objects_1)
 am__objects_8 = $(am__objects_4) $(am__objects_5) $(am__objects_6) \
 	meta-enum-types.lo $(am__objects_1) $(am__objects_7)
@@ -667,6 +709,8 @@ am__mutter_test_unit_tests_SOURCES_DIST = tests/unit-tests.c \
 	tests/meta-backend-test.c tests/meta-backend-test.h \
 	tests/meta-monitor-manager-test.c \
 	tests/meta-monitor-manager-test.h \
+	tests/monitor-config-migration-unit-tests.c \
+	tests/monitor-config-migration-unit-tests.h \
 	tests/monitor-store-unit-tests.c \
 	tests/monitor-store-unit-tests.h tests/monitor-test-utils.c \
 	tests/monitor-test-utils.h tests/monitor-unit-tests.c \
@@ -675,6 +719,7 @@ am__mutter_test_unit_tests_SOURCES_DIST = tests/unit-tests.c \
 @HAVE_WAYLAND_TRUE@	tests/unit-tests.$(OBJEXT) \
 @HAVE_WAYLAND_TRUE@	tests/meta-backend-test.$(OBJEXT) \
 @HAVE_WAYLAND_TRUE@	tests/meta-monitor-manager-test.$(OBJEXT) \
+@HAVE_WAYLAND_TRUE@	tests/monitor-config-migration-unit-tests.$(OBJEXT) \
 @HAVE_WAYLAND_TRUE@	tests/monitor-store-unit-tests.$(OBJEXT) \
 @HAVE_WAYLAND_TRUE@	tests/monitor-test-utils.$(OBJEXT) \
 @HAVE_WAYLAND_TRUE@	tests/monitor-unit-tests.$(OBJEXT) \
@@ -1050,9 +1095,10 @@ wayland_protocols = \
 
 libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES =  \
 	backends/meta-backend.c meta/meta-backend.h \
-	backends/meta-backend-private.h backends/meta-barrier.c \
-	backends/meta-barrier-private.h backends/meta-cursor.c \
-	backends/meta-cursor.h backends/meta-cursor-tracker.c \
+	meta/meta-settings.h backends/meta-backend-private.h \
+	backends/meta-barrier.c backends/meta-barrier-private.h \
+	backends/meta-cursor.c backends/meta-cursor.h \
+	backends/meta-cursor-tracker.c \
 	backends/meta-cursor-tracker-private.h \
 	backends/meta-cursor-renderer.c \
 	backends/meta-cursor-renderer.h backends/meta-dnd-private.h \
@@ -1065,10 +1111,11 @@ libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES =  \
 	backends/meta-input-settings.c \
 	backends/meta-input-settings-private.h \
 	backends/meta-logical-monitor.c \
-	backends/meta-logical-monitor.h backends/meta-monitor-config.c \
-	backends/meta-monitor-config.h \
+	backends/meta-logical-monitor.h \
 	backends/meta-monitor-config-manager.c \
 	backends/meta-monitor-config-manager.h \
+	backends/meta-monitor-config-migration.c \
+	backends/meta-monitor-config-migration.h \
 	backends/meta-monitor-config-store.c \
 	backends/meta-monitor-config-store.h backends/meta-monitor.c \
 	backends/meta-monitor.h backends/meta-monitor-manager.c \
@@ -1076,8 +1123,11 @@ libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES =  \
 	backends/meta-monitor-manager-private.h \
 	backends/meta-monitor-manager-dummy.c \
 	backends/meta-monitor-manager-dummy.h \
+	backends/meta-orientation-manager.c \
+	backends/meta-orientation-manager.h \
 	backends/meta-pointer-constraint.c \
-	backends/meta-pointer-constraint.h backends/meta-stage.h \
+	backends/meta-pointer-constraint.h backends/meta-settings.c \
+	backends/meta-settings-private.h backends/meta-stage.h \
 	backends/meta-stage.c backends/meta-renderer.c \
 	backends/meta-renderer.h backends/meta-renderer-view.c \
 	backends/meta-renderer-view.h backends/edid-parse.c \
@@ -1091,10 +1141,14 @@ libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES =  \
 	backends/x11/meta-cursor-renderer-x11.h \
 	backends/x11/cm/meta-backend-x11-cm.c \
 	backends/x11/cm/meta-backend-x11-cm.h \
+	backends/x11/cm/meta-renderer-x11-cm.c \
+	backends/x11/cm/meta-renderer-x11-cm.h \
 	backends/x11/nested/meta-backend-x11-nested.c \
 	backends/x11/nested/meta-backend-x11-nested.h \
 	backends/x11/nested/meta-cursor-renderer-x11-nested.c \
 	backends/x11/nested/meta-cursor-renderer-x11-nested.h \
+	backends/x11/nested/meta-renderer-x11-nested.c \
+	backends/x11/nested/meta-renderer-x11-nested.h \
 	backends/x11/meta-idle-monitor-xsync.c \
 	backends/x11/meta-idle-monitor-xsync.h \
 	backends/x11/meta-input-settings-x11.c \
@@ -1146,11 +1200,17 @@ libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES =  \
 	meta/meta-plugin.h meta/meta-shadow-factory.h \
 	meta/meta-window-actor.h meta/meta-window-shape.h \
 	meta/compositor-mutter.h core/constraints.c core/constraints.h \
-	core/core.c core/delete.c core/display.c \
-	core/display-private.h meta/display.h core/edge-resistance.c \
-	core/edge-resistance.h core/events.c core/events.h \
-	core/errors.c meta/errors.h core/frame.c core/frame.h \
-	core/meta-gesture-tracker.c \
+	core/core.c core/meta-close-dialog.c meta/meta-close-dialog.h \
+	core/meta-close-dialog-default.c \
+	core/meta-close-dialog-default-private.h \
+	core/meta-inhibit-shortcuts-dialog.c \
+	meta/meta-inhibit-shortcuts-dialog.h \
+	core/meta-inhibit-shortcuts-dialog-default.c \
+	core/meta-inhibit-shortcuts-dialog-default-private.h \
+	core/delete.c core/display.c core/display-private.h \
+	meta/display.h core/edge-resistance.c core/edge-resistance.h \
+	core/events.c core/events.h core/errors.c meta/errors.h \
+	core/frame.c core/frame.h core/meta-gesture-tracker.c \
 	core/meta-gesture-tracker-private.h core/keybindings.c \
 	core/keybindings-private.h core/main-private.h core/main.c \
 	core/place.c core/place.h core/prefs.c meta/prefs.h \
@@ -1199,11 +1259,14 @@ libmutterinclude_headers = \
 	meta/meta-background-actor.h		\
 	meta/meta-background-image.h		\
 	meta/meta-background-group.h		\
+	meta/meta-close-dialog.h		\
+	meta/meta-inhibit-shortcuts-dialog.h	\
 	meta/meta-cursor-tracker.h		\
 	meta/meta-dnd.h			\
 	meta/meta-idle-monitor.h		\
 	meta/meta-plugin.h			\
 	meta/meta-monitor-manager.h		\
+	meta/meta-settings.h			\
 	meta/meta-shaped-texture.h		\
 	meta/meta-shadow-factory.h		\
 	meta/meta-window-actor.h		\
@@ -1259,6 +1322,8 @@ mutter_restart_helper_LDADD = $(MUTTER_LIBS)
 @HAVE_WAYLAND_TRUE@	tests/meta-backend-test.h \
 @HAVE_WAYLAND_TRUE@	tests/meta-monitor-manager-test.c \
 @HAVE_WAYLAND_TRUE@	tests/meta-monitor-manager-test.h \
+@HAVE_WAYLAND_TRUE@	tests/monitor-config-migration-unit-tests.c \
+@HAVE_WAYLAND_TRUE@	tests/monitor-config-migration-unit-tests.h \
 @HAVE_WAYLAND_TRUE@	tests/monitor-store-unit-tests.c \
 @HAVE_WAYLAND_TRUE@	tests/monitor-store-unit-tests.h \
 @HAVE_WAYLAND_TRUE@	tests/monitor-test-utils.c \
@@ -1428,9 +1493,9 @@ backends/meta-input-settings.lo: backends/$(am__dirstamp) \
 	backends/$(DEPDIR)/$(am__dirstamp)
 backends/meta-logical-monitor.lo: backends/$(am__dirstamp) \
 	backends/$(DEPDIR)/$(am__dirstamp)
-backends/meta-monitor-config.lo: backends/$(am__dirstamp) \
-	backends/$(DEPDIR)/$(am__dirstamp)
 backends/meta-monitor-config-manager.lo: backends/$(am__dirstamp) \
+	backends/$(DEPDIR)/$(am__dirstamp)
+backends/meta-monitor-config-migration.lo: backends/$(am__dirstamp) \
 	backends/$(DEPDIR)/$(am__dirstamp)
 backends/meta-monitor-config-store.lo: backends/$(am__dirstamp) \
 	backends/$(DEPDIR)/$(am__dirstamp)
@@ -1440,7 +1505,11 @@ backends/meta-monitor-manager.lo: backends/$(am__dirstamp) \
 	backends/$(DEPDIR)/$(am__dirstamp)
 backends/meta-monitor-manager-dummy.lo: backends/$(am__dirstamp) \
 	backends/$(DEPDIR)/$(am__dirstamp)
+backends/meta-orientation-manager.lo: backends/$(am__dirstamp) \
+	backends/$(DEPDIR)/$(am__dirstamp)
 backends/meta-pointer-constraint.lo: backends/$(am__dirstamp) \
+	backends/$(DEPDIR)/$(am__dirstamp)
+backends/meta-settings.lo: backends/$(am__dirstamp) \
 	backends/$(DEPDIR)/$(am__dirstamp)
 backends/meta-stage.lo: backends/$(am__dirstamp) \
 	backends/$(DEPDIR)/$(am__dirstamp)
@@ -1475,6 +1544,9 @@ backends/x11/cm/$(DEPDIR)/$(am__dirstamp):
 backends/x11/cm/meta-backend-x11-cm.lo:  \
 	backends/x11/cm/$(am__dirstamp) \
 	backends/x11/cm/$(DEPDIR)/$(am__dirstamp)
+backends/x11/cm/meta-renderer-x11-cm.lo:  \
+	backends/x11/cm/$(am__dirstamp) \
+	backends/x11/cm/$(DEPDIR)/$(am__dirstamp)
 backends/x11/nested/$(am__dirstamp):
 	@$(MKDIR_P) backends/x11/nested
 	@: > backends/x11/nested/$(am__dirstamp)
@@ -1485,6 +1557,9 @@ backends/x11/nested/meta-backend-x11-nested.lo:  \
 	backends/x11/nested/$(am__dirstamp) \
 	backends/x11/nested/$(DEPDIR)/$(am__dirstamp)
 backends/x11/nested/meta-cursor-renderer-x11-nested.lo:  \
+	backends/x11/nested/$(am__dirstamp) \
+	backends/x11/nested/$(DEPDIR)/$(am__dirstamp)
+backends/x11/nested/meta-renderer-x11-nested.lo:  \
 	backends/x11/nested/$(am__dirstamp) \
 	backends/x11/nested/$(DEPDIR)/$(am__dirstamp)
 backends/x11/meta-idle-monitor-xsync.lo: backends/x11/$(am__dirstamp) \
@@ -1569,6 +1644,14 @@ compositor/region-utils.lo: compositor/$(am__dirstamp) \
 core/constraints.lo: core/$(am__dirstamp) \
 	core/$(DEPDIR)/$(am__dirstamp)
 core/core.lo: core/$(am__dirstamp) core/$(DEPDIR)/$(am__dirstamp)
+core/meta-close-dialog.lo: core/$(am__dirstamp) \
+	core/$(DEPDIR)/$(am__dirstamp)
+core/meta-close-dialog-default.lo: core/$(am__dirstamp) \
+	core/$(DEPDIR)/$(am__dirstamp)
+core/meta-inhibit-shortcuts-dialog.lo: core/$(am__dirstamp) \
+	core/$(DEPDIR)/$(am__dirstamp)
+core/meta-inhibit-shortcuts-dialog-default.lo: core/$(am__dirstamp) \
+	core/$(DEPDIR)/$(am__dirstamp)
 core/delete.lo: core/$(am__dirstamp) core/$(DEPDIR)/$(am__dirstamp)
 core/display.lo: core/$(am__dirstamp) core/$(DEPDIR)/$(am__dirstamp)
 core/edge-resistance.lo: core/$(am__dirstamp) \
@@ -1631,6 +1714,8 @@ wayland/meta-xwayland.lo: wayland/$(am__dirstamp) \
 wayland/meta-xwayland-selection.lo: wayland/$(am__dirstamp) \
 	wayland/$(DEPDIR)/$(am__dirstamp)
 wayland/meta-wayland-buffer.lo: wayland/$(am__dirstamp) \
+	wayland/$(DEPDIR)/$(am__dirstamp)
+wayland/meta-wayland-dma-buf.lo: wayland/$(am__dirstamp) \
 	wayland/$(DEPDIR)/$(am__dirstamp)
 wayland/meta-wayland-region.lo: wayland/$(am__dirstamp) \
 	wayland/$(DEPDIR)/$(am__dirstamp)
@@ -1696,6 +1781,10 @@ wayland/meta-wayland-wl-shell.lo: wayland/$(am__dirstamp) \
 	wayland/$(DEPDIR)/$(am__dirstamp)
 wayland/meta-wayland-gtk-shell.lo: wayland/$(am__dirstamp) \
 	wayland/$(DEPDIR)/$(am__dirstamp)
+wayland/meta-wayland-inhibit-shortcuts.lo: wayland/$(am__dirstamp) \
+	wayland/$(DEPDIR)/$(am__dirstamp)
+wayland/meta-wayland-inhibit-shortcuts-dialog.lo:  \
+	wayland/$(am__dirstamp) wayland/$(DEPDIR)/$(am__dirstamp)
 backends/native/$(am__dirstamp):
 	@$(MKDIR_P) backends/native
 	@: > backends/native/$(am__dirstamp)
@@ -1927,6 +2016,8 @@ tests/meta-backend-test.$(OBJEXT): tests/$(am__dirstamp) \
 	tests/$(DEPDIR)/$(am__dirstamp)
 tests/meta-monitor-manager-test.$(OBJEXT): tests/$(am__dirstamp) \
 	tests/$(DEPDIR)/$(am__dirstamp)
+tests/monitor-config-migration-unit-tests.$(OBJEXT):  \
+	tests/$(am__dirstamp) tests/$(DEPDIR)/$(am__dirstamp)
 tests/monitor-store-unit-tests.$(OBJEXT): tests/$(am__dirstamp) \
 	tests/$(DEPDIR)/$(am__dirstamp)
 tests/monitor-test-utils.$(OBJEXT): tests/$(am__dirstamp) \
@@ -1973,6 +2064,8 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gtk-primary-selection-protocol.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gtk-shell-protocol.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/keyboard-shortcuts-inhibit-unstable-v1-protocol.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linux-dmabuf-unstable-v1-protocol.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta-dbus-display-config.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta-dbus-idle-monitor.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta-dbus-login1.Plo@am__quote@
@@ -1995,14 +2088,16 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-input-settings.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-logical-monitor.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-monitor-config-manager.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-monitor-config-migration.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-monitor-config-store.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-monitor-config.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-monitor-manager-dummy.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-monitor-manager.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-monitor.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-orientation-manager.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-pointer-constraint.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-renderer-view.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-renderer.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-settings.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/$(DEPDIR)/meta-stage.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/native/$(DEPDIR)/dbus-utils.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/native/$(DEPDIR)/meta-backend-native.Plo@am__quote@
@@ -2025,8 +2120,10 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@backends/x11/$(DEPDIR)/meta-renderer-x11.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/x11/$(DEPDIR)/meta-stage-x11-nested.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/x11/cm/$(DEPDIR)/meta-backend-x11-cm.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@backends/x11/cm/$(DEPDIR)/meta-renderer-x11-cm.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/x11/nested/$(DEPDIR)/meta-backend-x11-nested.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@backends/x11/nested/$(DEPDIR)/meta-cursor-renderer-x11-nested.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@backends/x11/nested/$(DEPDIR)/meta-renderer-x11-nested.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@compositor/$(DEPDIR)/clutter-utils.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@compositor/$(DEPDIR)/cogl-utils.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@compositor/$(DEPDIR)/compositor.Plo@am__quote@
@@ -2067,7 +2164,11 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@core/$(DEPDIR)/main.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@core/$(DEPDIR)/meta-accel-parse.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@core/$(DEPDIR)/meta-border.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@core/$(DEPDIR)/meta-close-dialog-default.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@core/$(DEPDIR)/meta-close-dialog.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@core/$(DEPDIR)/meta-gesture-tracker.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@core/$(DEPDIR)/meta-inhibit-shortcuts-dialog-default.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@core/$(DEPDIR)/meta-inhibit-shortcuts-dialog.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@core/$(DEPDIR)/mutter.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@core/$(DEPDIR)/place.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@core/$(DEPDIR)/prefs.Plo@am__quote@
@@ -2083,6 +2184,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@core/$(DEPDIR)/workspace.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@tests/$(DEPDIR)/meta-backend-test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@tests/$(DEPDIR)/meta-monitor-manager-test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@tests/$(DEPDIR)/monitor-config-migration-unit-tests.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@tests/$(DEPDIR)/monitor-store-unit-tests.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@tests/$(DEPDIR)/monitor-test-utils.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@tests/$(DEPDIR)/monitor-unit-tests.Po@am__quote@
@@ -2096,8 +2198,11 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@wayland/$(DEPDIR)/meta-pointer-lock-wayland.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@wayland/$(DEPDIR)/meta-wayland-buffer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@wayland/$(DEPDIR)/meta-wayland-data-device.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@wayland/$(DEPDIR)/meta-wayland-dma-buf.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@wayland/$(DEPDIR)/meta-wayland-egl-stream.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@wayland/$(DEPDIR)/meta-wayland-gtk-shell.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@wayland/$(DEPDIR)/meta-wayland-inhibit-shortcuts-dialog.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@wayland/$(DEPDIR)/meta-wayland-inhibit-shortcuts.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@wayland/$(DEPDIR)/meta-wayland-input-device.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@wayland/$(DEPDIR)/meta-wayland-keyboard.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@wayland/$(DEPDIR)/meta-wayland-outputs.Plo@am__quote@
@@ -2688,7 +2793,7 @@ stamp-meta-enum-types.h: $(libmutterinclude_headers) meta-enum-types.h.in
 	$(AM_V_GEN) ( cd $(srcdir) && \
 	  $(GLIB_MKENUMS) \
 	    --template meta-enum-types.h.in \
-	  $(libmutterinclude_base_headers) ) >> xgen-teth && \
+	  $(libmutterinclude_headers) ) > xgen-teth && \
 	(cmp -s xgen-teth meta/meta-enum-types.h || cp xgen-teth meta/meta-enum-types.h) && \
 	rm -f xgen-teth && \
 	echo timestamp > $(@F)
@@ -2697,7 +2802,7 @@ meta-enum-types.c: stamp-meta-enum-types.h meta-enum-types.c.in
 	  $(AM_V_GEN) ( cd $(srcdir) && \
 	  $(GLIB_MKENUMS) \
 	    --template meta-enum-types.c.in \
-	  $(libmutterinclude_base_headers) ) >> xgen-tetc && \
+	  $(libmutterinclude_headers) ) > xgen-tetc && \
 	cp xgen-tetc meta-enum-types.c && \
 	rm -f xgen-tetc
 
@@ -2750,6 +2855,10 @@ endef
 	$(AM_V_GEN)$(WAYLAND_SCANNER) code $< $@
 %-server-protocol.h : $(srcdir)/wayland/protocol/%.xml
 	$(AM_V_GEN)$(WAYLAND_SCANNER) server-header $< $@
+keyboard-shortcuts-inhibit-unstable-v1-protocol.c : $(WAYLAND_PROTOCOLS_DATADIR)/unstable/keyboard-shortcuts-inhibit/keyboard-shortcuts-inhibit-unstable-v1.xml
+	$(AM_V_GEN)$(WAYLAND_SCANNER) code < $< > $@
+keyboard-shortcuts-inhibit-unstable-v1-server-protocol.h : $(WAYLAND_PROTOCOLS_DATADIR)/unstable/keyboard-shortcuts-inhibit/keyboard-shortcuts-inhibit-unstable-v1.xml
+	$(AM_V_GEN)$(WAYLAND_SCANNER) server-header < $< > $@
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

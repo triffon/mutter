@@ -1,15 +1,15 @@
 AC_PREREQ(2.62)
 
 m4_define([mutter_major_version], [3])
-m4_define([mutter_minor_version], [24])
-m4_define([mutter_micro_version], [4])
+m4_define([mutter_minor_version], [25])
+m4_define([mutter_micro_version], [91])
 
 m4_define([mutter_version],
           [mutter_major_version.mutter_minor_version.mutter_micro_version])
 
 m4_define([mutter_plugin_api_version], [3])
 
-m4_define([libmutter_api_version], [0])
+m4_define([libmutter_api_version], [1])
 
 AC_INIT([mutter], [mutter_version],
         [http://bugzilla.gnome.org/enter_bug.cgi?product=mutter])
@@ -57,6 +57,13 @@ AM_GNU_GETTEXT([external])
 
 LT_PREREQ([2.2.6])
 LT_INIT([disable-static])
+
+# Debian / Ubuntu set this flag to 'no' in libtool, causing linking errors
+# (i.e when linking against mutter-clutter). Not to explicitly redefine such
+# deps, we enable this flag for everybody.
+link_all_deplibs=yes
+link_all_deplibs_CXX=yes
+
 AC_PROG_CC
 AC_PROG_CC_C_O
 AC_PROG_INSTALL
@@ -65,7 +72,7 @@ AC_HEADER_STDC
 PKG_PROG_PKG_CONFIG([0.21])
 
 # Sets GLIB_GENMARSHAL and GLIB_MKENUMS
-AM_PATH_GLIB_2_0([2.49.0])
+AM_PATH_GLIB_2_0([2.53.2])
 
 CANBERRA_GTK=libcanberra-gtk3
 CANBERRA_GTK_VERSION=0.26
@@ -268,7 +275,7 @@ AS_IF([test "$enable_egl_device" = "yes"], [
   AC_DEFINE([HAVE_EGL_DEVICE],[1], [Defined if EGLDevice support is enabled])
 ])
 
-MUTTER_WAYLAND_MODULES="wayland-server >= 1.6.90"
+MUTTER_WAYLAND_MODULES="wayland-server >= 1.13.0"
 
 AC_ARG_ENABLE(wayland,
   AS_HELP_STRING([--disable-wayland], [disable mutter on wayland support]),,
@@ -285,7 +292,7 @@ AS_IF([test "$have_wayland" = "yes"], [
   AC_SUBST([WAYLAND_SCANNER])
   AC_DEFINE([HAVE_WAYLAND],[1],[Define if you want to enable Wayland support])
 
-  PKG_CHECK_MODULES(WAYLAND_PROTOCOLS, [wayland-protocols >= 1.7],
+  PKG_CHECK_MODULES(WAYLAND_PROTOCOLS, [wayland-protocols >= 1.9],
 		    [ac_wayland_protocols_pkgdatadir=`$PKG_CONFIG --variable=pkgdatadir wayland-protocols`])
   AC_SUBST(WAYLAND_PROTOCOLS_DATADIR, $ac_wayland_protocols_pkgdatadir)
 ])

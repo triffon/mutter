@@ -33,13 +33,15 @@ typedef struct _MetaMonitorConfig
 {
   MetaMonitorSpec *monitor_spec;
   MetaMonitorModeSpec *mode_spec;
-  gboolean is_underscanning;
+  gboolean enable_underscanning;
 } MetaMonitorConfig;
 
 typedef struct _MetaLogicalMonitorConfig
 {
   MetaRectangle layout;
   GList *monitor_configs;
+  MetaMonitorTransform transform;
+  float scale;
   gboolean is_primary;
   gboolean is_presentation;
 } MetaLogicalMonitorConfig;
@@ -49,12 +51,22 @@ typedef struct _MetaMonitorsConfigKey
   GList *monitor_specs;
 } MetaMonitorsConfigKey;
 
+typedef enum _MetaMonitorsConfigFlag
+{
+  META_MONITORS_CONFIG_FLAG_NONE = 0,
+  META_MONITORS_CONFIG_FLAG_MIGRATED = (1 << 0),
+} MetaMonitorsConfigFlag;
+
 struct _MetaMonitorsConfig
 {
   GObject parent;
 
   MetaMonitorsConfigKey *key;
   GList *logical_monitor_configs;
+
+  MetaMonitorsConfigFlag flags;
+
+  MetaLogicalMonitorLayoutMode layout_mode;
 };
 
 #define META_TYPE_MONITORS_CONFIG (meta_monitors_config_get_type ())
@@ -79,12 +91,30 @@ MetaMonitorsConfig * meta_monitor_config_manager_create_fallback (MetaMonitorCon
 
 MetaMonitorsConfig * meta_monitor_config_manager_create_suggested (MetaMonitorConfigManager *config_manager);
 
+MetaMonitorsConfig * meta_monitor_config_manager_create_for_orientation (MetaMonitorConfigManager *config_manager,
+                                                                         MetaMonitorTransform      transform);
+
+MetaMonitorsConfig * meta_monitor_config_manager_create_for_rotate_monitor (MetaMonitorConfigManager *config_manager);
+
+MetaMonitorsConfig * meta_monitor_config_manager_create_for_switch_config (MetaMonitorConfigManager    *config_manager,
+                                                                           MetaMonitorSwitchConfigType  config_type);
+
 void meta_monitor_config_manager_set_current (MetaMonitorConfigManager *config_manager,
                                               MetaMonitorsConfig       *config);
 
 MetaMonitorsConfig * meta_monitor_config_manager_get_current (MetaMonitorConfigManager *config_manager);
 
-MetaMonitorsConfig * meta_monitors_config_new (GList *logical_monitor_configs);
+MetaMonitorsConfig * meta_monitor_config_manager_pop_previous (MetaMonitorConfigManager *config_manager);
+
+MetaMonitorsConfig * meta_monitor_config_manager_get_previous (MetaMonitorConfigManager *config_manager);
+
+void meta_monitor_config_manager_clear_history (MetaMonitorConfigManager *config_manager);
+
+void meta_monitor_config_manager_save_current (MetaMonitorConfigManager *config_manager);
+
+MetaMonitorsConfig * meta_monitors_config_new (GList                       *logical_monitor_configs,
+                                               MetaLogicalMonitorLayoutMode layout_mode,
+                                               MetaMonitorsConfigFlag       flags);
 
 unsigned int meta_monitors_config_key_hash (gconstpointer config_key);
 
@@ -96,5 +126,23 @@ void meta_monitors_config_key_free (MetaMonitorsConfigKey *config_key);
 void meta_logical_monitor_config_free (MetaLogicalMonitorConfig *logical_monitor_config);
 
 void meta_monitor_config_free (MetaMonitorConfig *monitor_config);
+
+gboolean meta_verify_monitor_mode_spec (MetaMonitorModeSpec *monitor_mode_spec,
+                                        GError             **error);
+
+gboolean meta_verify_monitor_spec (MetaMonitorSpec *monitor_spec,
+                                   GError         **error);
+
+gboolean meta_verify_monitor_config (MetaMonitorConfig *monitor_config,
+                                     GError           **error);
+
+gboolean meta_verify_logical_monitor_config (MetaLogicalMonitorConfig    *logical_monitor_config,
+                                             MetaLogicalMonitorLayoutMode layout_mode,
+                                             MetaMonitorManager          *monitor_manager,
+                                             GError                     **error);
+
+gboolean meta_verify_monitors_config (MetaMonitorsConfig *config,
+                                      MetaMonitorManager *monitor_manager,
+                                      GError            **error);
 
 #endif /* META_MONITOR_CONFIG_MANAGER_H */

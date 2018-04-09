@@ -1,6 +1,6 @@
 <schemalist>
   <schema id="org.gnome.mutter" path="/org/gnome/mutter/"
-          gettext-domain="@GETTEXT_DOMAIN">
+          gettext-domain="@GETTEXT_DOMAIN@">
 
     <key name="overlay-key" type="s">
       <default>'Super_L'</default>
@@ -102,6 +102,27 @@
       </description>
     </key>
 
+    <key name="experimental-features" type="as">
+      <default>[]</default>
+      <summary>Enable experimental features</summary>
+      <description>
+        To enable experimental features, add the feature keyword to the list.
+        Whether the feature requires restarting the compositor depends on the
+        given feature. Any experimental feature is not required to still be
+        available, or configurable. Don’t expect adding anything in this
+        setting to be future proof.
+
+        Currently possible keywords:
+
+        • “scale-monitor-framebuffer” — makes mutter default to layout logical
+                                        monitors in a logical pixel coordinate
+                                        space, while scaling monitor
+                                        framebuffers instead of window content,
+                                        to manage HiDPI monitors. Does not
+                                        require a restart.
+      </description>
+    </key>
+
     <child name="keybindings" schema="org.gnome.mutter.keybindings"/>
 
   </schema>
@@ -123,6 +144,16 @@
     <key name="tab-popup-cancel" type="as">
       <default>[]</default>
       <summary>Cancel tab popup</summary>
+    </key>
+
+    <key name="switch-monitor" type="as">
+      <default><![CDATA[['<Super>p','XF86Display']]]></default>
+      <summary>Switch monitor configurations</summary>
+    </key>
+
+    <key name="rotate-monitor" type="as">
+      <default><![CDATA[['XF86RotateWindows']]]></default>
+      <summary>Rotates the built-in monitor configuration</summary>
     </key>
 
   </schema>

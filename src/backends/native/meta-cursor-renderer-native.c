@@ -35,8 +35,11 @@
 #include <meta/meta-backend.h>
 
 #include "backends/meta-backend-private.h"
+#include "backends/meta-logical-monitor.h"
+#include "backends/meta-monitor.h"
 #include "backends/meta-monitor-manager-private.h"
 #include "backends/native/meta-renderer-native.h"
+#include "core/boxes-private.h"
 #include "meta/boxes.h"
 
 #ifndef DRM_CAP_CURSOR_WIDTH
@@ -214,50 +217,139 @@ set_crtc_cursor (MetaCursorRendererNative *native,
     }
 }
 
+typedef struct
+{
+  MetaCursorRendererNative *in_cursor_renderer_native;
+  MetaLogicalMonitor *in_logical_monitor;
+  ClutterRect in_local_cursor_rect;
+  MetaCursorSprite *in_cursor_sprite;
+
+  gboolean out_painted;
+} UpdateCrtcCursorData;
+
+static gboolean
+update_monitor_crtc_cursor (MetaMonitor         *monitor,
+                            MetaMonitorMode     *monitor_mode,
+                            MetaMonitorCrtcMode *monitor_crtc_mode,
+                            gpointer             user_data,
+                            GError             **error)
+{
+  UpdateCrtcCursorData *data = user_data;
+  MetaCursorRendererNative *cursor_renderer_native =
+    data->in_cursor_renderer_native;
+  MetaCursorRendererNativePrivate *priv =
+    meta_cursor_renderer_native_get_instance_private (cursor_renderer_native);
+  ClutterRect scaled_crtc_rect;
+  float scale;
+  int crtc_x, crtc_y;
+
+  if (meta_is_stage_views_scaled ())
+    scale = meta_logical_monitor_get_scale (data->in_logical_monitor);
+  else
+    scale = 1.0;
+
+  meta_monitor_calculate_crtc_pos (monitor, monitor_mode,
+                                   monitor_crtc_mode->output,
+                                   META_MONITOR_TRANSFORM_NORMAL,
+                                   &crtc_x, &crtc_y);
+
+  scaled_crtc_rect = (ClutterRect) {
+    .origin = {
+      .x = crtc_x / scale,
+      .y = crtc_y / scale
+    },
+    .size = {
+      .width = monitor_crtc_mode->crtc_mode->width / scale,
+      .height = monitor_crtc_mode->crtc_mode->height / scale
+    },
+  };
+
+  if (priv->has_hw_cursor &&
+      clutter_rect_intersection (&scaled_crtc_rect,
+                                 &data->in_local_cursor_rect,
+                                 NULL))
+    {
+      float crtc_cursor_x, crtc_cursor_y;
+
+      set_crtc_cursor (data->in_cursor_renderer_native,
+                       monitor_crtc_mode->output->crtc,
+                       data->in_cursor_sprite);
+
+      crtc_cursor_x = (data->in_local_cursor_rect.origin.x -
+                       scaled_crtc_rect.origin.x) * scale;
+      crtc_cursor_y = (data->in_local_cursor_rect.origin.y -
+                       scaled_crtc_rect.origin.y) * scale;
+      drmModeMoveCursor (priv->drm_fd,
+                         monitor_crtc_mode->output->crtc->crtc_id,
+                         roundf (crtc_cursor_x),
+                         roundf (crtc_cursor_y));
+
+      data->out_painted = data->out_painted || TRUE;
+    }
+  else
+    {
+      set_crtc_cursor (data->in_cursor_renderer_native,
+                       monitor_crtc_mode->output->crtc, NULL);
+    }
+
+  return TRUE;
+}
+
 static void
 update_hw_cursor (MetaCursorRendererNative *native,
                   MetaCursorSprite         *cursor_sprite)
 {
   MetaCursorRendererNativePrivate *priv = meta_cursor_renderer_native_get_instance_private (native);
   MetaCursorRenderer *renderer = META_CURSOR_RENDERER (native);
-  MetaMonitorManager *monitors;
-  MetaCrtc *crtcs;
-  unsigned int i, n_crtcs;
-  MetaRectangle rect;
+  MetaBackend *backend = meta_get_backend ();
+  MetaMonitorManager *monitor_manager =
+    meta_backend_get_monitor_manager (backend);
+  GList *logical_monitors;
+  GList *l;
+  ClutterRect rect;
   gboolean painted = FALSE;
-
-  monitors = meta_monitor_manager_get ();
-  meta_monitor_manager_get_resources (monitors, NULL, NULL, &crtcs, &n_crtcs, NULL, NULL);
 
   if (cursor_sprite)
     rect = meta_cursor_renderer_calculate_rect (renderer, cursor_sprite);
   else
-    rect = (MetaRectangle) { 0 };
+    rect = (ClutterRect) { 0 };
 
-  for (i = 0; i < n_crtcs; i++)
+  logical_monitors =
+    meta_monitor_manager_get_logical_monitors (monitor_manager);
+  for (l = logical_monitors; l; l = l->next)
     {
-      gboolean crtc_should_use_cursor;
-      MetaCursorSprite *crtc_cursor;
-      MetaRectangle *crtc_rect;
+      MetaLogicalMonitor *logical_monitor = l->data;
+      UpdateCrtcCursorData data;
+      GList *monitors;
+      GList *k;
 
-      crtc_rect = &crtcs[i].rect;
+      data = (UpdateCrtcCursorData) {
+        .in_cursor_renderer_native = native,
+        .in_logical_monitor = logical_monitor,
+        .in_local_cursor_rect = (ClutterRect) {
+          .origin = {
+            .x = rect.origin.x - logical_monitor->rect.x,
+            .y = rect.origin.y - logical_monitor->rect.y
+          },
+          .size = rect.size
+        },
+        .in_cursor_sprite = cursor_sprite
+      };
 
-      crtc_should_use_cursor = (priv->has_hw_cursor &&
-                                meta_rectangle_overlap (&rect, crtc_rect));
-      if (crtc_should_use_cursor)
-        crtc_cursor = cursor_sprite;
-      else
-        crtc_cursor = NULL;
-
-      set_crtc_cursor (native, &crtcs[i], crtc_cursor);
-
-      if (crtc_cursor)
+      monitors = meta_logical_monitor_get_monitors (logical_monitor);
+      for (k = monitors; k; k = k->next)
         {
-          drmModeMoveCursor (priv->drm_fd, crtcs[i].crtc_id,
-                             rect.x - crtc_rect->x,
-                             rect.y - crtc_rect->y);
-          painted = TRUE;
+          MetaMonitor *monitor = k->data;
+          MetaMonitorMode *monitor_mode;
+
+          monitor_mode = meta_monitor_get_current_mode (monitor);
+          meta_monitor_mode_foreach_crtc (monitor, monitor_mode,
+                                          update_monitor_crtc_cursor,
+                                          &data,
+                                          NULL);
         }
+
+      painted = painted || data.out_painted;
     }
 
   priv->hw_state_invalidated = FALSE;
@@ -291,29 +383,94 @@ has_valid_cursor_sprite_gbm_bo (MetaCursorSprite *cursor_sprite)
 }
 
 static gboolean
-cursor_over_transformed_crtc (MetaCursorRenderer *renderer,
-                              MetaCursorSprite   *cursor_sprite)
+cursor_over_transformed_logical_monitor (MetaCursorRenderer *renderer,
+                                         MetaCursorSprite   *cursor_sprite)
 {
-  MetaMonitorManager *monitors;
-  MetaCrtc *crtcs;
-  unsigned int i, n_crtcs;
-  MetaRectangle rect;
+  MetaBackend *backend = meta_get_backend ();
+  MetaMonitorManager *monitor_manager =
+    meta_backend_get_monitor_manager (backend);
+  GList *logical_monitors;
+  GList *l;
+  ClutterRect cursor_rect;
 
-  monitors = meta_monitor_manager_get ();
-  meta_monitor_manager_get_resources (monitors, NULL, NULL,
-                                      &crtcs, &n_crtcs, NULL, NULL);
-  rect = meta_cursor_renderer_calculate_rect (renderer, cursor_sprite);
-
-  for (i = 0; i < n_crtcs; i++)
+  cursor_rect = meta_cursor_renderer_calculate_rect (renderer, cursor_sprite);
+  logical_monitors =
+    meta_monitor_manager_get_logical_monitors (monitor_manager);
+  for (l = logical_monitors; l; l = l->next)
     {
-      if (!meta_rectangle_overlap (&rect, &crtcs[i].rect))
+      MetaLogicalMonitor *logical_monitor = l->data;
+      MetaRectangle logical_monitor_layout;
+      ClutterRect logical_monitor_rect;
+      MetaMonitorTransform transform;
+
+      logical_monitor_layout =
+        meta_logical_monitor_get_layout (logical_monitor);
+      logical_monitor_rect =
+        meta_rectangle_to_clutter_rect (&logical_monitor_layout);
+
+      if (!clutter_rect_intersection (&cursor_rect, &logical_monitor_rect,
+                                      NULL))
         continue;
 
-      if (crtcs[i].transform != META_MONITOR_TRANSFORM_NORMAL)
+      transform = meta_logical_monitor_get_transform (logical_monitor);
+      if (transform != META_MONITOR_TRANSFORM_NORMAL)
         return TRUE;
     }
 
   return FALSE;
+}
+
+static float
+calculate_cursor_crtc_sprite_scale (MetaCursorSprite   *cursor_sprite,
+                                    MetaLogicalMonitor *logical_monitor)
+{
+  return (meta_logical_monitor_get_scale (logical_monitor) *
+          meta_cursor_sprite_get_texture_scale (cursor_sprite));
+}
+
+static gboolean
+can_draw_cursor_unscaled (MetaCursorRenderer *renderer,
+                          MetaCursorSprite   *cursor_sprite)
+{
+  MetaBackend *backend;
+  MetaMonitorManager *monitor_manager;
+  ClutterRect cursor_rect;
+  GList *logical_monitors;
+  GList *l;
+  gboolean has_visible_crtc_sprite = FALSE;
+
+  if (!meta_is_stage_views_scaled ())
+   return meta_cursor_sprite_get_texture_scale (cursor_sprite) == 1.0;
+
+  backend = meta_get_backend ();
+  monitor_manager = meta_backend_get_monitor_manager (backend);
+  logical_monitors =
+    meta_monitor_manager_get_logical_monitors (monitor_manager);
+
+  if (!logical_monitors)
+    return FALSE;
+
+  cursor_rect = meta_cursor_renderer_calculate_rect (renderer, cursor_sprite);
+
+  for (l = logical_monitors; l; l = l->next)
+    {
+      MetaLogicalMonitor *logical_monitor = l->data;
+      ClutterRect logical_monitor_rect =
+        meta_rectangle_to_clutter_rect (&logical_monitor->rect);
+
+      if (!clutter_rect_intersection (&cursor_rect,
+                                      &logical_monitor_rect,
+                                      NULL))
+        continue;
+
+      if (calculate_cursor_crtc_sprite_scale (cursor_sprite,
+                                              logical_monitor) != 1.0)
+        return FALSE;
+
+      has_visible_crtc_sprite = TRUE;
+    }
+
+  return has_visible_crtc_sprite;
 }
 
 static gboolean
@@ -330,14 +487,14 @@ should_have_hw_cursor (MetaCursorRenderer *renderer,
   if (!cursor_sprite)
     return FALSE;
 
-  if (cursor_over_transformed_crtc (renderer, cursor_sprite))
+  if (cursor_over_transformed_logical_monitor (renderer, cursor_sprite))
     return FALSE;
 
   texture = meta_cursor_sprite_get_cogl_texture (cursor_sprite);
   if (!texture)
     return FALSE;
 
-  if (meta_cursor_sprite_get_texture_scale (cursor_sprite) != 1)
+  if (!can_draw_cursor_unscaled (renderer, cursor_sprite))
     return FALSE;
 
   if (!has_valid_cursor_sprite_gbm_bo (cursor_sprite))

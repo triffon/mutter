@@ -33,12 +33,6 @@
 #include "meta-input-settings-private.h"
 #include "backends/meta-logical-monitor.h"
 #include "backends/meta-monitor.h"
-#include "x11/meta-input-settings-x11.h"
-
-#ifdef HAVE_NATIVE_BACKEND
-#include "native/meta-backend-native.h"
-#include "native/meta-input-settings-native.h"
-#endif
 
 #include <glib/gi18n-lib.h>
 #include <meta/util.h>
@@ -530,6 +524,36 @@ update_touchpad_tap_enabled (MetaInputSettings  *input_settings,
     {
       settings_set_bool_setting (input_settings, CLUTTER_TOUCHPAD_DEVICE,
                                  input_settings_class->set_tap_enabled,
+                                 enabled);
+    }
+}
+
+static void
+update_touchpad_tap_and_drag_enabled (MetaInputSettings  *input_settings,
+                                      ClutterInputDevice *device)
+{
+  MetaInputSettingsClass *input_settings_class;
+  MetaInputSettingsPrivate *priv;
+  gboolean enabled;
+
+  if (device &&
+      clutter_input_device_get_device_type (device) != CLUTTER_TOUCHPAD_DEVICE)
+    return;
+
+  priv = meta_input_settings_get_instance_private (input_settings);
+  input_settings_class = META_INPUT_SETTINGS_GET_CLASS (input_settings);
+  enabled = g_settings_get_boolean (priv->touchpad_settings, "tap-and-drag");
+
+  if (device)
+    {
+      settings_device_set_bool_setting (input_settings, device,
+                                        input_settings_class->set_tap_and_drag_enabled,
+                                        enabled);
+    }
+  else
+    {
+      settings_set_bool_setting (input_settings, CLUTTER_TOUCHPAD_DEVICE,
+                                 input_settings_class->set_tap_and_drag_enabled,
                                  enabled);
     }
 }
@@ -1045,6 +1069,8 @@ meta_input_settings_changed_cb (GSettings  *settings,
         update_device_natural_scroll (input_settings, NULL);
       else if (strcmp (key, "tap-to-click") == 0)
         update_touchpad_tap_enabled (input_settings, NULL);
+      else if (strcmp (key, "tap-and_drag") == 0)
+        update_touchpad_tap_and_drag_enabled (input_settings, NULL);
       else if (strcmp(key, "disable-while-typing") == 0)
         update_touchpad_disable_while_typing (input_settings, NULL);
       else if (strcmp (key, "send-events") == 0)
@@ -1344,6 +1370,7 @@ apply_device_settings (MetaInputSettings  *input_settings,
 
   update_touchpad_left_handed (input_settings, device);
   update_touchpad_tap_enabled (input_settings, device);
+  update_touchpad_tap_and_drag_enabled (input_settings, device);
   update_touchpad_disable_while_typing (input_settings, device);
   update_touchpad_send_events (input_settings, device);
   update_touchpad_two_finger_scroll (input_settings, device);
@@ -1587,23 +1614,6 @@ meta_input_settings_init (MetaInputSettings *settings)
 #endif
 
   priv->two_finger_devices = g_hash_table_new (NULL, NULL);
-}
-
-MetaInputSettings *
-meta_input_settings_create (void)
-{
-#ifdef HAVE_NATIVE_BACKEND
-  MetaBackend *backend;
-
-  backend = meta_get_backend ();
-
-  if (META_IS_BACKEND_NATIVE (backend))
-    return g_object_new (META_TYPE_INPUT_SETTINGS_NATIVE, NULL);
-#endif
-  if (!meta_is_wayland_compositor ())
-    return g_object_new (META_TYPE_INPUT_SETTINGS_X11, NULL);
-
-  return NULL;
 }
 
 GSettings *

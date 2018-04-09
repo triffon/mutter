@@ -30,6 +30,8 @@
 #include <stdlib.h>
 
 #include <meta/util.h>
+#include "backends/meta-backend-private.h"
+#include "backends/meta-monitor.h"
 #include "backends/meta-monitor-config-manager.h"
 
 #define ALL_TRANSFORMS ((1 << (META_MONITOR_TRANSFORM_FLIPPED_270 + 1)) - 1)
@@ -51,7 +53,15 @@ struct _MetaMonitorManagerDummyClass
   MetaMonitorManagerClass parent_class;
 };
 
+typedef struct _MetaOutputDummy
+{
+  float scale;
+} MetaOutputDummy;
+
 G_DEFINE_TYPE (MetaMonitorManagerDummy, meta_monitor_manager_dummy, META_TYPE_MONITOR_MANAGER);
+
+static void
+meta_output_dummy_notify_destroy (MetaOutput *output);
 
 #define array_last(a, t) \
   g_array_index (a, t, a->len - 1)
@@ -60,7 +70,7 @@ static void
 append_monitor (GArray *modes,
                 GArray *crtcs,
                 GArray *outputs,
-                int     scale)
+                float   scale)
 {
   MetaCrtcMode modes_decl[] = {
     {
@@ -75,6 +85,7 @@ append_monitor (GArray *modes,
     }
   };
   MetaCrtc crtc;
+  MetaOutputDummy *output_dummy;
   MetaOutput output;
   unsigned int i;
 
@@ -87,6 +98,11 @@ append_monitor (GArray *modes,
     .all_transforms = ALL_TRANSFORMS,
   };
   g_array_append_val (crtcs, crtc);
+
+  output_dummy = g_new0 (MetaOutputDummy, 1);
+  *output_dummy = (MetaOutputDummy) {
+    .scale = scale
+  };
 
   output = (MetaOutput) {
     .winsys_id = outputs->len + 1,
@@ -103,7 +119,9 @@ append_monitor (GArray *modes,
     .n_possible_clones = 0,
     .backlight = -1,
     .connector_type = META_CONNECTOR_TYPE_LVDS,
-    .scale = scale,
+    .driver_private = output_dummy,
+    .driver_notify =
+      (GDestroyNotify) meta_output_dummy_notify_destroy
   };
 
   output.modes = g_new0 (MetaCrtcMode *, G_N_ELEMENTS (modes_decl));
@@ -159,8 +177,14 @@ append_tiled_monitor (GArray *modes,
   tile_group_id = outputs->len + 1;
   for (i = 0; i < G_N_ELEMENTS (crtcs_decl); i++)
     {
+      MetaOutputDummy *output_dummy;
       MetaCrtcMode *preferred_mode;
       unsigned int j;
+
+      output_dummy = g_new0 (MetaOutputDummy, 1);
+      *output_dummy = (MetaOutputDummy) {
+        .scale = scale
+      };
 
       preferred_mode = &array_last (modes, MetaCrtcMode),
       output = (MetaOutput) {
@@ -187,7 +211,9 @@ append_tiled_monitor (GArray *modes,
           .tile_w = preferred_mode->width,
           .tile_h = preferred_mode->height
         },
-        .scale = scale
+        .driver_private = output_dummy,
+        .driver_notify =
+          (GDestroyNotify) meta_output_dummy_notify_destroy
       };
 
       output.modes = g_new0 (MetaCrtcMode *, G_N_ELEMENTS (modes_decl));
@@ -207,10 +233,16 @@ append_tiled_monitor (GArray *modes,
 }
 
 static void
+meta_output_dummy_notify_destroy (MetaOutput *output)
+{
+  g_clear_pointer (&output->driver_private, g_free);
+}
+
+static void
 meta_monitor_manager_dummy_read_current (MetaMonitorManager *manager)
 {
   unsigned int num_monitors = 1;
-  int *monitor_scales = NULL;
+  float *monitor_scales = NULL;
   const char *num_monitors_str;
   const char *monitor_scales_str;
   const char *tiled_monitors_str;
@@ -262,9 +294,9 @@ meta_monitor_manager_dummy_read_current (MetaMonitorManager *manager)
         }
     }
 
-  monitor_scales = g_newa (int, num_monitors);
+  monitor_scales = g_newa (typeof (*monitor_scales), num_monitors);
   for (i = 0; i < num_monitors; i++)
-    monitor_scales[i] = 1;
+    monitor_scales[i] = 1.0;
 
   monitor_scales_str = getenv ("MUTTER_DEBUG_DUMMY_MONITOR_SCALES");
   if (monitor_scales_str)
@@ -277,20 +309,15 @@ meta_monitor_manager_dummy_read_current (MetaMonitorManager *manager)
                       "of monitors (defaults to 1).\n");
       for (i = 0; i < num_monitors && scales_str_list[i]; i++)
         {
-          int scale = g_ascii_strtoll (scales_str_list[i], NULL, 10);
-          if (scale == 1 || scale == 2)
-            monitor_scales[i] = scale;
-          else
-            meta_warning ("Invalid dummy monitor scale");
+          float scale = g_ascii_strtod (scales_str_list[i], NULL);
+
+          monitor_scales[i] = scale;
         }
       g_strfreev (scales_str_list);
     }
 
   tiled_monitors_str = g_getenv ("MUTTER_DEBUG_TILED_DUMMY_MONITORS");
   tiled_monitors = g_strcmp0 (tiled_monitors_str, "1") == 0;
-
-  manager->max_screen_width = 65535;
-  manager->max_screen_height = 65535;
 
   modes = g_array_sized_new (FALSE, TRUE, sizeof (MetaCrtcMode), MAX_MODES);
   crtcs = g_array_sized_new (FALSE, TRUE, sizeof (MetaCrtc), MAX_CRTCS);
@@ -323,10 +350,15 @@ meta_monitor_manager_dummy_ensure_initial_config (MetaMonitorManager *manager)
 
   config = meta_monitor_manager_ensure_configured (manager);
 
-  if (manager->config_manager)
+  if (meta_is_stage_views_enabled ())
     meta_monitor_manager_update_logical_state (manager, config);
   else
-    meta_monitor_manager_update_logical_state_derived (manager);
+    {
+      MetaMonitorManagerDeriveFlag flags =
+        META_MONITOR_MANAGER_DERIVE_FLAG_NONE;
+
+      meta_monitor_manager_update_logical_state_derived (manager, flags);
+    }
 }
 
 static void
@@ -464,17 +496,33 @@ update_screen_size (MetaMonitorManager *manager,
 }
 
 static gboolean
-meta_monitor_manager_dummy_apply_monitors_config (MetaMonitorManager *manager,
-                                                  MetaMonitorsConfig *config,
-                                                  GError            **error)
+meta_monitor_manager_dummy_apply_monitors_config (MetaMonitorManager      *manager,
+                                                  MetaMonitorsConfig      *config,
+                                                  MetaMonitorsConfigMethod method,
+                                                  GError                 **error)
 {
   GPtrArray *crtc_infos;
   GPtrArray *output_infos;
+
+  if (!config)
+    {
+      manager->screen_width = 0;
+      manager->screen_height = 0;
+
+      meta_monitor_manager_rebuild (manager, NULL);
+    }
 
   if (!meta_monitor_config_manager_assign (manager, config,
                                            &crtc_infos, &output_infos,
                                            error))
     return FALSE;
+
+  if (method == META_MONITORS_CONFIG_METHOD_VERIFY)
+    {
+      g_ptr_array_free (crtc_infos, TRUE);
+      g_ptr_array_free (output_infos, TRUE);
+      return TRUE;
+    }
 
   apply_crtc_assignments (manager,
                           (MetaCrtcInfo **) crtc_infos->pdata,
@@ -491,38 +539,6 @@ meta_monitor_manager_dummy_apply_monitors_config (MetaMonitorManager *manager,
   return TRUE;
 }
 
-static void
-legacy_calculate_screen_size (MetaMonitorManager *manager)
-{
-  unsigned int i;
-  int width = 0, height = 0;
-
-  for (i = 0; i < manager->n_crtcs; i++)
-    {
-      MetaCrtc *crtc = &manager->crtcs[i];
-
-      width = MAX (width, crtc->rect.x + crtc->rect.width);
-      height = MAX (height, crtc->rect.y + crtc->rect.height);
-    }
-
-  manager->screen_width = width;
-  manager->screen_height = height;
-}
-
-static void
-meta_monitor_manager_dummy_apply_config (MetaMonitorManager *manager,
-                                         MetaCrtcInfo      **crtcs,
-                                         unsigned int        n_crtcs,
-                                         MetaOutputInfo    **outputs,
-                                         unsigned int        n_outputs)
-{
-  apply_crtc_assignments (manager, crtcs, n_crtcs, outputs, n_outputs);
-
-  legacy_calculate_screen_size (manager);
-
-  meta_monitor_manager_rebuild_derived (manager);
-}
-
 static gboolean
 meta_monitor_manager_dummy_is_transform_handled (MetaMonitorManager  *manager,
                                                  MetaCrtc            *crtc,
@@ -533,6 +549,99 @@ meta_monitor_manager_dummy_is_transform_handled (MetaMonitorManager  *manager,
   return manager_dummy->is_transform_handled;
 }
 
+static float
+meta_monitor_manager_dummy_calculate_monitor_mode_scale (MetaMonitorManager *manager,
+                                                         MetaMonitor        *monitor,
+                                                         MetaMonitorMode    *monitor_mode)
+{
+  MetaOutput *output;
+  MetaOutputDummy *output_dummy;
+
+  output = meta_monitor_get_main_output (monitor);
+  output_dummy = output->driver_private;
+
+  return output_dummy->scale;
+}
+
+static float *
+meta_monitor_manager_dummy_calculate_supported_scales (MetaMonitorManager          *manager,
+                                                       MetaLogicalMonitorLayoutMode layout_mode,
+                                                       MetaMonitor                 *monitor,
+                                                       MetaMonitorMode             *monitor_mode,
+                                                       int                         *n_supported_scales)
+{
+  MetaMonitorScalesConstraint constraints =
+    META_MONITOR_SCALES_CONSTRAINT_NONE;
+
+  switch (layout_mode)
+    {
+    case META_LOGICAL_MONITOR_LAYOUT_MODE_LOGICAL:
+      break;
+    case META_LOGICAL_MONITOR_LAYOUT_MODE_PHYSICAL:
+      constraints |= META_MONITOR_SCALES_CONSTRAINT_NO_FRAC;
+      break;
+    }
+
+  return meta_monitor_calculate_supported_scales (monitor, monitor_mode,
+                                                  constraints,
+                                                  n_supported_scales);
+}
+
+static gboolean
+is_monitor_framebuffers_scaled (void)
+{
+  MetaBackend *backend = meta_get_backend ();
+  MetaSettings *settings = meta_backend_get_settings (backend);
+
+  return meta_settings_is_experimental_feature_enabled (
+    settings,
+    META_EXPERIMENTAL_FEATURE_SCALE_MONITOR_FRAMEBUFFER);
+}
+
+static MetaMonitorManagerCapability
+meta_monitor_manager_dummy_get_capabilities (MetaMonitorManager *manager)
+{
+  MetaBackend *backend = meta_get_backend ();
+  MetaSettings *settings = meta_backend_get_settings (backend);
+  MetaMonitorManagerCapability capabilities =
+    META_MONITOR_MANAGER_CAPABILITY_NONE;
+
+  capabilities |= META_MONITOR_MANAGER_CAPABILITY_MIRRORING;
+
+  if (meta_settings_is_experimental_feature_enabled (
+        settings,
+        META_EXPERIMENTAL_FEATURE_SCALE_MONITOR_FRAMEBUFFER))
+    capabilities |= META_MONITOR_MANAGER_CAPABILITY_LAYOUT_MODE;
+
+  return capabilities;
+}
+
+static gboolean
+meta_monitor_manager_dummy_get_max_screen_size (MetaMonitorManager *manager,
+                                                int                *max_width,
+                                                int                *max_height)
+{
+  if (meta_is_stage_views_enabled ())
+    return FALSE;
+
+  *max_width = 65535;
+  *max_height = 65535;
+
+  return TRUE;
+}
+
+static MetaLogicalMonitorLayoutMode
+meta_monitor_manager_dummy_get_default_layout_mode (MetaMonitorManager *manager)
+{
+  if (!meta_is_stage_views_enabled ())
+    return META_LOGICAL_MONITOR_LAYOUT_MODE_PHYSICAL;
+
+  if (is_monitor_framebuffers_scaled ())
+    return META_LOGICAL_MONITOR_LAYOUT_MODE_LOGICAL;
+  else
+    return META_LOGICAL_MONITOR_LAYOUT_MODE_PHYSICAL;
+}
+
 static void
 meta_monitor_manager_dummy_class_init (MetaMonitorManagerDummyClass *klass)
 {
@@ -541,8 +650,12 @@ meta_monitor_manager_dummy_class_init (MetaMonitorManagerDummyClass *klass)
   manager_class->read_current = meta_monitor_manager_dummy_read_current;
   manager_class->ensure_initial_config = meta_monitor_manager_dummy_ensure_initial_config;
   manager_class->apply_monitors_config = meta_monitor_manager_dummy_apply_monitors_config;
-  manager_class->apply_configuration = meta_monitor_manager_dummy_apply_config;
   manager_class->is_transform_handled = meta_monitor_manager_dummy_is_transform_handled;
+  manager_class->calculate_monitor_mode_scale = meta_monitor_manager_dummy_calculate_monitor_mode_scale;
+  manager_class->calculate_supported_scales = meta_monitor_manager_dummy_calculate_supported_scales;
+  manager_class->get_capabilities = meta_monitor_manager_dummy_get_capabilities;
+  manager_class->get_max_screen_size = meta_monitor_manager_dummy_get_max_screen_size;
+  manager_class->get_default_layout_mode = meta_monitor_manager_dummy_get_default_layout_mode;
 }
 
 static void

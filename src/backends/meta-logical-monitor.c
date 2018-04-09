@@ -78,7 +78,8 @@ meta_logical_monitor_new (MetaMonitorManager       *monitor_manager,
 
   logical_monitor->number = monitor_number;
   logical_monitor->winsys_id = main_output->winsys_id;
-  logical_monitor->scale = main_output->scale;
+  logical_monitor->scale = logical_monitor_config->scale;
+  logical_monitor->transform = logical_monitor_config->transform;
   logical_monitor->in_fullscreen = -1;
   logical_monitor->rect = logical_monitor_config->layout;
 
@@ -92,21 +93,36 @@ meta_logical_monitor_new (MetaMonitorManager       *monitor_manager,
   return logical_monitor;
 }
 
+static MetaMonitorTransform
+derive_monitor_transform (MetaMonitor *monitor)
+{
+  MetaOutput *main_output;
+
+  main_output = meta_monitor_get_main_output (monitor);
+
+  return main_output->crtc->transform;
+}
+
 MetaLogicalMonitor *
 meta_logical_monitor_new_derived (MetaMonitorManager *monitor_manager,
                                   MetaMonitor        *monitor,
                                   MetaRectangle      *layout,
+                                  float               scale,
                                   int                 monitor_number)
 {
   MetaLogicalMonitor *logical_monitor;
   MetaOutput *main_output;
+  MetaMonitorTransform transform;
 
   logical_monitor = g_object_new (META_TYPE_LOGICAL_MONITOR, NULL);
+
+  transform = derive_monitor_transform (monitor);
 
   main_output = meta_monitor_get_main_output (monitor);
   logical_monitor->number = monitor_number;
   logical_monitor->winsys_id = main_output->winsys_id;
-  logical_monitor->scale = main_output->scale;
+  logical_monitor->scale = scale;
+  logical_monitor->transform = transform;
   logical_monitor->in_fullscreen = -1;
   logical_monitor->rect = *layout;
 
@@ -159,10 +175,22 @@ meta_logical_monitor_make_primary (MetaLogicalMonitor *logical_monitor)
   logical_monitor->is_primary = TRUE;
 }
 
-int
+float
 meta_logical_monitor_get_scale (MetaLogicalMonitor *logical_monitor)
 {
   return logical_monitor->scale;
+}
+
+MetaMonitorTransform
+meta_logical_monitor_get_transform (MetaLogicalMonitor *logical_monitor)
+{
+  return logical_monitor->transform;
+}
+
+MetaRectangle
+meta_logical_monitor_get_layout (MetaLogicalMonitor *logical_monitor)
+{
+  return logical_monitor->rect;
 }
 
 GList *

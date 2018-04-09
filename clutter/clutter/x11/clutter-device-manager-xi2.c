@@ -955,8 +955,8 @@ translate_coords (ClutterStageX11 *stage_x11,
 
   clutter_actor_get_size (stage, &stage_width, &stage_height);
 
-  *x_out = CLAMP (event_x / stage_x11->scale_factor, 0, stage_width);
-  *y_out = CLAMP (event_y / stage_x11->scale_factor, 0, stage_height);
+  *x_out = CLAMP (event_x, 0, stage_width);
+  *y_out = CLAMP (event_y, 0, stage_height);
 }
 
 static gdouble
@@ -1160,7 +1160,7 @@ translate_pad_event (ClutterEvent       *event,
                 event->any.type == CLUTTER_PAD_RING
                 ? "pad ring  "
                 : "pad strip",
-                (unsigned int) stage_x11->xwin,
+                (unsigned int) xev->event,
                 device->id,
                 device->device_name,
                 event->any.time, value);

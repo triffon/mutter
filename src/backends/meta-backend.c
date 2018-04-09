@@ -43,8 +43,24 @@
 #include "backends/meta-idle-monitor-private.h"
 #include "backends/meta-logical-monitor.h"
 #include "backends/meta-monitor-manager-dummy.h"
+#include "backends/meta-settings-private.h"
+
+#define META_IDLE_MONITOR_CORE_DEVICE 0
+
+enum
+{
+  KEYMAP_CHANGED,
+  KEYMAP_LAYOUT_GROUP_CHANGED,
+  LAST_DEVICE_CHANGED,
+
+  N_SIGNALS
+};
+
+static guint signals[N_SIGNALS];
 
 static MetaBackend *_backend;
+
+static gboolean stage_views_disabled = FALSE;
 
 /**
  * meta_get_backend:
@@ -62,11 +78,13 @@ meta_get_backend (void)
 struct _MetaBackendPrivate
 {
   MetaMonitorManager *monitor_manager;
+  MetaOrientationManager *orientation_manager;
   MetaCursorTracker *cursor_tracker;
   MetaCursorRenderer *cursor_renderer;
   MetaInputSettings *input_settings;
   MetaRenderer *renderer;
   MetaEgl *egl;
+  MetaSettings *settings;
 
   ClutterBackend *clutter_backend;
   ClutterActor *stage;
@@ -97,12 +115,15 @@ meta_backend_finalize (GObject *object)
   MetaBackendPrivate *priv = meta_backend_get_instance_private (backend);
 
   g_clear_object (&priv->monitor_manager);
+  g_clear_object (&priv->orientation_manager);
   g_clear_object (&priv->input_settings);
 
   if (priv->device_update_idle_id)
     g_source_remove (priv->device_update_idle_id);
 
   g_hash_table_destroy (priv->device_monitors);
+
+  g_clear_object (&priv->settings);
 
   G_OBJECT_CLASS (meta_backend_parent_class)->finalize (object);
 }
@@ -136,6 +157,7 @@ center_pointer (MetaBackend *backend)
 void
 meta_backend_monitors_changed (MetaBackend *backend)
 {
+  MetaBackendPrivate *priv = meta_backend_get_instance_private (backend);
   MetaMonitorManager *monitor_manager =
     meta_backend_get_monitor_manager (backend);
   ClutterDeviceManager *manager = clutter_device_manager_get_default ();
@@ -152,6 +174,8 @@ meta_backend_monitors_changed (MetaBackend *backend)
           !meta_monitor_manager_is_headless (monitor_manager))
         center_pointer (backend);
     }
+
+  meta_settings_update_ui_scaling_factor (priv->settings);
 }
 
 void
@@ -199,6 +223,16 @@ destroy_device_monitor (MetaBackend *backend,
   MetaBackendPrivate *priv = meta_backend_get_instance_private (backend);
 
   g_hash_table_remove (priv->device_monitors, &device_id);
+}
+
+static void
+meta_backend_monitor_device (MetaBackend        *backend,
+                             ClutterInputDevice *device)
+{
+  int device_id;
+
+  device_id = clutter_input_device_get_device_id (device);
+  create_device_monitor (backend, device_id);
 }
 
 static void
@@ -309,9 +343,55 @@ create_monitor_manager (MetaBackend *backend)
 }
 
 static void
+create_device_monitors (MetaBackend          *backend,
+                        ClutterDeviceManager *device_manager)
+{
+  const GSList *devices;
+  const GSList *l;
+
+  create_device_monitor (backend, META_IDLE_MONITOR_CORE_DEVICE);
+
+  devices = clutter_device_manager_peek_devices (device_manager);
+  for (l = devices; l; l = l->next)
+    {
+      ClutterInputDevice *device = l->data;
+
+      meta_backend_monitor_device (backend, device);
+    }
+}
+
+static void
+set_initial_pointer_visibility (MetaBackend          *backend,
+                                ClutterDeviceManager *device_manager)
+{
+  MetaBackendPrivate *priv = meta_backend_get_instance_private (backend);
+  const GSList *devices;
+  const GSList *l;
+  gboolean has_touchscreen = FALSE;
+
+  devices = clutter_device_manager_peek_devices (device_manager);
+  for (l = devices; l; l = l->next)
+    {
+      ClutterInputDevice *device = l->data;
+
+      has_touchscreen |= device_is_slave_touchscreen (device);
+    }
+
+  meta_cursor_tracker_set_pointer_visible (priv->cursor_tracker,
+                                           !has_touchscreen);
+}
+
+static MetaInputSettings *
+meta_backend_create_input_settings (MetaBackend *backend)
+{
+  return META_BACKEND_GET_CLASS (backend)->create_input_settings (backend);
+}
+
+static void
 meta_backend_real_post_init (MetaBackend *backend)
 {
   MetaBackendPrivate *priv = meta_backend_get_instance_private (backend);
+  ClutterDeviceManager *device_manager = clutter_device_manager_get_default ();
 
   priv->stage = meta_stage_new ();
   clutter_actor_realize (priv->stage);
@@ -327,37 +407,16 @@ meta_backend_real_post_init (MetaBackend *backend)
     g_hash_table_new_full (g_int_hash, g_int_equal,
                            NULL, (GDestroyNotify) g_object_unref);
 
-  {
-    MetaCursorTracker *cursor_tracker;
-    ClutterDeviceManager *manager;
-    gboolean has_touchscreen = FALSE;
-    GSList *devices, *l;
+  create_device_monitors (backend, device_manager);
 
-    /* Create the core device monitor. */
-    create_device_monitor (backend, 0);
+  g_signal_connect_object (device_manager, "device-added",
+                           G_CALLBACK (on_device_added), backend, 0);
+  g_signal_connect_object (device_manager, "device-removed",
+                           G_CALLBACK (on_device_removed), backend, 0);
 
-    manager = clutter_device_manager_get_default ();
-    g_signal_connect_object (manager, "device-added",
-                             G_CALLBACK (on_device_added), backend, 0);
-    g_signal_connect_object (manager, "device-removed",
-                             G_CALLBACK (on_device_removed), backend, 0);
+  set_initial_pointer_visibility (backend, device_manager);
 
-    devices = clutter_device_manager_list_devices (manager);
-
-    for (l = devices; l != NULL; l = l->next)
-      {
-        ClutterInputDevice *device = l->data;
-        on_device_added (manager, device, backend);
-        has_touchscreen |= device_is_slave_touchscreen (device);
-      }
-
-    cursor_tracker = priv->cursor_tracker;
-    meta_cursor_tracker_set_pointer_visible (cursor_tracker, !has_touchscreen);
-
-    g_slist_free (devices);
-  }
-
-  priv->input_settings = meta_input_settings_create ();
+  priv->input_settings = meta_backend_create_input_settings (backend);
 
   center_pointer (backend);
 }
@@ -406,6 +465,7 @@ meta_backend_real_get_relative_motion_deltas (MetaBackend *backend,
 static void
 meta_backend_class_init (MetaBackendClass *klass)
 {
+  const gchar *mutter_stage_views;
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
   object_class->finalize = meta_backend_finalize;
@@ -417,24 +477,30 @@ meta_backend_class_init (MetaBackendClass *klass)
   klass->select_stage_events = meta_backend_real_select_stage_events;
   klass->get_relative_motion_deltas = meta_backend_real_get_relative_motion_deltas;
 
-  g_signal_new ("keymap-changed",
-                G_TYPE_FROM_CLASS (object_class),
-                G_SIGNAL_RUN_LAST,
-                0,
-                NULL, NULL, NULL,
-                G_TYPE_NONE, 0);
-  g_signal_new ("keymap-layout-group-changed",
-                G_TYPE_FROM_CLASS (object_class),
-                G_SIGNAL_RUN_LAST,
-                0,
-                NULL, NULL, NULL,
-                G_TYPE_NONE, 1, G_TYPE_UINT);
-  g_signal_new ("last-device-changed",
-                G_TYPE_FROM_CLASS (object_class),
-                G_SIGNAL_RUN_LAST,
-                0,
-                NULL, NULL, NULL,
-                G_TYPE_NONE, 1, G_TYPE_INT);
+  signals[KEYMAP_CHANGED] =
+    g_signal_new ("keymap-changed",
+                  G_TYPE_FROM_CLASS (object_class),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL, NULL,
+                  G_TYPE_NONE, 0);
+  signals[KEYMAP_LAYOUT_GROUP_CHANGED] =
+    g_signal_new ("keymap-layout-group-changed",
+                  G_TYPE_FROM_CLASS (object_class),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL, NULL,
+                  G_TYPE_NONE, 1, G_TYPE_UINT);
+  signals[LAST_DEVICE_CHANGED] =
+    g_signal_new ("last-device-changed",
+                  G_TYPE_FROM_CLASS (object_class),
+                  G_SIGNAL_RUN_LAST,
+                  0,
+                  NULL, NULL, NULL,
+                  G_TYPE_NONE, 1, G_TYPE_INT);
+
+  mutter_stage_views = g_getenv ("MUTTER_STAGE_VIEWS");
+  stage_views_disabled = g_strcmp0 (mutter_stage_views, "0") == 0;
 }
 
 static gboolean
@@ -444,6 +510,8 @@ meta_backend_initable_init (GInitable     *initable,
 {
   MetaBackend *backend = META_BACKEND (initable);
   MetaBackendPrivate *priv = meta_backend_get_instance_private (backend);
+
+  priv->settings = meta_settings_new (backend);
 
   priv->egl = g_object_new (META_TYPE_EGL, NULL);
 
@@ -459,6 +527,8 @@ meta_backend_initable_init (GInitable     *initable,
   priv->cursor_tracker = g_object_new (META_TYPE_CURSOR_TRACKER, NULL);
 
   priv->dnd = g_object_new (META_TYPE_DND, NULL);
+
+  priv->orientation_manager = g_object_new (META_TYPE_ORIENTATION_MANAGER, NULL);
 
   return TRUE;
 }
@@ -478,7 +548,11 @@ meta_backend_init (MetaBackend *backend)
 static void
 meta_backend_post_init (MetaBackend *backend)
 {
+  MetaBackendPrivate *priv = meta_backend_get_instance_private (backend);
+
   META_BACKEND_GET_CLASS (backend)->post_init (backend);
+
+  meta_settings_post_init (priv->settings);
 }
 
 /**
@@ -504,6 +578,17 @@ meta_backend_get_monitor_manager (MetaBackend *backend)
   return priv->monitor_manager;
 }
 
+/**
+ * meta_backend_get_orientation_manager: (skip)
+ */
+MetaOrientationManager *
+meta_backend_get_orientation_manager (MetaBackend *backend)
+{
+  MetaBackendPrivate *priv = meta_backend_get_instance_private (backend);
+
+  return priv->orientation_manager;
+}
+
 MetaCursorTracker *
 meta_backend_get_cursor_tracker (MetaBackend *backend)
 {
@@ -526,7 +611,8 @@ meta_backend_get_cursor_renderer (MetaBackend *backend)
 /**
  * meta_backend_get_renderer: (skip)
  */
-MetaRenderer * meta_backend_get_renderer (MetaBackend *backend)
+MetaRenderer *
+meta_backend_get_renderer (MetaBackend *backend)
 {
   MetaBackendPrivate *priv = meta_backend_get_instance_private (backend);
 
@@ -536,11 +622,23 @@ MetaRenderer * meta_backend_get_renderer (MetaBackend *backend)
 /**
  * meta_backend_get_egl: (skip)
  */
-MetaEgl * meta_backend_get_egl (MetaBackend *backend)
+MetaEgl *
+meta_backend_get_egl (MetaBackend *backend)
 {
   MetaBackendPrivate *priv = meta_backend_get_instance_private (backend);
 
   return priv->egl;
+}
+
+/**
+ * meta_backend_get_settings: (skip)
+ */
+MetaSettings *
+meta_backend_get_settings (MetaBackend *backend)
+{
+  MetaBackendPrivate *priv = meta_backend_get_instance_private (backend);
+
+  return priv->settings;
 }
 
 /**
@@ -601,6 +699,12 @@ meta_backend_get_keymap (MetaBackend *backend)
   return META_BACKEND_GET_CLASS (backend)->get_keymap (backend);
 }
 
+xkb_layout_index_t
+meta_backend_get_keymap_layout_group (MetaBackend *backend)
+{
+  return META_BACKEND_GET_CLASS (backend)->get_keymap_layout_group (backend);
+}
+
 void
 meta_backend_lock_layout_group (MetaBackend *backend,
                                 guint idx)
@@ -646,8 +750,8 @@ update_last_device (MetaBackend *backend)
                                               priv->current_device_id);
   device_type = clutter_input_device_get_device_type (device);
 
-  g_signal_emit_by_name (backend, "last-device-changed",
-                         priv->current_device_id);
+  g_signal_emit (backend, signals[LAST_DEVICE_CHANGED], 0,
+                 priv->current_device_id);
 
   switch (device_type)
     {
@@ -821,7 +925,6 @@ meta_init_backend (GType backend_gtype)
 void
 meta_clutter_init (void)
 {
-  ClutterSettings *clutter_settings;
   GSource *source;
 
   clutter_set_custom_backend_func (meta_get_clutter_backend);
@@ -831,13 +934,6 @@ meta_clutter_init (void)
       g_warning ("Unable to initialize Clutter.\n");
       exit (1);
     }
-
-  /*
-   * XXX: We cannot handle high dpi scaling yet, so fix the scale to 1
-   * for now.
-   */
-  clutter_settings = clutter_settings_get_default ();
-  g_object_set (clutter_settings, "window-scaling-factor", 1, NULL);
 
   source = g_source_new (&event_funcs, sizeof (GSource));
   g_source_attach (source, NULL);
@@ -849,17 +945,26 @@ meta_clutter_init (void)
 gboolean
 meta_is_stage_views_enabled (void)
 {
-  const gchar *mutter_stage_views;
-
   if (!meta_is_wayland_compositor ())
     return FALSE;
 
-  mutter_stage_views = g_getenv ("MUTTER_STAGE_VIEWS");
+  return !stage_views_disabled;
+}
 
-  if (!mutter_stage_views)
-    return TRUE;
+gboolean
+meta_is_stage_views_scaled (void)
+{
+  MetaBackend *backend = meta_get_backend ();
+  MetaMonitorManager *monitor_manager =
+    meta_backend_get_monitor_manager (backend);
+  MetaLogicalMonitorLayoutMode layout_mode;
 
-  return !g_str_equal (mutter_stage_views, "0");
+  if (!meta_is_stage_views_enabled ())
+    return FALSE;
+
+  layout_mode = monitor_manager->layout_mode;
+
+  return layout_mode == META_LOGICAL_MONITOR_LAYOUT_MODE_LOGICAL;
 }
 
 MetaInputSettings *
@@ -884,4 +989,18 @@ meta_backend_get_dnd (MetaBackend *backend)
   MetaBackendPrivate *priv = meta_backend_get_instance_private (backend);
 
   return priv->dnd;
+}
+
+void
+meta_backend_notify_keymap_changed (MetaBackend *backend)
+{
+  g_signal_emit (backend, signals[KEYMAP_CHANGED], 0);
+}
+
+void
+meta_backend_notify_keymap_layout_group_changed (MetaBackend *backend,
+                                                 unsigned int locked_group)
+{
+  g_signal_emit (backend, signals[KEYMAP_LAYOUT_GROUP_CHANGED], 0,
+                 locked_group);
 }

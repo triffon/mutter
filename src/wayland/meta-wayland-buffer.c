@@ -25,10 +25,17 @@
 #include "config.h"
 
 #include "meta-wayland-buffer.h"
+#include "meta-wayland-dma-buf.h"
 
 #include <clutter/clutter.h>
 #include <cogl/cogl-egl.h>
 #include <meta/util.h>
+
+#include <drm_fourcc.h>
+
+#ifndef DRM_FORMAT_MOD_INVALID
+#define DRM_FORMAT_MOD_INVALID ((1ULL << 56) - 1)
+#endif
 
 #include "backends/meta-backend-private.h"
 
@@ -97,6 +104,7 @@ meta_wayland_buffer_realize (MetaWaylandBuffer *buffer)
   CoglContext *cogl_context = clutter_backend_get_cogl_context (clutter_backend);
   EGLDisplay egl_display = cogl_egl_context_get_egl_display (cogl_context);
   MetaWaylandEglStream *stream;
+  MetaWaylandDmaBufBuffer *dma_buf;
 
   if (wl_shm_buffer_get (buffer->resource) != NULL)
     {
@@ -117,6 +125,14 @@ meta_wayland_buffer_realize (MetaWaylandBuffer *buffer)
     {
       buffer->egl_stream.stream = stream;
       buffer->type = META_WAYLAND_BUFFER_TYPE_EGL_STREAM;
+      return TRUE;
+    }
+
+  dma_buf = meta_wayland_dma_buf_from_buffer (buffer);
+  if (dma_buf)
+    {
+      buffer->dma_buf.dma_buf = dma_buf;
+      buffer->type = META_WAYLAND_BUFFER_TYPE_DMA_BUF;
       return TRUE;
     }
 
@@ -221,7 +237,6 @@ egl_image_buffer_attach (MetaWaylandBuffer *buffer,
   ClutterBackend *clutter_backend = meta_backend_get_clutter_backend (backend);
   CoglContext *cogl_context = clutter_backend_get_cogl_context (clutter_backend);
   EGLDisplay egl_display = cogl_egl_context_get_egl_display (cogl_context);
-  EGLContext egl_context = cogl_egl_context_get_egl_context (cogl_context);
   int format, width, height, y_inverted;
   CoglPixelFormat cogl_format;
   EGLImageKHR egl_image;
@@ -265,7 +280,9 @@ egl_image_buffer_attach (MetaWaylandBuffer *buffer,
       return FALSE;
     }
 
-  egl_image = meta_egl_create_image (egl, egl_display, egl_context,
+  /* The WL_bind_wayland_display spec states that EGL_NO_CONTEXT is to be used
+   * in conjunction with the EGL_WAYLAND_BUFFER_WL target. */
+  egl_image = meta_egl_create_image (egl, egl_display, EGL_NO_CONTEXT,
                                      EGL_WAYLAND_BUFFER_WL, buffer->resource,
                                      NULL,
                                      error);
@@ -340,6 +357,8 @@ meta_wayland_buffer_attach (MetaWaylandBuffer *buffer,
       return egl_image_buffer_attach (buffer, error);
     case META_WAYLAND_BUFFER_TYPE_EGL_STREAM:
       return egl_stream_buffer_attach (buffer, error);
+    case META_WAYLAND_BUFFER_TYPE_DMA_BUF:
+      return meta_wayland_dma_buf_buffer_attach (buffer, error);
     case META_WAYLAND_BUFFER_TYPE_UNKNOWN:
       g_assert_not_reached ();
       return FALSE;
@@ -427,8 +446,10 @@ meta_wayland_buffer_process_damage (MetaWaylandBuffer *buffer,
     {
     case META_WAYLAND_BUFFER_TYPE_SHM:
       res = process_shm_buffer_damage (buffer, region, &error);
+      break;
     case META_WAYLAND_BUFFER_TYPE_EGL_IMAGE:
     case META_WAYLAND_BUFFER_TYPE_EGL_STREAM:
+    case META_WAYLAND_BUFFER_TYPE_DMA_BUF:
       res = TRUE;
       break;
     case META_WAYLAND_BUFFER_TYPE_UNKNOWN:
@@ -436,6 +457,7 @@ meta_wayland_buffer_process_damage (MetaWaylandBuffer *buffer,
                    G_IO_ERROR_FAILED,
                    "Unknown buffer type");
       res = FALSE;
+      break;
     }
 
   if (!res)
@@ -452,6 +474,7 @@ meta_wayland_buffer_finalize (GObject *object)
 
   g_clear_pointer (&buffer->texture, cogl_object_unref);
   g_clear_object (&buffer->egl_stream.stream);
+  g_clear_object (&buffer->dma_buf.dma_buf);
 
   G_OBJECT_CLASS (meta_wayland_buffer_parent_class)->finalize (object);
 }

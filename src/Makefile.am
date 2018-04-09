@@ -71,6 +71,10 @@ mutter_built_sources += \
 	tablet-unstable-v2-server-protocol.h				\
 	xdg-foreign-unstable-v1-protocol.c				\
 	xdg-foreign-unstable-v1-server-protocol.h			\
+	linux-dmabuf-unstable-v1-protocol.c					\
+	linux-dmabuf-unstable-v1-server-protocol.h				\
+	keyboard-shortcuts-inhibit-unstable-v1-protocol.c		\
+	keyboard-shortcuts-inhibit-unstable-v1-server-protocol.h	\
 	$(NULL)
 endif
 
@@ -82,6 +86,7 @@ wayland_protocols =				\
 libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES =	\
 	backends/meta-backend.c			\
 	meta/meta-backend.h			\
+	meta/meta-settings.h			\
 	backends/meta-backend-private.h		\
 	backends/meta-barrier.c			\
 	backends/meta-barrier-private.h		\
@@ -104,10 +109,10 @@ libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES =	\
 	backends/meta-input-settings-private.h	\
 	backends/meta-logical-monitor.c		\
 	backends/meta-logical-monitor.h		\
-	backends/meta-monitor-config.c		\
-	backends/meta-monitor-config.h		\
 	backends/meta-monitor-config-manager.c	\
 	backends/meta-monitor-config-manager.h	\
+	backends/meta-monitor-config-migration.c	\
+	backends/meta-monitor-config-migration.h	\
 	backends/meta-monitor-config-store.c	\
 	backends/meta-monitor-config-store.h	\
 	backends/meta-monitor.c			\
@@ -117,8 +122,12 @@ libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES =	\
 	backends/meta-monitor-manager-private.h	\
 	backends/meta-monitor-manager-dummy.c	\
 	backends/meta-monitor-manager-dummy.h	\
+	backends/meta-orientation-manager.c	\
+	backends/meta-orientation-manager.h	\
 	backends/meta-pointer-constraint.c	\
 	backends/meta-pointer-constraint.h	\
+	backends/meta-settings.c		\
+	backends/meta-settings-private.h	\
 	backends/meta-stage.h			\
 	backends/meta-stage.c			\
 	backends/meta-renderer.c		\
@@ -137,10 +146,14 @@ libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES =	\
 	backends/x11/meta-cursor-renderer-x11.h		\
 	backends/x11/cm/meta-backend-x11-cm.c		\
 	backends/x11/cm/meta-backend-x11-cm.h		\
+	backends/x11/cm/meta-renderer-x11-cm.c		\
+	backends/x11/cm/meta-renderer-x11-cm.h		\
 	backends/x11/nested/meta-backend-x11-nested.c	\
 	backends/x11/nested/meta-backend-x11-nested.h	\
 	backends/x11/nested/meta-cursor-renderer-x11-nested.c		\
 	backends/x11/nested/meta-cursor-renderer-x11-nested.h		\
+	backends/x11/nested/meta-renderer-x11-nested.c	\
+	backends/x11/nested/meta-renderer-x11-nested.h	\
 	backends/x11/meta-idle-monitor-xsync.c		\
 	backends/x11/meta-idle-monitor-xsync.h		\
 	backends/x11/meta-input-settings-x11.c		\
@@ -218,6 +231,14 @@ libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES =	\
 	core/constraints.c			\
 	core/constraints.h			\
 	core/core.c				\
+	core/meta-close-dialog.c		\
+	meta/meta-close-dialog.h		\
+	core/meta-close-dialog-default.c	\
+	core/meta-close-dialog-default-private.h	\
+	core/meta-inhibit-shortcuts-dialog.c	\
+	meta/meta-inhibit-shortcuts-dialog.h	\
+	core/meta-inhibit-shortcuts-dialog-default.c	\
+	core/meta-inhibit-shortcuts-dialog-default-private.h \
 	core/delete.c				\
 	core/display.c				\
 	core/display-private.h			\
@@ -304,6 +325,8 @@ libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES +=	\
 	wayland/meta-xwayland-private.h		\
 	wayland/meta-wayland-buffer.c      	\
 	wayland/meta-wayland-buffer.h      	\
+	wayland/meta-wayland-dma-buf.c      	\
+	wayland/meta-wayland-dma-buf.h      	\
 	wayland/meta-wayland-region.c      	\
 	wayland/meta-wayland-region.h      	\
 	wayland/meta-wayland-data-device.c      \
@@ -371,6 +394,10 @@ libmutter_@LIBMUTTER_API_VERSION@_la_SOURCES +=	\
 	wayland/meta-wayland-wl-shell.h		\
 	wayland/meta-wayland-gtk-shell.c	\
 	wayland/meta-wayland-gtk-shell.h	\
+	wayland/meta-wayland-inhibit-shortcuts.c \
+	wayland/meta-wayland-inhibit-shortcuts.h \
+	wayland/meta-wayland-inhibit-shortcuts-dialog.c	\
+	wayland/meta-wayland-inhibit-shortcuts-dialog.h	\
 	$(NULL)
 endif
 
@@ -431,11 +458,14 @@ libmutterinclude_headers =			\
 	meta/meta-background-actor.h		\
 	meta/meta-background-image.h		\
 	meta/meta-background-group.h		\
+	meta/meta-close-dialog.h		\
+	meta/meta-inhibit-shortcuts-dialog.h	\
 	meta/meta-cursor-tracker.h		\
 	meta/meta-dnd.h			\
 	meta/meta-idle-monitor.h		\
 	meta/meta-plugin.h			\
 	meta/meta-monitor-manager.h		\
+	meta/meta-settings.h			\
 	meta/meta-shaped-texture.h		\
 	meta/meta-shadow-factory.h		\
 	meta/meta-window-actor.h		\
@@ -565,7 +595,7 @@ stamp-meta-enum-types.h: $(libmutterinclude_headers) meta-enum-types.h.in
 	$(AM_V_GEN) ( cd $(srcdir) && \
 	  $(GLIB_MKENUMS) \
 	    --template meta-enum-types.h.in \
-	  $(libmutterinclude_base_headers) ) >> xgen-teth && \
+	  $(libmutterinclude_headers) ) > xgen-teth && \
 	(cmp -s xgen-teth meta/meta-enum-types.h || cp xgen-teth meta/meta-enum-types.h) && \
 	rm -f xgen-teth && \
 	echo timestamp > $(@F)
@@ -574,7 +604,7 @@ meta-enum-types.c: stamp-meta-enum-types.h meta-enum-types.c.in
 	  $(AM_V_GEN) ( cd $(srcdir) && \
 	  $(GLIB_MKENUMS) \
 	    --template meta-enum-types.c.in \
-	  $(libmutterinclude_base_headers) ) >> xgen-tetc && \
+	  $(libmutterinclude_headers) ) > xgen-tetc && \
 	cp xgen-tetc meta-enum-types.c && \
 	rm -f xgen-tetc
 
@@ -631,3 +661,7 @@ endef
 	$(AM_V_GEN)$(WAYLAND_SCANNER) code $< $@
 %-server-protocol.h : $(srcdir)/wayland/protocol/%.xml
 	$(AM_V_GEN)$(WAYLAND_SCANNER) server-header $< $@
+keyboard-shortcuts-inhibit-unstable-v1-protocol.c : $(WAYLAND_PROTOCOLS_DATADIR)/unstable/keyboard-shortcuts-inhibit/keyboard-shortcuts-inhibit-unstable-v1.xml
+	$(AM_V_GEN)$(WAYLAND_SCANNER) code < $< > $@
+keyboard-shortcuts-inhibit-unstable-v1-server-protocol.h : $(WAYLAND_PROTOCOLS_DATADIR)/unstable/keyboard-shortcuts-inhibit/keyboard-shortcuts-inhibit-unstable-v1.xml
+	$(AM_V_GEN)$(WAYLAND_SCANNER) server-header < $< > $@

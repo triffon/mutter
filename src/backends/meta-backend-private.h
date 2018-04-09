@@ -34,10 +34,12 @@
 #include <meta/meta-idle-monitor.h>
 #include "meta-cursor-renderer.h"
 #include "meta-monitor-manager-private.h"
+#include "meta-orientation-manager.h"
 #include "meta-input-settings-private.h"
 #include "backends/meta-egl.h"
 #include "backends/meta-pointer-constraint.h"
 #include "backends/meta-renderer.h"
+#include "backends/meta-settings-private.h"
 #include "core/util-private.h"
 
 #define DEFAULT_XKB_RULES_FILE "evdev"
@@ -59,6 +61,7 @@ struct _MetaBackendClass
   MetaMonitorManager * (* create_monitor_manager) (MetaBackend *backend);
   MetaCursorRenderer * (* create_cursor_renderer) (MetaBackend *backend);
   MetaRenderer * (* create_renderer) (MetaBackend *backend);
+  MetaInputSettings * (* create_input_settings) (MetaBackend *backend);
 
   gboolean (* grab_device) (MetaBackend *backend,
                             int          device_id,
@@ -79,6 +82,8 @@ struct _MetaBackendClass
                        const char  *options);
 
   struct xkb_keymap * (* get_keymap) (MetaBackend *backend);
+
+  xkb_layout_index_t (* get_keymap_layout_group) (MetaBackend *backend);
 
   void (* lock_layout_group) (MetaBackend *backend,
                               guint        idx);
@@ -108,10 +113,12 @@ void meta_backend_foreach_device_monitor (MetaBackend *backend,
                                           gpointer     user_data);
 
 MetaMonitorManager * meta_backend_get_monitor_manager (MetaBackend *backend);
+MetaOrientationManager * meta_backend_get_orientation_manager (MetaBackend *backend);
 MetaCursorTracker * meta_backend_get_cursor_tracker (MetaBackend *backend);
 MetaCursorRenderer * meta_backend_get_cursor_renderer (MetaBackend *backend);
 MetaRenderer * meta_backend_get_renderer (MetaBackend *backend);
 MetaEgl * meta_backend_get_egl (MetaBackend *backend);
+MetaSettings * meta_backend_get_settings (MetaBackend *backend);
 
 gboolean meta_backend_grab_device (MetaBackend *backend,
                                    int          device_id,
@@ -127,6 +134,8 @@ void meta_backend_warp_pointer (MetaBackend *backend,
 MetaLogicalMonitor * meta_backend_get_current_logical_monitor (MetaBackend *backend);
 
 struct xkb_keymap * meta_backend_get_keymap (MetaBackend *backend);
+
+xkb_layout_index_t meta_backend_get_keymap_layout_group (MetaBackend *backend);
 
 void meta_backend_update_last_device (MetaBackend *backend,
                                       int          device_id);
@@ -148,6 +157,15 @@ void meta_backend_monitors_changed (MetaBackend *backend);
 
 gboolean meta_is_stage_views_enabled (void);
 
+gboolean meta_is_stage_views_scaled (void);
+
 MetaInputSettings *meta_backend_get_input_settings (MetaBackend *backend);
+
+void meta_backend_notify_keymap_changed (MetaBackend *backend);
+
+void meta_backend_notify_keymap_layout_group_changed (MetaBackend *backend,
+                                                      unsigned int locked_group);
+
+void meta_backend_notify_ui_scaling_factor_changed (MetaBackend *backend);
 
 #endif /* META_BACKEND_PRIVATE_H */

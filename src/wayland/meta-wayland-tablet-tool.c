@@ -914,6 +914,7 @@ meta_wayland_tablet_tool_update (MetaWaylandTabletTool *tool,
       break;
     case CLUTTER_PROXIMITY_OUT:
       tool->current_tablet = NULL;
+      meta_wayland_tablet_tool_set_cursor_surface (tool, NULL);
       meta_wayland_tablet_tool_update_cursor_surface (tool);
       g_clear_object (&tool->cursor_renderer);
       break;
@@ -953,8 +954,8 @@ meta_wayland_tablet_tool_handle_event (MetaWaylandTabletTool *tool,
 
 void
 meta_wayland_tablet_tool_set_cursor_position (MetaWaylandTabletTool *tool,
-                                              int                    new_x,
-                                              int                    new_y)
+                                              float                  new_x,
+                                              float                  new_y)
 {
   if (tool->cursor_renderer)
     meta_cursor_renderer_set_position (tool->cursor_renderer, new_x, new_y);

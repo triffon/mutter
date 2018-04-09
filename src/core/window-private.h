@@ -35,6 +35,7 @@
 #include <config.h>
 #include <meta/compositor.h>
 #include <meta/window.h>
+#include <meta/meta-close-dialog.h>
 #include "screen-private.h"
 #include <meta/util.h>
 #include "stack.h"
@@ -479,7 +480,7 @@ struct _MetaWindow
   int stack_position; /* see comment in stack.h */
 
   /* Managed by delete.c */
-  int dialog_pid;
+  MetaCloseDialog *close_dialog;
 
   /* maintained by group.c */
   MetaGroup *group;
@@ -534,6 +535,10 @@ struct _MetaWindowClass
                                   gboolean    user_op);
   void (*main_monitor_changed)   (MetaWindow *window,
                                   const MetaLogicalMonitor *old);
+  void (*force_restore_shortcuts) (MetaWindow         *window,
+                                   ClutterInputDevice *source);
+  gboolean (*shortcuts_inhibited) (MetaWindow         *window,
+                                   ClutterInputDevice *source);
 };
 
 /* These differ from window->has_foo_func in that they consider
@@ -762,4 +767,9 @@ MetaPlacementRule *meta_window_get_placement_rule (MetaWindow *window);
 
 void meta_window_force_placement (MetaWindow *window);
 
+void meta_window_force_restore_shortcuts (MetaWindow         *window,
+                                          ClutterInputDevice *source);
+
+gboolean meta_window_shortcuts_inhibited (MetaWindow         *window,
+                                          ClutterInputDevice *source);
 #endif

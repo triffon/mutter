@@ -703,7 +703,7 @@ meta_onscreen_native_flip_crtcs (CoglOnscreen *onscreen)
   flip_closure = g_cclosure_new (G_CALLBACK (on_crtc_flipped),
                                  g_object_ref (view),
                                  (GClosureNotify) flip_closure_destroyed);
-  g_closure_set_marshal (flip_closure, g_cclosure_marshal_generic);
+  g_closure_set_marshal (flip_closure, g_cclosure_marshal_VOID__VOID);
 
   /* Either flip the CRTC's of the monitor info, if we are drawing just part
    * of the stage, or all of the CRTC's if we are drawing the whole stage.
@@ -1686,10 +1686,10 @@ calculate_view_transform (MetaMonitorManager *monitor_manager,
 
   if (meta_monitor_manager_is_transform_handled (monitor_manager,
                                                  main_output->crtc,
-                                                 main_output->crtc->transform))
+                                                 logical_monitor->transform))
     return META_MONITOR_TRANSFORM_NORMAL;
   else
-    return main_output->crtc->transform;
+    return logical_monitor->transform;
 }
 
 static MetaRendererView *
@@ -1707,16 +1707,26 @@ meta_renderer_native_create_view (MetaRenderer       *renderer,
   MetaMonitorTransform view_transform;
   CoglOnscreen *onscreen = NULL;
   CoglOffscreen *offscreen = NULL;
+  float scale;
+  int width, height;
   MetaRendererView *view;
   GError *error = NULL;
 
   view_transform = calculate_view_transform (monitor_manager, logical_monitor);
 
+  if (meta_is_stage_views_scaled ())
+    scale = meta_logical_monitor_get_scale (logical_monitor);
+  else
+    scale = 1.0;
+
+  width = logical_monitor->rect.width * scale;
+  height = logical_monitor->rect.height * scale;
+
   onscreen = meta_renderer_native_create_onscreen (META_RENDERER_NATIVE (renderer),
                                                    cogl_context,
                                                    view_transform,
-                                                   logical_monitor->rect.width,
-                                                   logical_monitor->rect.height);
+                                                   width,
+                                                   height);
   if (!onscreen)
     meta_fatal ("Failed to allocate onscreen framebuffer\n");
 
@@ -1725,14 +1735,15 @@ meta_renderer_native_create_view (MetaRenderer       *renderer,
       offscreen = meta_renderer_native_create_offscreen (META_RENDERER_NATIVE (renderer),
                                                          cogl_context,
                                                          view_transform,
-                                                         logical_monitor->rect.width,
-                                                         logical_monitor->rect.height);
+                                                         width,
+                                                         height);
       if (!offscreen)
         meta_fatal ("Failed to allocate back buffer texture\n");
     }
 
   view = g_object_new (META_TYPE_RENDERER_VIEW,
                        "layout", &logical_monitor->rect,
+                       "scale", scale,
                        "framebuffer", onscreen,
                        "offscreen", offscreen,
                        "logical-monitor", logical_monitor,
@@ -1773,6 +1784,24 @@ int64_t
 meta_renderer_native_get_frame_counter (MetaRendererNative *renderer_native)
 {
   return renderer_native->frame_counter;
+}
+
+void
+meta_renderer_native_pause (MetaRendererNative *renderer_native)
+{
+  GList *views;
+  GList *l;
+
+  views = meta_renderer_get_views (META_RENDERER (renderer_native));
+  for (l = views; l; l = l->next)
+    {
+      ClutterStageView *stage_view = l->data;
+
+      g_object_set (G_OBJECT (stage_view),
+                    "framebuffer", NULL,
+                    "offscreen", NULL,
+                    NULL);
+    }
 }
 
 static void
@@ -2059,16 +2088,23 @@ meta_renderer_native_initable_init (GInitable     *initable,
   GError *egl_device_error = NULL;
 #endif
 
-  if (init_gbm (renderer_native, &gbm_error))
-    return TRUE;
-
 #ifdef HAVE_EGL_DEVICE
+  /* Try to initialize the EGLDevice backend first. Whenever we use a
+   * non-NVIDIA GPU, the EGLDevice enumeration function won't find a match, and
+   * we'll fall back to GBM (which will always succeed as it has a software
+   * rendering fallback)
+   */
   if (init_egl_device (renderer_native, &egl_device_error))
+    return TRUE;
+#endif
+
+  if (init_gbm (renderer_native, &gbm_error))
     {
-      g_error_free (gbm_error);
+#ifdef HAVE_EGL_DEVICE
+      g_error_free (egl_device_error);
+#endif
       return TRUE;
     }
-#endif
 
   g_set_error (error, G_IO_ERROR,
                G_IO_ERROR_FAILED,

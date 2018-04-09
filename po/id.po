@@ -9,17 +9,17 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: mutter master\n"
-"Report-Msgid-Bugs-To: http://bugzilla.gnome.org/enter_bug.cgi?"
+"Report-Msgid-Bugs-To: https://bugzilla.gnome.org/enter_bug.cgi?"
 "product=mutter&keywords=I18N+L10N&component=general\n"
-"POT-Creation-Date: 2017-02-16 01:44+0000\n"
-"PO-Revision-Date: 2017-02-20 13:44+0700\n"
-"Last-Translator: Andika Triwidada <andika@gmail.com>\n"
+"POT-Creation-Date: 2017-08-21 04:46+0000\n"
+"PO-Revision-Date: 2017-08-21 13:42+0700\n"
+"Last-Translator: Kukuh Syafaat <syafaatkukuh@gmail.com>\n"
 "Language-Team: Indonesian <gnome-l10n-id@googlegroups.com>\n"
 "Language: id\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 1.6.10\n"
+"X-Generator: Poedit 2.0.3\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #: data/50-mutter-navigation.xml:6
@@ -398,13 +398,46 @@ msgstr ""
 "Ketika berisi true, jendela baru akan selalu diletakkan di tengah dari layar "
 "aktif dari monitor."
 
-#: data/org.gnome.mutter.gschema.xml.in:120
+#: data/org.gnome.mutter.gschema.xml.in:107
+msgid "Enable experimental features"
+msgstr "Aktifkan fitur eksperimental"
+
+#: data/org.gnome.mutter.gschema.xml.in:108
+msgid ""
+"To enable experimental features, add the feature keyword to the list. "
+"Whether the feature requires restarting the compositor depends on the given "
+"feature. Any experimental feature is not required to still be available, or "
+"configurable. Don’t expect adding anything in this setting to be future "
+"proof. Currently possible keywords: • “scale-monitor-framebuffer” — makes "
+"mutter default to layout logical monitors in a logical pixel coordinate "
+"space, while scaling monitor framebuffers instead of window content, to "
+"manage HiDPI monitors. Does not require a restart."
+msgstr ""
+"Untuk mengaktifkan fitur eksperimental, tambahkan kata kunci fitur ke dalam "
+"daftar. Apakah fitur memerlukan nyala ulang kompositor tergantung pada fitur "
+"yang diberikan. Setiap fitur eksperimental tidak diharuskan tetap tersedia, "
+"atau dapat dikonfigurasi. Jangan berharap menambahkan apapun dalam "
+"pengaturan ini kebal perubahan di masa depan. Saat ini kata kunci yang "
+"mungkin: • “scale-monitor-framebuffer” — membuat bawaan mutter untuk tata "
+"letak monitor logikal dalam ruang koordinat pixel logikal, sambil "
+"menskalakan framebuffer monitor alih-alih konten jendela, untuk mengelola "
+"monitor HiDPI. Tidak perlu mulai ulang."
+
+#: data/org.gnome.mutter.gschema.xml.in:141
 msgid "Select window from tab popup"
 msgstr "Pilih jendela dari popup tab"
 
-#: data/org.gnome.mutter.gschema.xml.in:125
+#: data/org.gnome.mutter.gschema.xml.in:146
 msgid "Cancel tab popup"
 msgstr "Batalkan popup tab"
+
+#: data/org.gnome.mutter.gschema.xml.in:151
+msgid "Switch monitor configurations"
+msgstr "Tukar konfigurasi monitor bawaan"
+
+#: data/org.gnome.mutter.gschema.xml.in:156
+msgid "Rotates the built-in monitor configuration"
+msgstr "Memutar konfigurasi monitor bawaan"
 
 #: data/org.gnome.mutter.wayland.gschema.xml.in:6
 msgid "Switch to VT 1"
@@ -454,10 +487,14 @@ msgstr "Bertukar ke VT 11"
 msgid "Switch to VT 12"
 msgstr "Bertukar ke VT 12"
 
+#: data/org.gnome.mutter.wayland.gschema.xml.in:54
+msgid "Re-enable shortcuts"
+msgstr "Aktifkan kembali pintasan"
+
 #. TRANSLATORS: This string refers to a button that switches between
 #. * different modes.
 #.
-#: src/backends/meta-input-settings.c:1759
+#: src/backends/meta-input-settings.c:2151
 #, c-format
 msgid "Mode Switch (Group %d)"
 msgstr "Tukar Mode: (Grup %d)"
@@ -465,37 +502,37 @@ msgstr "Tukar Mode: (Grup %d)"
 #. TRANSLATORS: This string refers to an action, cycles drawing tablets'
 #. * mapping through the available outputs.
 #.
-#: src/backends/meta-input-settings.c:1781
+#: src/backends/meta-input-settings.c:2174
 msgid "Switch monitor"
 msgstr "Berpindah monitor"
 
-#: src/backends/meta-input-settings.c:1783
+#: src/backends/meta-input-settings.c:2176
 msgid "Show on-screen help"
 msgstr "Tampilkan bantuan pada layar"
 
-#: src/backends/meta-monitor-manager.c:675
+#: src/backends/meta-monitor-manager.c:903
 msgid "Built-in display"
 msgstr "Tampilan bawaan"
 
-#: src/backends/meta-monitor-manager.c:698
+#: src/backends/meta-monitor-manager.c:926
 msgid "Unknown"
 msgstr "Tak Dikenal"
 
-#: src/backends/meta-monitor-manager.c:700
+#: src/backends/meta-monitor-manager.c:928
 msgid "Unknown Display"
 msgstr "Tampilan Tak Dikenal"
 
 #. TRANSLATORS: this is a monitor vendor name, followed by a
 #. * size in inches, like 'Dell 15"'
 #.
-#: src/backends/meta-monitor-manager.c:708
+#: src/backends/meta-monitor-manager.c:936
 #, c-format
 msgid "%s %s"
 msgstr "%s %s"
 
 #. This probably means that a non-WM compositor like xcompmgr is running;
 #. * we have no way to get it to exit
-#: src/compositor/compositor.c:471
+#: src/compositor/compositor.c:476
 #, c-format
 msgid ""
 "Another compositing manager is already running on screen %i on display “%s”."
@@ -505,31 +542,6 @@ msgstr ""
 #: src/core/bell.c:194
 msgid "Bell event"
 msgstr "Bel peristiwa"
-
-#. Translators: %s is a window title
-#: src/core/delete.c:127
-#, c-format
-msgid "“%s” is not responding."
-msgstr "\"%s\" tak merespon."
-
-#: src/core/delete.c:129
-msgid "Application is not responding."
-msgstr "Aplikasi tak merespon."
-
-#: src/core/delete.c:134
-msgid ""
-"You may choose to wait a short while for it to continue or force the "
-"application to quit entirely."
-msgstr ""
-"Anda bisa memilih untuk menunggu sebentar atau memaksa aplikasi keluar."
-
-#: src/core/delete.c:141
-msgid "_Force Quit"
-msgstr "_Matikan Paksa"
-
-#: src/core/delete.c:141
-msgid "_Wait"
-msgstr "_Tunggu"
 
 #: src/core/display.c:608
 #, c-format
@@ -571,6 +583,31 @@ msgstr "Jalankan sebagai kompositor bersarang"
 #: src/core/main.c:239
 msgid "Run as a full display server, rather than nested"
 msgstr "Jalankan sebagai server tampilan penuh, ketimbang tampilan bersarang"
+
+#. Translators: %s is a window title
+#: src/core/meta-close-dialog-default.c:147
+#, c-format
+msgid "“%s” is not responding."
+msgstr "\"%s\" tak merespon."
+
+#: src/core/meta-close-dialog-default.c:149
+msgid "Application is not responding."
+msgstr "Aplikasi tak merespon."
+
+#: src/core/meta-close-dialog-default.c:154
+msgid ""
+"You may choose to wait a short while for it to continue or force the "
+"application to quit entirely."
+msgstr ""
+"Anda bisa memilih untuk menunggu sebentar atau memaksa aplikasi keluar."
+
+#: src/core/meta-close-dialog-default.c:161
+msgid "_Force Quit"
+msgstr "_Matikan Paksa"
+
+#: src/core/meta-close-dialog-default.c:161
+msgid "_Wait"
+msgstr "_Tunggu"
 
 #: src/core/mutter.c:39
 #, c-format

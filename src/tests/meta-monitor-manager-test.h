@@ -32,6 +32,11 @@ typedef struct _MetaMonitorTestSetup
   int n_crtcs;
 } MetaMonitorTestSetup;
 
+typedef struct _MetaOutputTest
+{
+  float scale;
+} MetaOutputTest;
+
 #define META_TYPE_MONITOR_MANAGER_TEST (meta_monitor_manager_test_get_type ())
 G_DECLARE_FINAL_TYPE (MetaMonitorManagerTest, meta_monitor_manager_test,
                       META, MONITOR_MANAGER_TEST, MetaMonitorManager)
@@ -43,6 +48,9 @@ void meta_monitor_manager_test_emulate_hotplug (MetaMonitorManagerTest *manager_
 
 void meta_monitor_manager_test_set_is_lid_closed (MetaMonitorManagerTest *manager_test,
                                                   gboolean                is_lid_closed);
+
+void meta_monitor_manager_test_set_handles_transforms (MetaMonitorManagerTest *manager_test,
+                                                       gboolean                handles_transforms);
 
 int meta_monitor_manager_test_get_tiled_monitor_count (MetaMonitorManagerTest *manager_test);
 
