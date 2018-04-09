@@ -200,7 +200,7 @@ meta_screen_class_init (MetaScreenClass *klass)
                   3,
                   G_TYPE_INT,
                   G_TYPE_INT,
-                  MUTTER_TYPE_MOTION_DIRECTION);
+                  META_TYPE_MOTION_DIRECTION);
 
   screen_signals[WINDOW_ENTERED_MONITOR] =
     g_signal_new ("window-entered-monitor",
@@ -1173,7 +1173,9 @@ prefs_changed_callback (MetaPreference pref,
 {
   MetaScreen *screen = data;
   
-  if (pref == META_PREF_NUM_WORKSPACES)
+  if ((pref == META_PREF_NUM_WORKSPACES ||
+       pref == META_PREF_DYNAMIC_WORKSPACES) &&
+      !meta_prefs_get_dynamic_workspaces ())
     {
       /* GSettings doesn't provide timestamps, but luckily update_num_workspaces
        * often doesn't need it...
@@ -1483,12 +1485,14 @@ meta_screen_remove_workspace (MetaScreen *screen, MetaWorkspace *workspace,
   new_num = g_list_length (screen->workspaces);
 
   set_number_of_spaces_hint (screen, new_num);
-  meta_prefs_set_num_workspaces (new_num);
+
+  if (!meta_prefs_get_dynamic_workspaces ())
+    meta_prefs_set_num_workspaces (new_num);
 
   /* If deleting a workspace before the current workspace, the active
    * workspace index changes, so we need to update that hint */
   if (active_index_changed)
-      meta_screen_set_active_workspace_hint (workspace->screen);
+      meta_screen_set_active_workspace_hint (screen);
 
   l = next;
   while (l)
@@ -1538,7 +1542,9 @@ meta_screen_append_new_workspace (MetaScreen *screen, gboolean activate,
   new_num = g_list_length (screen->workspaces);
 
   set_number_of_spaces_hint (screen, new_num);
-  meta_prefs_set_num_workspaces (new_num);
+
+  if (!meta_prefs_get_dynamic_workspaces ())
+    meta_prefs_set_num_workspaces (new_num);
 
   meta_screen_queue_workarea_recalc (screen);
 
