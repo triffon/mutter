@@ -63,6 +63,7 @@ static GQuark quark_cursor_sprite = 0;
 
 struct _MetaCursorRendererNativePrivate
 {
+  gboolean hw_state_invalidated;
   gboolean has_hw_cursor;
 
   MetaCursorSprite *last_cursor;
@@ -158,9 +159,8 @@ set_pending_cursor_sprite_gbm_bo (MetaCursorSprite *cursor_sprite,
 
 static void
 set_crtc_cursor (MetaCursorRendererNative *native,
-                 MetaCRTC                 *crtc,
-                 MetaCursorSprite         *cursor_sprite,
-                 gboolean                  force)
+                 MetaCrtc                 *crtc,
+                 MetaCursorSprite         *cursor_sprite)
 {
   MetaCursorRendererNativePrivate *priv = meta_cursor_renderer_native_get_instance_private (native);
 
@@ -177,7 +177,7 @@ set_crtc_cursor (MetaCursorRendererNative *native,
       else
         bo = get_active_cursor_sprite_gbm_bo (cursor_sprite);
 
-      if (!force && bo == crtc->cursor_renderer_private)
+      if (!priv->hw_state_invalidated && bo == crtc->cursor_renderer_private)
         return;
 
       crtc->cursor_renderer_private = bo;
@@ -197,7 +197,7 @@ set_crtc_cursor (MetaCursorRendererNative *native,
     }
   else
     {
-      if (force || crtc->cursor_renderer_private != NULL)
+      if (priv->hw_state_invalidated || crtc->cursor_renderer_private != NULL)
         {
           drmModeSetCursor2 (priv->drm_fd, crtc->crtc_id, 0, 0, 0, 0, 0);
           crtc->cursor_renderer_private = NULL;
@@ -207,13 +207,12 @@ set_crtc_cursor (MetaCursorRendererNative *native,
 
 static void
 update_hw_cursor (MetaCursorRendererNative *native,
-                  MetaCursorSprite         *cursor_sprite,
-                  gboolean                  force)
+                  MetaCursorSprite         *cursor_sprite)
 {
   MetaCursorRendererNativePrivate *priv = meta_cursor_renderer_native_get_instance_private (native);
   MetaCursorRenderer *renderer = META_CURSOR_RENDERER (native);
   MetaMonitorManager *monitors;
-  MetaCRTC *crtcs;
+  MetaCrtc *crtcs;
   unsigned int i, n_crtcs;
   MetaRectangle rect;
   gboolean painted = FALSE;
@@ -241,7 +240,7 @@ update_hw_cursor (MetaCursorRendererNative *native,
       else
         crtc_cursor = NULL;
 
-      set_crtc_cursor (native, &crtcs[i], crtc_cursor, force);
+      set_crtc_cursor (native, &crtcs[i], crtc_cursor);
 
       if (crtc_cursor)
         {
@@ -251,6 +250,8 @@ update_hw_cursor (MetaCursorRendererNative *native,
           painted = TRUE;
         }
     }
+
+  priv->hw_state_invalidated = FALSE;
 
   if (painted)
     meta_cursor_renderer_emit_painted (renderer, cursor_sprite);
@@ -285,7 +286,7 @@ cursor_over_transformed_crtc (MetaCursorRenderer *renderer,
                               MetaCursorSprite   *cursor_sprite)
 {
   MetaMonitorManager *monitors;
-  MetaCRTC *crtcs;
+  MetaCrtc *crtcs;
   unsigned int i, n_crtcs;
   MetaRectangle rect;
 
@@ -394,7 +395,7 @@ meta_cursor_renderer_native_update_cursor (MetaCursorRenderer *renderer,
   meta_cursor_renderer_native_trigger_frame (native, cursor_sprite);
 
   priv->has_hw_cursor = should_have_hw_cursor (renderer, cursor_sprite);
-  update_hw_cursor (native, cursor_sprite, FALSE);
+  update_hw_cursor (native, cursor_sprite);
   return priv->has_hw_cursor;
 }
 
@@ -527,6 +528,9 @@ meta_cursor_renderer_native_realize_cursor_from_wl_buffer (MetaCursorRenderer *r
   CoglTexture *texture;
   uint width, height;
 
+  if (!priv->gbm)
+    return;
+
   /* Destroy any previous pending cursor buffer; we'll always either fail (which
    * should unset, or succeed, which will set new buffer.
    */
@@ -614,6 +618,11 @@ meta_cursor_renderer_native_realize_cursor_from_xcursor (MetaCursorRenderer *ren
                                                          XcursorImage *xc_image)
 {
   MetaCursorRendererNative *native = META_CURSOR_RENDERER_NATIVE (renderer);
+  MetaCursorRendererNativePrivate *priv =
+	  meta_cursor_renderer_native_get_instance_private (native);
+
+  if (!priv->gbm)
+    return;
 
   invalidate_pending_cursor_sprite_gbm_bo (cursor_sprite);
 
@@ -648,8 +657,11 @@ static void
 force_update_hw_cursor (MetaCursorRendererNative *native)
 {
   MetaCursorRenderer *renderer = META_CURSOR_RENDERER (native);
+  MetaCursorRendererNativePrivate *priv =
+    meta_cursor_renderer_native_get_instance_private (native);
 
-  update_hw_cursor (native, meta_cursor_renderer_get_cursor (renderer), TRUE);
+  priv->hw_state_invalidated = TRUE;
+  update_hw_cursor (native, meta_cursor_renderer_get_cursor (renderer));
 }
 
 static void
@@ -669,6 +681,8 @@ meta_cursor_renderer_native_init (MetaCursorRendererNative *native)
   monitors = meta_monitor_manager_get ();
   g_signal_connect_object (monitors, "monitors-changed",
                            G_CALLBACK (on_monitors_changed), native, 0);
+
+  priv->hw_state_invalidated = TRUE;
 
 #if defined(CLUTTER_WINDOWING_EGL)
   if (clutter_check_windowing_backend (CLUTTER_WINDOWING_EGL))

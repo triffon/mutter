@@ -44,6 +44,7 @@
 #define KEY_GRAVE 0x29 /* assume the use of xf86-input-keyboard */
 #endif
 
+#include "backends/meta-logical-monitor.h"
 #include "backends/x11/meta-backend-x11.h"
 #include "x11/window-x11.h"
 
@@ -894,6 +895,41 @@ on_keymap_changed (MetaBackend *backend,
   grab_key_bindings (display);
 }
 
+static GArray *
+calc_grab_modifiers (MetaKeyBindingManager *keys,
+                     unsigned int modmask)
+{
+  unsigned int ignored_mask;
+  XIGrabModifiers mods;
+  GArray *mods_array = g_array_new (FALSE, TRUE, sizeof (XIGrabModifiers));
+
+  /* The X server crashes if XIAnyModifier gets passed in with any
+     other bits. It doesn't make sense to ask for a grab of
+     XIAnyModifier plus other bits anyway so we avoid that. */
+  if (modmask & XIAnyModifier)
+    {
+      mods = (XIGrabModifiers) { XIAnyModifier, 0 };
+      g_array_append_val (mods_array, mods);
+      return mods_array;
+    }
+
+  mods = (XIGrabModifiers) { modmask, 0 };
+  g_array_append_val (mods_array, mods);
+
+  for (ignored_mask = 1;
+       ignored_mask <= keys->ignored_modifier_mask;
+       ++ignored_mask)
+    {
+      if (ignored_mask & keys->ignored_modifier_mask)
+        {
+          mods = (XIGrabModifiers) { modmask | ignored_mask, 0 };
+          g_array_append_val (mods_array, mods);
+        }
+    }
+
+  return mods_array;
+}
+
 static void
 meta_change_button_grab (MetaKeyBindingManager *keys,
                          Window                  xwindow,
@@ -908,46 +944,30 @@ meta_change_button_grab (MetaKeyBindingManager *keys,
   MetaBackendX11 *backend = META_BACKEND_X11 (meta_get_backend ());
   Display *xdisplay = meta_backend_x11_get_xdisplay (backend);
 
-  unsigned int ignored_mask;
   unsigned char mask_bits[XIMaskLen (XI_LASTEVENT)] = { 0 };
   XIEventMask mask = { XIAllMasterDevices, sizeof (mask_bits), mask_bits };
+  GArray *mods;
 
   XISetMask (mask.mask, XI_ButtonPress);
   XISetMask (mask.mask, XI_ButtonRelease);
   XISetMask (mask.mask, XI_Motion);
 
-  ignored_mask = 0;
-  while (ignored_mask <= keys->ignored_modifier_mask)
-    {
-      XIGrabModifiers mods;
+  mods = calc_grab_modifiers (keys, modmask);
 
-      if (ignored_mask & ~(keys->ignored_modifier_mask))
-        {
-          /* Not a combination of ignored modifiers
-           * (it contains some non-ignored modifiers)
-           */
-          ++ignored_mask;
-          continue;
-        }
+  /* GrabModeSync means freeze until XAllowEvents */
+  if (grab)
+    XIGrabButton (xdisplay,
+                  META_VIRTUAL_CORE_POINTER_ID,
+                  button, xwindow, None,
+                  sync ? XIGrabModeSync : XIGrabModeAsync,
+                  XIGrabModeAsync, False,
+                  &mask, mods->len, (XIGrabModifiers *)mods->data);
+  else
+    XIUngrabButton (xdisplay,
+                    META_VIRTUAL_CORE_POINTER_ID,
+                    button, xwindow, mods->len, (XIGrabModifiers *)mods->data);
 
-      mods = (XIGrabModifiers) { modmask | ignored_mask, 0 };
-
-      /* GrabModeSync means freeze until XAllowEvents */
-
-      if (grab)
-        XIGrabButton (xdisplay,
-                      META_VIRTUAL_CORE_POINTER_ID,
-                      button, xwindow, None,
-                      sync ? XIGrabModeSync : XIGrabModeAsync,
-                      XIGrabModeAsync, False,
-                      &mask, 1, &mods);
-      else
-        XIUngrabButton (xdisplay,
-                        META_VIRTUAL_CORE_POINTER_ID,
-                        button, xwindow, 1, &mods);
-
-      ++ignored_mask;
-    }
+  g_array_free (mods, TRUE);
 }
 
 ClutterModifierType
@@ -1032,7 +1052,6 @@ update_window_grab_modifiers (MetaKeyBindingManager *keys)
   keys->window_grab_modifiers = mods;
 }
 
-/* Grab buttons we only grab while unfocused in click-to-focus mode */
 void
 meta_display_grab_focus_window_button (MetaDisplay *display,
                                        MetaWindow  *window)
@@ -1041,21 +1060,6 @@ meta_display_grab_focus_window_button (MetaDisplay *display,
 
   /* Grab button 1 for activating unfocused windows */
   meta_verbose ("Grabbing unfocused window buttons for %s\n", window->desc);
-
-#if 0
-  /* FIXME:115072 */
-  /* Don't grab at all unless in click to focus mode. In click to
-   * focus, we may sometimes be clever about intercepting and eating
-   * the focus click. But in mouse focus, we never do that since the
-   * focus window may not be raised, and who wants to think about
-   * mouse focus anyway.
-   */
-  if (meta_prefs_get_focus_mode () != G_DESKTOP_FOCUS_MODE_CLICK)
-    {
-      meta_verbose (" (well, not grabbing since not in click to focus mode)\n");
-      return;
-    }
-#endif
 
   if (window->have_focus_click_grab)
     {
@@ -1068,7 +1072,7 @@ meta_display_grab_focus_window_button (MetaDisplay *display,
    * XSync()
    */
 
-  meta_change_buttons_grab (keys, window->xwindow, TRUE, TRUE, 0);
+  meta_change_buttons_grab (keys, window->xwindow, TRUE, TRUE, XIAnyModifier);
   window->have_focus_click_grab = TRUE;
 }
 
@@ -1083,7 +1087,7 @@ meta_display_ungrab_focus_window_button (MetaDisplay *display,
   if (!window->have_focus_click_grab)
     return;
 
-  meta_change_buttons_grab (keys, window->xwindow, FALSE, FALSE, 0);
+  meta_change_buttons_grab (keys, window->xwindow, FALSE, FALSE, XIAnyModifier);
   window->have_focus_click_grab = FALSE;
 }
 
@@ -1149,8 +1153,6 @@ meta_change_keygrab (MetaKeyBindingManager *keys,
                      gboolean               grab,
                      MetaResolvedKeyCombo  *resolved_combo)
 {
-  unsigned int ignored_mask;
-
   unsigned char mask_bits[XIMaskLen (XI_LASTEVENT)] = { 0 };
   XIEventMask mask = { XIAllMasterDevices, sizeof (mask_bits), mask_bits };
 
@@ -1162,6 +1164,7 @@ meta_change_keygrab (MetaKeyBindingManager *keys,
 
   MetaBackendX11 *backend = META_BACKEND_X11 (meta_get_backend ());
   Display *xdisplay = meta_backend_x11_get_xdisplay (backend);
+  GArray *mods;
 
   /* Grab keycode/modmask, together with
    * all combinations of ignored modifiers.
@@ -1173,35 +1176,21 @@ meta_change_keygrab (MetaKeyBindingManager *keys,
               grab ? "Grabbing" : "Ungrabbing",
               resolved_combo->keycode, resolved_combo->mask, xwindow);
 
-  ignored_mask = 0;
-  while (ignored_mask <= keys->ignored_modifier_mask)
-    {
-      XIGrabModifiers mods;
+  mods = calc_grab_modifiers (keys, resolved_combo->mask);
 
-      if (ignored_mask & ~(keys->ignored_modifier_mask))
-        {
-          /* Not a combination of ignored modifiers
-           * (it contains some non-ignored modifiers)
-           */
-          ++ignored_mask;
-          continue;
-        }
+  if (grab)
+    XIGrabKeycode (xdisplay,
+                   META_VIRTUAL_CORE_KEYBOARD_ID,
+                   resolved_combo->keycode, xwindow,
+                   XIGrabModeSync, XIGrabModeAsync,
+                   False, &mask, mods->len, (XIGrabModifiers *)mods->data);
+  else
+    XIUngrabKeycode (xdisplay,
+                     META_VIRTUAL_CORE_KEYBOARD_ID,
+                     resolved_combo->keycode, xwindow,
+                     mods->len, (XIGrabModifiers *)mods->data);
 
-      mods = (XIGrabModifiers) { resolved_combo->mask | ignored_mask, 0 };
-
-      if (grab)
-        XIGrabKeycode (xdisplay,
-                       META_VIRTUAL_CORE_KEYBOARD_ID,
-                       resolved_combo->keycode, xwindow,
-                       XIGrabModeSync, XIGrabModeAsync,
-                       False, &mask, 1, &mods);
-      else
-        XIUngrabKeycode (xdisplay,
-                         META_VIRTUAL_CORE_KEYBOARD_ID,
-                         resolved_combo->keycode, xwindow, 1, &mods);
-
-      ++ignored_mask;
-    }
+  g_array_free (mods, TRUE);
 }
 
 typedef struct
@@ -3166,11 +3155,15 @@ handle_move_to_monitor (MetaDisplay    *display,
                         MetaKeyBinding *binding,
                         gpointer        dummy)
 {
+  MetaBackend *backend = meta_get_backend ();
+  MetaMonitorManager *monitor_manager =
+    meta_backend_get_monitor_manager (backend);
   gint which = binding->handler->data;
-  const MetaMonitorInfo *current, *new;
+  MetaLogicalMonitor *current, *new;
 
   current = window->monitor;
-  new = meta_screen_get_monitor_neighbor (screen, current->number, which);
+  new = meta_monitor_manager_get_logical_monitor_neighbor (monitor_manager,
+                                                           current, which);
 
   if (new == NULL)
     return;
@@ -3205,7 +3198,7 @@ handle_raise_or_lower (MetaDisplay     *display,
     {
       MetaRectangle tmp, win_rect, above_rect;
 
-      if (above->mapped)
+      if (above->mapped && meta_window_should_be_showing (above))
         {
           meta_window_get_frame_rect (window, &win_rect);
           meta_window_get_frame_rect (above, &above_rect);

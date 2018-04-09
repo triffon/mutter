@@ -29,6 +29,8 @@
 
 #include "clutter-backend-x11.h"
 #include "clutter-input-device-xi2.h"
+#include "clutter-input-device-tool-xi2.h"
+#include "clutter-virtual-input-device-x11.h"
 #include "clutter-stage-x11.h"
 
 #include "clutter-backend.h"
@@ -394,6 +396,8 @@ create_device (ClutterDeviceManagerXI2 *manager_xi2,
         source = CLUTTER_ERASER_DEVICE;
       else if (strstr (name, "cursor") != NULL)
         source = CLUTTER_CURSOR_DEVICE;
+      else if (strstr (name, " pad") != NULL)
+        source = CLUTTER_PAD_DEVICE;
       else if (strstr (name, "wacom") != NULL || strstr (name, "pen") != NULL)
         source = CLUTTER_PEN_DEVICE;
       else if (strstr (name, "touchpad") != NULL)
@@ -460,6 +464,46 @@ create_device (ClutterDeviceManagerXI2 *manager_xi2,
   return retval;
 }
 
+static void
+pad_passive_button_grab (ClutterInputDevice *device)
+{
+  XIGrabModifiers xi_grab_mods = { XIAnyModifier, };
+  XIEventMask xi_event_mask;
+  gint device_id, rc;
+
+  device_id = clutter_input_device_get_device_id (device);
+
+  xi_event_mask.deviceid = device_id;
+  xi_event_mask.mask_len = XIMaskLen (XI_LASTEVENT);
+  xi_event_mask.mask = g_new0 (unsigned char, xi_event_mask.mask_len);
+
+  XISetMask (xi_event_mask.mask, XI_Motion);
+  XISetMask (xi_event_mask.mask, XI_ButtonPress);
+  XISetMask (xi_event_mask.mask, XI_ButtonRelease);
+
+  clutter_x11_trap_x_errors ();
+  rc = XIGrabButton (clutter_x11_get_default_display (),
+                     device_id, XIAnyButton,
+                     clutter_x11_get_root_window (), None,
+                     XIGrabModeSync, XIGrabModeSync,
+                     True, &xi_event_mask, 1, &xi_grab_mods);
+  if (rc != 0)
+    {
+      g_warning ("Could not passively grab pad device: %s",
+                 clutter_input_device_get_device_name (device));
+    }
+  else
+    {
+      XIAllowEvents (clutter_x11_get_default_display (),
+                     device_id, XIAsyncDevice,
+                     CLUTTER_CURRENT_TIME);
+    }
+
+  clutter_x11_untrap_x_errors ();
+
+  g_free (xi_event_mask.mask);
+}
+
 static ClutterInputDevice *
 add_device (ClutterDeviceManagerXI2 *manager_xi2,
             ClutterBackendX11       *backend_x11,
@@ -493,6 +537,9 @@ add_device (ClutterDeviceManagerXI2 *manager_xi2,
   else
     g_warning ("Unhandled device: %s",
                clutter_input_device_get_device_name (device));
+
+  if (clutter_input_device_get_device_type (device) == CLUTTER_PAD_DEVICE)
+    pad_passive_button_grab (device);
 
   /* relationships between devices and signal emissions are not
    * necessary while we're constructing the device manager instance
@@ -906,6 +953,78 @@ clutter_device_manager_xi2_select_stage_events (ClutterDeviceManager *manager,
   g_free (mask);
 }
 
+static guint
+device_get_tool_serial (ClutterBackendX11  *backend_x11,
+                        ClutterInputDevice *device)
+{
+  gulong nitems, bytes_after;
+  guint32 *data = NULL;
+  guint serial_id = 0;
+  int rc, format;
+  Atom type;
+  Atom prop;
+
+  prop = XInternAtom (backend_x11->xdpy, "Wacom Serial IDs", True);
+  if (prop == None)
+    return 0;
+
+  clutter_x11_trap_x_errors ();
+  rc = XIGetProperty (backend_x11->xdpy,
+                      clutter_input_device_get_device_id (device),
+                      prop, 0, 4, FALSE, XA_INTEGER, &type, &format, &nitems, &bytes_after,
+                      (guchar **) &data);
+  clutter_x11_untrap_x_errors ();
+
+  if (rc == Success && type == XA_INTEGER && format == 32 && nitems >= 4)
+    serial_id = data[3];
+
+  XFree (data);
+
+  return serial_id;
+}
+
+static void
+handle_property_event (ClutterDeviceManagerXI2 *manager_xi2,
+                       XIEvent                 *event)
+{
+  XIPropertyEvent *xev = (XIPropertyEvent *) event;
+  ClutterBackendX11 *backend_x11 = CLUTTER_BACKEND_X11 (clutter_get_default_backend ());
+  Atom serial_ids_prop = XInternAtom (backend_x11->xdpy, "Wacom Serial IDs", True);
+  ClutterInputDevice *device;
+
+  device = g_hash_table_lookup (manager_xi2->devices_by_id,
+                                GINT_TO_POINTER (xev->deviceid));
+  if (!device)
+    return;
+
+  if (xev->property == serial_ids_prop)
+    {
+      ClutterInputDeviceTool *tool = NULL;
+      ClutterInputDeviceToolType type;
+      guint serial_id;
+
+      serial_id = device_get_tool_serial (backend_x11, device);
+
+      if (serial_id != 0)
+        {
+          tool = g_hash_table_lookup (manager_xi2->tools_by_serial,
+                                      GUINT_TO_POINTER (serial_id));
+          if (!tool)
+            {
+              type = clutter_input_device_get_device_type (device) == CLUTTER_ERASER_DEVICE ?
+                CLUTTER_INPUT_DEVICE_TOOL_ERASER : CLUTTER_INPUT_DEVICE_TOOL_PEN;
+              tool = clutter_input_device_tool_xi2_new (serial_id, type);
+              g_hash_table_insert (manager_xi2->tools_by_serial,
+                                   GUINT_TO_POINTER (serial_id),
+                                   tool);
+            }
+        }
+
+      clutter_input_device_xi2_update_tool (device, tool);
+      g_signal_emit_by_name (manager_xi2, "tool-changed", device, tool);
+    }
+}
+
 static ClutterTranslateReturn
 clutter_device_manager_xi2_translate_event (ClutterEventTranslator *translator,
                                             gpointer                native,
@@ -937,7 +1056,8 @@ clutter_device_manager_xi2_translate_event (ClutterEventTranslator *translator,
     return CLUTTER_TRANSLATE_REMOVE;
 
   if (!(xi_event->evtype == XI_HierarchyChanged ||
-        xi_event->evtype == XI_DeviceChanged))
+        xi_event->evtype == XI_DeviceChanged ||
+        xi_event->evtype == XI_PropertyEvent))
     {
       stage = get_event_stage (translator, xi_event);
       if (stage == NULL || CLUTTER_ACTOR_IN_DESTRUCTION (stage))
@@ -1078,6 +1198,50 @@ clutter_device_manager_xi2_translate_event (ClutterEventTranslator *translator,
             stage != NULL)
           _clutter_input_device_set_stage (device, stage);
 
+	if (clutter_input_device_get_device_type (source_device) == CLUTTER_PAD_DEVICE)
+          {
+            /* We got these events because of the passive button grab */
+            XIAllowEvents (clutter_x11_get_default_display (),
+                           xev->sourceid,
+                           XIAsyncDevice,
+                           xev->time);
+
+	    /* Ignore 4-7 buttons */
+            if (xev->detail >= 4 && xev->detail <= 7)
+              return CLUTTER_TRANSLATE_REMOVE;
+
+            event->pad_button.type =
+              (xi_event->evtype == XI_ButtonPress) ? CLUTTER_PAD_BUTTON_PRESS
+                                                   : CLUTTER_PAD_BUTTON_RELEASE;
+            event->pad_button.time = xev->time;
+            event->pad_button.stage = stage;
+
+            /* The 4-7 button range is taken as non-existent on pad devices,
+             * let the buttons above that take over this range.
+             */
+            if (xev->detail > 7)
+              xev->detail -= 4;
+
+            /* Pad buttons are 0-indexed */
+            event->pad_button.button = xev->detail - 1;
+            clutter_event_set_source_device (event, source_device);
+
+            CLUTTER_NOTE (EVENT,
+                          "%s: win:0x%x, device:%d '%s', time:%d "
+                          "(button:%d)",
+                          event->any.type == CLUTTER_BUTTON_PRESS
+                            ? "pad button press  "
+                            : "pad button release",
+                          (unsigned int) stage_x11->xwin,
+                          device->id,
+                          device->device_name,
+                          event->any.time,
+                          event->pad_button.button);
+
+            retval = CLUTTER_TRANSLATE_QUEUE;
+            break;
+          }
+
         switch (xev->detail)
           {
           case 4:
@@ -1157,6 +1321,8 @@ clutter_device_manager_xi2_translate_event (ClutterEventTranslator *translator,
 
             clutter_event_set_source_device (event, source_device);
             clutter_event_set_device (event, device);
+            clutter_event_set_device_tool (event,
+                                           clutter_input_device_xi2_get_current_tool (source_device));
 
             event->button.axes = translate_axes (event->button.device,
                                                  event->button.x,
@@ -1265,6 +1431,8 @@ clutter_device_manager_xi2_translate_event (ClutterEventTranslator *translator,
 
         clutter_event_set_source_device (event, source_device);
         clutter_event_set_device (event, device);
+        clutter_event_set_device_tool (event,
+                                       clutter_input_device_xi2_get_current_tool (source_device));
 
         event->motion.axes = translate_axes (event->motion.device,
                                              event->motion.x,
@@ -1466,6 +1634,10 @@ clutter_device_manager_xi2_translate_event (ClutterEventTranslator *translator,
     case XI_FocusOut:
       retval = CLUTTER_TRANSLATE_CONTINUE;
       break;
+    case XI_PropertyEvent:
+      handle_property_event (manager_xi2, xi_event);
+      retval = CLUTTER_TRANSLATE_CONTINUE;
+      break;
     }
 
   return retval;
@@ -1643,6 +1815,7 @@ clutter_device_manager_xi2_constructed (GObject *gobject)
 
   XISetMask (mask, XI_HierarchyChanged);
   XISetMask (mask, XI_DeviceChanged);
+  XISetMask (mask, XI_PropertyEvent);
 
   event_mask.deviceid = XIAllDevices;
   event_mask.mask_len = sizeof (mask);
@@ -1678,6 +1851,16 @@ clutter_device_manager_xi2_set_property (GObject      *gobject,
     }
 }
 
+static ClutterVirtualInputDevice *
+clutter_device_manager_xi2_create_virtual_device (ClutterDeviceManager   *manager,
+                                                  ClutterInputDeviceType  device_type)
+{
+  return g_object_new (CLUTTER_TYPE_VIRTUAL_INPUT_DEVICE_X11,
+                       "device-manager", manager,
+                       "device-type", device_type,
+                       NULL);
+}
+
 static void
 clutter_device_manager_xi2_class_init (ClutterDeviceManagerXI2Class *klass)
 {
@@ -1705,6 +1888,7 @@ clutter_device_manager_xi2_class_init (ClutterDeviceManagerXI2Class *klass)
   manager_class->get_core_device = clutter_device_manager_xi2_get_core_device;
   manager_class->get_device = clutter_device_manager_xi2_get_device;
   manager_class->select_stage_events = clutter_device_manager_xi2_select_stage_events;
+  manager_class->create_virtual_device = clutter_device_manager_xi2_create_virtual_device;
 }
 
 static void
@@ -1713,4 +1897,6 @@ clutter_device_manager_xi2_init (ClutterDeviceManagerXI2 *self)
   self->devices_by_id = g_hash_table_new_full (NULL, NULL,
                                                NULL,
                                                (GDestroyNotify) g_object_unref);
+  self->tools_by_serial = g_hash_table_new_full (NULL, NULL, NULL,
+                                                 (GDestroyNotify) g_object_unref);
 }

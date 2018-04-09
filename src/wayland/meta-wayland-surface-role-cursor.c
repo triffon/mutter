@@ -28,6 +28,8 @@
 #include "meta-xwayland.h"
 #include "screen-private.h"
 #include "meta-wayland-private.h"
+#include "backends/meta-backend-private.h"
+#include "backends/meta-logical-monitor.h"
 
 typedef struct _MetaWaylandSurfaceRoleCursorPrivate MetaWaylandSurfaceRoleCursorPrivate;
 
@@ -96,16 +98,23 @@ cursor_sprite_prepare_at (MetaCursorSprite             *cursor_sprite,
 {
   MetaWaylandSurfaceRole *role = META_WAYLAND_SURFACE_ROLE (cursor_role);
   MetaWaylandSurface *surface = meta_wayland_surface_role_get_surface (role);
-  MetaDisplay *display = meta_get_display ();
-  MetaScreen *screen = display->screen;
-  const MetaMonitorInfo *monitor;
 
   if (!meta_xwayland_is_xwayland_surface (surface))
     {
-      monitor = meta_screen_get_monitor_for_point (screen, x, y);
-      if (monitor)
-        meta_cursor_sprite_set_texture_scale (cursor_sprite,
-                                              (float) monitor->scale / surface->scale);
+      MetaBackend *backend = meta_get_backend ();
+      MetaMonitorManager *monitor_manager =
+        meta_backend_get_monitor_manager (backend);
+      const MetaLogicalMonitor *logical_monitor;
+
+      logical_monitor =
+        meta_monitor_manager_get_logical_monitor_at (monitor_manager, x, y);
+      if (logical_monitor)
+        {
+          float texture_scale;
+
+          texture_scale = (float) logical_monitor->scale / surface->scale;
+          meta_cursor_sprite_set_texture_scale (cursor_sprite, texture_scale);
+        }
     }
   meta_wayland_surface_update_outputs (surface);
 }
@@ -171,8 +180,8 @@ cursor_surface_role_commit (MetaWaylandSurfaceRole  *surface_role,
 }
 
 static gboolean
-cursor_surface_role_is_on_output (MetaWaylandSurfaceRole *role,
-                                  MetaMonitorInfo        *monitor)
+cursor_surface_role_is_on_logical_monitor (MetaWaylandSurfaceRole *role,
+                                           MetaLogicalMonitor     *logical_monitor)
 {
   MetaWaylandSurface *surface =
     meta_wayland_surface_role_get_surface (role);
@@ -184,7 +193,7 @@ cursor_surface_role_is_on_output (MetaWaylandSurfaceRole *role,
 
   rect = meta_cursor_renderer_calculate_rect (priv->cursor_renderer,
                                               priv->cursor_sprite);
-  return meta_rectangle_overlap (&rect, &monitor->rect);
+  return meta_rectangle_overlap (&rect, &logical_monitor->rect);
 }
 
 static void
@@ -265,7 +274,7 @@ meta_wayland_surface_role_cursor_class_init (MetaWaylandSurfaceRoleCursorClass *
   surface_role_class->assigned = cursor_surface_role_assigned;
   surface_role_class->pre_commit = cursor_surface_role_pre_commit;
   surface_role_class->commit = cursor_surface_role_commit;
-  surface_role_class->is_on_output = cursor_surface_role_is_on_output;
+  surface_role_class->is_on_logical_monitor = cursor_surface_role_is_on_logical_monitor;
 
   object_class->constructed = cursor_surface_role_constructed;
   object_class->dispose = cursor_surface_role_dispose;

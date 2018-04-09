@@ -25,6 +25,7 @@
 
 #include "meta-monitor-manager-kms.h"
 #include "meta-monitor-config.h"
+#include "meta-monitor-config-manager.h"
 #include "meta-backend-private.h"
 #include "meta-renderer-native.h"
 
@@ -51,7 +52,12 @@
 #define ALL_TRANSFORMS_MASK ((1 << ALL_TRANSFORMS) - 1)
 #define SYNC_TOLERANCE 0.01    /* 1 percent */
 
-typedef struct {
+/* Try each 50 milleseconds up to half a second to get a proper EDID read */
+#define EDID_RETRY_TIMEOUT_MS 50
+#define EDID_MAX_NUM_RETRIES 10
+
+typedef struct
+{
   drmModeConnector *connector;
 
   unsigned n_encoders;
@@ -76,7 +82,8 @@ typedef struct {
   gboolean has_scaling;
 } MetaOutputKms;
 
-typedef struct {
+typedef struct
+{
   uint32_t underscan_prop_id;
   uint32_t underscan_hborder_prop_id;
   uint32_t underscan_vborder_prop_id;
@@ -84,7 +91,7 @@ typedef struct {
   uint32_t rotation_prop_id;
   uint32_t rotation_map[ALL_TRANSFORMS];
   uint32_t all_hw_transforms;
-} MetaCRTCKms;
+} MetaCrtcKms;
 
 typedef struct
 {
@@ -109,6 +116,9 @@ struct _MetaMonitorManagerKms
   GSettings *desktop_settings;
 
   gboolean page_flips_not_supported;
+
+  guint handle_hotplug_timeout;
+  int read_edid_tries;
 };
 
 struct _MetaMonitorManagerKmsClass
@@ -187,13 +197,13 @@ meta_output_destroy_notify (MetaOutput *output)
 }
 
 static void
-meta_monitor_mode_destroy_notify (MetaMonitorMode *output)
+meta_monitor_mode_destroy_notify (MetaCrtcMode *mode)
 {
-  g_slice_free (drmModeModeInfo, output->driver_private);
+  g_slice_free (drmModeModeInfo, mode->driver_private);
 }
 
 static void
-meta_crtc_destroy_notify (MetaCRTC *crtc)
+meta_crtc_destroy_notify (MetaCrtc *crtc)
 {
   g_free (crtc->driver_private);
 }
@@ -281,9 +291,9 @@ find_connector_properties (MetaMonitorManagerKms *manager_kms,
 
 static void
 find_crtc_properties (MetaMonitorManagerKms *manager_kms,
-                      MetaCRTC *meta_crtc)
+                      MetaCrtc *meta_crtc)
 {
-  MetaCRTCKms *crtc_kms;
+  MetaCrtcKms *crtc_kms;
   drmModeObjectPropertiesPtr props;
   size_t i;
 
@@ -310,33 +320,48 @@ find_crtc_properties (MetaMonitorManagerKms *manager_kms,
     }
 }
 
-static GBytes *
-read_output_edid (MetaMonitorManagerKms *manager_kms,
-                  MetaOutput            *output)
+static drmModePropertyBlobPtr
+read_edid_blob (MetaMonitorManagerKms *manager_kms,
+                uint32_t               edid_blob_id,
+                GError               **error)
 {
-  MetaOutputKms *output_kms = output->driver_private;
   drmModePropertyBlobPtr edid_blob = NULL;
 
-  if (output_kms->edid_blob_id == 0)
-    return NULL;
-
-  edid_blob = drmModeGetPropertyBlob (manager_kms->fd, output_kms->edid_blob_id);
+  edid_blob = drmModeGetPropertyBlob (manager_kms->fd, edid_blob_id);
   if (!edid_blob)
     {
-      meta_warning ("Failed to read EDID of output %s: %s\n", output->name, strerror(errno));
+      g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno),
+                   "Failed to get EDID property blob: %s", strerror (errno));
       return NULL;
     }
 
-  if (edid_blob->length > 0)
+  return edid_blob;
+}
+
+static GBytes *
+read_output_edid (MetaMonitorManagerKms *manager_kms,
+                  MetaOutput            *output,
+                  GError               **error)
+{
+  MetaOutputKms *output_kms = output->driver_private;
+  drmModePropertyBlobPtr edid_blob;
+
+  g_assert (output_kms->edid_blob_id != 0);
+
+  edid_blob = read_edid_blob (manager_kms, output_kms->edid_blob_id, error);
+  if (!edid_blob)
+    return NULL;
+
+  if (edid_blob->length == 0)
     {
-      return g_bytes_new_with_free_func (edid_blob->data, edid_blob->length,
-                                         (GDestroyNotify)drmModeFreePropertyBlob, edid_blob);
-    }
-  else
-    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "EDID blob was empty");
       drmModeFreePropertyBlob (edid_blob);
       return NULL;
     }
+
+  return g_bytes_new_with_free_func (edid_blob->data, edid_blob->length,
+                                     (GDestroyNotify) drmModeFreePropertyBlob,
+                                     edid_blob);
 }
 
 static gboolean
@@ -368,9 +393,13 @@ output_get_tile_info (MetaMonitorManagerKms *manager_kms,
                     &output->tile_info.loc_v_tile,
                     &output->tile_info.tile_w,
                     &output->tile_info.tile_h);
+      drmModeFreePropertyBlob (tile_blob);
 
       if (ret != 8)
-        return FALSE;
+        {
+          meta_warning ("Couldn't understand output tile property blob\n");
+          return FALSE;
+        }
       return TRUE;
     }
   else
@@ -380,7 +409,7 @@ output_get_tile_info (MetaMonitorManagerKms *manager_kms,
     }
 }
 
-static MetaMonitorMode *
+static MetaCrtcMode *
 find_meta_mode (MetaMonitorManager    *manager,
                 const drmModeModeInfo *drm_mode)
 {
@@ -415,7 +444,7 @@ drm_mode_vrefresh (const drmModeModeInfo *mode)
 }
 
 static void
-init_mode (MetaMonitorMode       *mode,
+init_mode (MetaCrtcMode          *mode,
            const drmModeModeInfo *drm_mode,
            long                   mode_id)
 {
@@ -433,8 +462,8 @@ static int
 compare_modes (const void *one,
                const void *two)
 {
-  MetaMonitorMode *a = *(MetaMonitorMode **) one;
-  MetaMonitorMode *b = *(MetaMonitorMode **) two;
+  MetaCrtcMode *a = *(MetaCrtcMode **) one;
+  MetaCrtcMode *b = *(MetaCrtcMode **) two;
 
   if (a->width != b->width)
     return a->width > b->width ? -1 : 1;
@@ -557,9 +586,9 @@ find_property_index (MetaMonitorManager         *manager,
 static void
 parse_transforms (MetaMonitorManager *manager,
                   drmModePropertyPtr  prop,
-                  MetaCRTC           *crtc)
+                  MetaCrtc           *crtc)
 {
-  MetaCRTCKms *crtc_kms = crtc->driver_private;
+  MetaCrtcKms *crtc_kms = crtc->driver_private;
   int i;
 
   for (i = 0; i < prop->count_enums; i++)
@@ -600,14 +629,14 @@ is_primary_plane (MetaMonitorManager         *manager,
 
 static void
 init_crtc_rotations (MetaMonitorManager *manager,
-                     MetaCRTC           *crtc,
+                     MetaCrtc           *crtc,
                      unsigned int        idx)
 {
   MetaMonitorManagerKms *manager_kms = META_MONITOR_MANAGER_KMS (manager);
   drmModeObjectPropertiesPtr props;
   drmModePlaneRes *planes;
   drmModePlane *drm_plane;
-  MetaCRTCKms *crtc_kms;
+  MetaCrtcKms *crtc_kms;
   unsigned int i;
 
   crtc_kms = crtc->driver_private;
@@ -692,15 +721,17 @@ add_common_modes (MetaMonitorManager *manager,
       g_ptr_array_add (array, find_meta_mode (manager, mode));
     }
 
-  output->modes = g_renew (MetaMonitorMode *, output->modes, output->n_modes + array->len);
-  memcpy (output->modes + output->n_modes, array->pdata, array->len * sizeof (MetaMonitorMode *));
+  output->modes = g_renew (MetaCrtcMode *, output->modes,
+                           output->n_modes + array->len);
+  memcpy (output->modes + output->n_modes, array->pdata,
+          array->len * sizeof (MetaCrtcMode *));
   output->n_modes += array->len;
 
   g_ptr_array_free (array, TRUE);
 }
 
 static void
-init_crtc (MetaCRTC           *crtc,
+init_crtc (MetaCrtc           *crtc,
            MetaMonitorManager *manager,
            drmModeCrtc        *drm_crtc)
 {
@@ -728,7 +759,7 @@ init_crtc (MetaCRTC           *crtc,
         }
     }
 
-  crtc->driver_private = g_new0 (MetaCRTCKms, 1);
+  crtc->driver_private = g_new0 (MetaCrtcKms, 1);
   crtc->driver_notify = (GDestroyNotify) meta_crtc_destroy_notify;
 }
 
@@ -779,7 +810,7 @@ init_output (MetaOutput         *output,
 
   output->preferred_mode = NULL;
   output->n_modes = connector->count_modes;
-  output->modes = g_new0 (MetaMonitorMode *, output->n_modes);
+  output->modes = g_new0 (MetaCrtcMode *, output->n_modes);
   for (i = 0; i < output->n_modes; i++) {
       output->modes[i] = find_meta_mode (manager, &connector->modes[i]);
       if (connector->modes[i].type & DRM_MODE_TYPE_PREFERRED)
@@ -799,7 +830,7 @@ init_output (MetaOutput         *output,
   if (output_kms->has_scaling)
     add_common_modes (manager, output);
 
-  qsort (output->modes, output->n_modes, sizeof (MetaMonitorMode *), compare_modes);
+  qsort (output->modes, output->n_modes, sizeof (MetaCrtcMode *), compare_modes);
 
   output_kms->n_encoders = connector->count_encoders;
   output_kms->encoders = g_new0 (drmModeEncoderPtr, output_kms->n_encoders);
@@ -823,13 +854,13 @@ init_output (MetaOutput         *output,
         output_kms->current_encoder = output_kms->encoders[i];
     }
 
-  crtcs = g_array_new (FALSE, FALSE, sizeof (MetaCRTC*));
+  crtcs = g_array_new (FALSE, FALSE, sizeof (MetaCrtc*));
 
   for (i = 0; i < manager->n_crtcs; i++)
     {
       if (crtc_mask & (1 << i))
         {
-          MetaCRTC *crtc = &manager->crtcs[i];
+          MetaCrtc *crtc = &manager->crtcs[i];
           g_array_append_val (crtcs, crtc);
         }
     }
@@ -868,7 +899,22 @@ init_output (MetaOutput         *output,
   output->suggested_y = output_kms->suggested_y;
   output->hotplug_mode_update = output_kms->hotplug_mode_update;
 
-  edid = read_output_edid (manager_kms, output);
+  if (output_kms->edid_blob_id != 0)
+    {
+      GError *error = NULL;
+
+      edid = read_output_edid (manager_kms, output, &error);
+      if (!edid)
+        {
+          g_warning ("Failed to read EDID: %s", error->message);
+          g_error_free (error);
+        }
+    }
+  else
+    {
+      edid = NULL;
+    }
+
   meta_output_parse_edid (output, edid);
   g_bytes_unref (edid);
 
@@ -1033,13 +1079,13 @@ init_modes (MetaMonitorManager *manager,
     }
 
   manager->n_modes = g_hash_table_size (modes) + G_N_ELEMENTS (meta_default_drm_mode_infos);
-  manager->modes = g_new0 (MetaMonitorMode, manager->n_modes);
+  manager->modes = g_new0 (MetaCrtcMode, manager->n_modes);
 
   g_hash_table_iter_init (&iter, modes);
   mode_id = 0;
   while (g_hash_table_iter_next (&iter, NULL, (gpointer *) &drm_mode))
     {
-      MetaMonitorMode *mode;
+      MetaCrtcMode *mode;
 
       mode = &manager->modes[mode_id];
       init_mode (mode, drm_mode, (long) mode_id);
@@ -1051,7 +1097,7 @@ init_modes (MetaMonitorManager *manager,
 
   for (i = 0; i < G_N_ELEMENTS (meta_default_drm_mode_infos); i++)
     {
-      MetaMonitorMode *mode;
+      MetaCrtcMode *mode;
 
       mode = &manager->modes[mode_id];
       init_mode (mode, &meta_default_drm_mode_infos[i], (long) mode_id);
@@ -1068,12 +1114,12 @@ init_crtcs (MetaMonitorManager *manager,
   unsigned int i;
 
   manager->n_crtcs = resources->count_crtcs;
-  manager->crtcs = g_new0 (MetaCRTC, manager->n_crtcs);
+  manager->crtcs = g_new0 (MetaCrtc, manager->n_crtcs);
 
   for (i = 0; i < (unsigned)resources->count_crtcs; i++)
     {
       drmModeCrtc *drm_crtc;
-      MetaCRTC *crtc;
+      MetaCrtc *crtc;
 
       drm_crtc = drmModeGetCrtc (manager_kms->fd, resources->crtcs[i]);
 
@@ -1133,30 +1179,12 @@ init_outputs (MetaMonitorManager *manager,
 }
 
 static void
-calculate_screen_size (MetaMonitorManager *manager)
-{
-  unsigned int i;
-  int width = 0, height = 0;
-
-  for (i = 0; i < manager->n_crtcs; i++)
-    {
-      MetaCRTC *crtc = &manager->crtcs[i];
-
-      width = MAX (width, crtc->rect.x + crtc->rect.width);
-      height = MAX (height, crtc->rect.y + crtc->rect.height);
-    }
-
-  manager->screen_width = width;
-  manager->screen_height = height;
-}
-
-static void
 meta_monitor_manager_kms_read_current (MetaMonitorManager *manager)
 {
   MetaMonitorManagerKms *manager_kms = META_MONITOR_MANAGER_KMS (manager);
   drmModeRes *resources;
 
-  resources = drmModeGetResources(manager_kms->fd);
+  resources = drmModeGetResources (manager_kms->fd);
 
   /* TODO: max screen width only matters for stage views is not enabled. */
   manager->max_screen_width = resources->max_width;
@@ -1175,8 +1203,6 @@ meta_monitor_manager_kms_read_current (MetaMonitorManager *manager)
   init_crtcs (manager, resources);
   init_outputs (manager, resources);
 
-  calculate_screen_size (manager);
-
   drmModeFreeResources (resources);
 }
 
@@ -1184,9 +1210,24 @@ static GBytes *
 meta_monitor_manager_kms_read_edid (MetaMonitorManager *manager,
                                     MetaOutput         *output)
 {
+  MetaOutputKms *output_kms = output->driver_private;
   MetaMonitorManagerKms *manager_kms = META_MONITOR_MANAGER_KMS (manager);
+  GError *error = NULL;
+  GBytes *edid;
 
-  return read_output_edid (manager_kms, output);
+  if (output_kms->edid_blob_id == 0)
+    return NULL;
+
+  edid = read_output_edid (manager_kms, output, &error);
+  if (!edid)
+    {
+      g_warning ("Failed to read EDID from '%s': %s",
+                 output->name, error->message);
+      g_error_free (error);
+      return NULL;
+    }
+
+  return edid;
 }
 
 static void
@@ -1216,21 +1257,21 @@ meta_monitor_manager_kms_set_power_save_mode (MetaMonitorManager *manager,
 
   for (i = 0; i < manager->n_outputs; i++)
     {
-      MetaOutput *meta_output;
+      MetaOutput *output;
       MetaOutputKms *output_kms;
 
-      meta_output = &manager->outputs[i];
-      output_kms = meta_output->driver_private;
+      output = &manager->outputs[i];
+      output_kms = output->driver_private;
 
       if (output_kms->dpms_prop_id != 0)
         {
-          int ok = drmModeObjectSetProperty (manager_kms->fd, meta_output->winsys_id,
+          int ok = drmModeObjectSetProperty (manager_kms->fd, output->winsys_id,
                                              DRM_MODE_OBJECT_CONNECTOR,
                                              output_kms->dpms_prop_id, state);
 
           if (ok < 0)
             meta_warning ("Failed to set power save mode for output %s: %s\n",
-                          meta_output->name, strerror (errno));
+                          output->name, strerror (errno));
         }
     }
 }
@@ -1242,8 +1283,8 @@ set_underscan (MetaMonitorManagerKms *manager_kms,
   if (!output->crtc)
     return;
 
-  MetaCRTC *crtc = output->crtc;
-  MetaCRTCKms *crtc_kms = crtc->driver_private;
+  MetaCrtc *crtc = output->crtc;
+  MetaCrtcKms *crtc_kms = crtc->driver_private;
   if (!crtc_kms->underscan_prop_id)
     return;
 
@@ -1278,22 +1319,33 @@ set_underscan (MetaMonitorManagerKms *manager_kms,
 }
 
 static void
-meta_monitor_manager_kms_apply_configuration (MetaMonitorManager *manager,
-                                              MetaCRTCInfo       **crtcs,
-                                              unsigned int         n_crtcs,
-                                              MetaOutputInfo     **outputs,
-                                              unsigned int         n_outputs)
+meta_monitor_manager_kms_ensure_initial_config (MetaMonitorManager *manager)
+{
+  MetaMonitorsConfig *config;
+
+  config = meta_monitor_manager_ensure_configured (manager);
+
+  if (manager->config_manager)
+    meta_monitor_manager_update_logical_state (manager, config);
+  else
+    meta_monitor_manager_update_logical_state_derived (manager);
+}
+
+static void
+apply_crtc_assignments (MetaMonitorManager *manager,
+                        MetaCrtcInfo       **crtcs,
+                        unsigned int         n_crtcs,
+                        MetaOutputInfo     **outputs,
+                        unsigned int         n_outputs)
 {
   MetaMonitorManagerKms *manager_kms = META_MONITOR_MANAGER_KMS (manager);
   unsigned i;
-  int screen_width, screen_height;
 
-  screen_width = 0; screen_height = 0;
   for (i = 0; i < n_crtcs; i++)
     {
-      MetaCRTCInfo *crtc_info = crtcs[i];
-      MetaCRTC *crtc = crtc_info->crtc;
-      MetaCRTCKms *crtc_kms = crtc->driver_private;
+      MetaCrtcInfo *crtc_info = crtcs[i];
+      MetaCrtc *crtc = crtc_info->crtc;
+      MetaCrtcKms *crtc_kms = crtc->driver_private;
       MetaMonitorTransform hw_transform;
 
       crtc->is_dirty = TRUE;
@@ -1308,7 +1360,7 @@ meta_monitor_manager_kms_apply_configuration (MetaMonitorManager *manager,
         }
       else
         {
-          MetaMonitorMode *mode;
+          MetaCrtcMode *mode;
           unsigned int j;
           int width, height;
 
@@ -1324,9 +1376,6 @@ meta_monitor_manager_kms_apply_configuration (MetaMonitorManager *manager,
               width = mode->width;
               height = mode->height;
             }
-
-          screen_width = MAX (screen_width, crtc_info->x + width);
-          screen_height = MAX (screen_height, crtc_info->y + height);
 
           crtc->rect.x = crtc_info->x;
           crtc->rect.y = crtc_info->y;
@@ -1368,7 +1417,7 @@ meta_monitor_manager_kms_apply_configuration (MetaMonitorManager *manager,
      because they weren't seen in the first loop) */
   for (i = 0; i < manager->n_crtcs; i++)
     {
-      MetaCRTC *crtc = &manager->crtcs[i];
+      MetaCrtc *crtc = &manager->crtcs[i];
 
       crtc->logical_monitor = NULL;
 
@@ -1411,16 +1460,106 @@ meta_monitor_manager_kms_apply_configuration (MetaMonitorManager *manager,
       output->crtc = NULL;
       output->is_primary = FALSE;
     }
+}
+
+static void
+update_screen_size (MetaMonitorManager *manager,
+                    MetaMonitorsConfig *config)
+{
+  GList *l;
+  int screen_width = 0;
+  int screen_height = 0;
+
+  for (l = config->logical_monitor_configs; l; l = l->next)
+    {
+      MetaLogicalMonitorConfig *logical_monitor_config = l->data;
+      int right_edge;
+      int bottom_edge;
+
+      right_edge = (logical_monitor_config->layout.width +
+                    logical_monitor_config->layout.x);
+      if (right_edge > screen_width)
+        screen_width = right_edge;
+
+      bottom_edge = (logical_monitor_config->layout.height +
+                     logical_monitor_config->layout.y);
+      if (bottom_edge > screen_height)
+        screen_height = bottom_edge;
+    }
 
   manager->screen_width = screen_width;
   manager->screen_height = screen_height;
+}
 
+static gboolean
+meta_monitor_manager_kms_apply_monitors_config (MetaMonitorManager *manager,
+                                                MetaMonitorsConfig *config,
+                                                GError            **error)
+{
+  GPtrArray *crtc_infos;
+  GPtrArray *output_infos;
+
+  if (!config)
+    {
+      manager->screen_width = 0;
+      manager->screen_height = 0;
+      return TRUE;
+    }
+
+  if (!meta_monitor_config_manager_assign (manager, config,
+                                           &crtc_infos, &output_infos,
+                                           error))
+    return FALSE;
+
+  apply_crtc_assignments (manager,
+                          (MetaCrtcInfo **) crtc_infos->pdata,
+                          crtc_infos->len,
+                          (MetaOutputInfo **) output_infos->pdata,
+                          output_infos->len);
+
+  g_ptr_array_free (crtc_infos, TRUE);
+  g_ptr_array_free (output_infos, TRUE);
+
+  update_screen_size (manager, config);
+  meta_monitor_manager_rebuild (manager, config);
+
+  return TRUE;
+}
+
+static void
+legacy_calculate_screen_size (MetaMonitorManager *manager)
+{
+  unsigned int i;
+  int width = 0, height = 0;
+
+  for (i = 0; i < manager->n_crtcs; i++)
+    {
+      MetaCrtc *crtc = &manager->crtcs[i];
+
+      width = MAX (width, crtc->rect.x + crtc->rect.width);
+      height = MAX (height, crtc->rect.y + crtc->rect.height);
+    }
+
+  manager->screen_width = width;
+  manager->screen_height = height;
+}
+
+static void
+meta_monitor_manager_kms_apply_configuration (MetaMonitorManager *manager,
+                                              MetaCrtcInfo      **crtcs,
+                                              unsigned int        n_crtcs,
+                                              MetaOutputInfo    **outputs,
+                                              unsigned int        n_outputs)
+{
+  apply_crtc_assignments (manager, crtcs, n_crtcs, outputs, n_outputs);
+
+  legacy_calculate_screen_size (manager);
   meta_monitor_manager_rebuild_derived (manager);
 }
 
 static void
 meta_monitor_manager_kms_get_crtc_gamma (MetaMonitorManager  *manager,
-                                         MetaCRTC            *crtc,
+                                         MetaCrtc            *crtc,
                                          gsize               *size,
                                          unsigned short     **red,
                                          unsigned short     **green,
@@ -1443,7 +1582,7 @@ meta_monitor_manager_kms_get_crtc_gamma (MetaMonitorManager  *manager,
 
 static void
 meta_monitor_manager_kms_set_crtc_gamma (MetaMonitorManager *manager,
-                                         MetaCRTC           *crtc,
+                                         MetaCrtc           *crtc,
                                          gsize               size,
                                          unsigned short     *red,
                                          unsigned short     *green,
@@ -1452,6 +1591,114 @@ meta_monitor_manager_kms_set_crtc_gamma (MetaMonitorManager *manager,
   MetaMonitorManagerKms *manager_kms = META_MONITOR_MANAGER_KMS (manager);
 
   drmModeCrtcSetGamma (manager_kms->fd, crtc->crtc_id, size, red, green, blue);
+}
+
+static gboolean
+has_pending_edid_blob (MetaMonitorManagerKms *manager_kms)
+{
+  drmModeRes *resources;
+  int n_connectors;
+  int i, j;
+  gboolean edid_blob_pending;
+
+  resources = drmModeGetResources (manager_kms->fd);
+  n_connectors = resources->count_connectors;
+
+  edid_blob_pending = FALSE;
+  for (i = 0; i < n_connectors; i++)
+    {
+      drmModeConnector *drm_connector;
+      uint32_t edid_blob_id;
+
+      drm_connector = drmModeGetConnector (manager_kms->fd,
+                                           resources->connectors[i]);
+
+      edid_blob_id = 0;
+      for (j = 0; j < drm_connector->count_props; j++)
+        {
+          drmModePropertyPtr prop;
+
+          prop = drmModeGetProperty (manager_kms->fd, drm_connector->props[j]);
+
+          if (prop->flags & DRM_MODE_PROP_BLOB &&
+              g_str_equal (prop->name, "EDID"))
+            edid_blob_id = drm_connector->prop_values[j];
+
+          drmModeFreeProperty (prop);
+
+          if (edid_blob_id)
+            break;
+        }
+
+      drmModeFreeConnector (drm_connector);
+
+      if (edid_blob_id)
+        {
+          GError *error = NULL;
+          drmModePropertyBlobPtr edid_blob;
+
+          edid_blob = read_edid_blob (manager_kms, edid_blob_id, &error);
+          if (!edid_blob &&
+              g_error_matches (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND))
+            {
+              edid_blob_pending = TRUE;
+              g_error_free (error);
+            }
+          else if (!edid_blob)
+            {
+              g_error_free (error);
+            }
+          else
+            {
+              drmModeFreePropertyBlob (edid_blob);
+            }
+        }
+
+      if (edid_blob_pending)
+        break;
+    }
+
+  drmModeFreeResources (resources);
+
+  return edid_blob_pending;
+}
+
+static void
+handle_hotplug_event (MetaMonitorManager *manager)
+{
+  meta_monitor_manager_read_current_state (manager);
+  meta_monitor_manager_on_hotplug (manager);
+}
+
+static gboolean
+handle_hotplug_event_timeout (gpointer user_data)
+{
+  MetaMonitorManager *manager = user_data;
+  MetaMonitorManagerKms *manager_kms = META_MONITOR_MANAGER_KMS (user_data);
+
+  if (!has_pending_edid_blob (manager_kms))
+    {
+      handle_hotplug_event (manager);
+
+      manager_kms->handle_hotplug_timeout = 0;
+      return G_SOURCE_REMOVE;
+    }
+
+  manager_kms->read_edid_tries++;
+
+  if (manager_kms->read_edid_tries > EDID_MAX_NUM_RETRIES)
+    {
+      g_warning ("Tried to read the EDID %d times, "
+                 "but one or more are still missing, continuing without",
+                 manager_kms->read_edid_tries);
+
+      handle_hotplug_event (manager);
+
+      manager_kms->handle_hotplug_timeout = 0;
+      return G_SOURCE_REMOVE;
+    }
+
+  return G_SOURCE_CONTINUE;
 }
 
 static void
@@ -1466,9 +1713,29 @@ on_uevent (GUdevClient *client,
   if (!g_udev_device_get_property_as_boolean (device, "HOTPLUG"))
     return;
 
-  meta_monitor_manager_read_current_config (manager);
+  if (manager_kms->handle_hotplug_timeout)
+    {
+      g_source_remove (manager_kms->handle_hotplug_timeout);
+      manager_kms->handle_hotplug_timeout = 0;
+    }
 
-  meta_monitor_manager_on_hotplug (manager);
+  /*
+   * On a hot-plug event, the EDID of one or more connectors might not yet be
+   * ready at this point, resulting in invalid configuration potentially being
+   * applied. Avoid this by first checking whether the EDID is ready at this
+   * point, or otherwise wait a bit and try again.
+   */
+  manager_kms->read_edid_tries = 0;
+  if (has_pending_edid_blob (manager_kms))
+    {
+      manager_kms->handle_hotplug_timeout =
+        g_timeout_add (EDID_RETRY_TIMEOUT_MS,
+                       handle_hotplug_event_timeout,
+                       manager);
+      return;
+    }
+
+  handle_hotplug_event (manager);
 }
 
 static gboolean
@@ -1527,7 +1794,7 @@ meta_monitor_manager_kms_init (MetaMonitorManagerKms *manager_kms)
 
 static void
 get_crtc_connectors (MetaMonitorManager *manager,
-                     MetaCRTC           *crtc,
+                     MetaCrtc           *crtc,
                      uint32_t          **connectors,
                      unsigned int       *n_connectors)
 {
@@ -1546,9 +1813,9 @@ get_crtc_connectors (MetaMonitorManager *manager,
   *connectors = (uint32_t *) g_array_free (connectors_array, FALSE);
 }
 
-void
+gboolean
 meta_monitor_manager_kms_apply_crtc_mode (MetaMonitorManagerKms *manager_kms,
-                                          MetaCRTC              *crtc,
+                                          MetaCrtc              *crtc,
                                           int                    x,
                                           int                    y,
                                           uint32_t               fb_id)
@@ -1571,9 +1838,14 @@ meta_monitor_manager_kms_apply_crtc_mode (MetaMonitorManagerKms *manager_kms,
                       x, y,
                       connectors, n_connectors,
                       mode) != 0)
-    g_warning ("Failed to set CRTC mode %s: %m", crtc->current_mode->name);
+    {
+      g_warning ("Failed to set CRTC mode %s: %m", crtc->current_mode->name);
+      return FALSE;
+    }
 
   g_free (connectors);
+
+  return TRUE;
 }
 
 static void
@@ -1589,7 +1861,7 @@ invoke_flip_closure (GClosure *flip_closure)
 
 gboolean
 meta_monitor_manager_kms_is_crtc_active (MetaMonitorManagerKms *manager_kms,
-                                         MetaCRTC              *crtc)
+                                         MetaCrtc              *crtc)
 {
   MetaMonitorManager *manager = META_MONITOR_MANAGER (manager_kms);
   unsigned int i;
@@ -1618,11 +1890,12 @@ meta_monitor_manager_kms_is_crtc_active (MetaMonitorManagerKms *manager_kms,
 
 gboolean
 meta_monitor_manager_kms_flip_crtc (MetaMonitorManagerKms *manager_kms,
-                                    MetaCRTC              *crtc,
+                                    MetaCrtc              *crtc,
                                     int                    x,
                                     int                    y,
                                     uint32_t               fb_id,
-                                    GClosure              *flip_closure)
+                                    GClosure              *flip_closure,
+                                    gboolean              *fb_in_use)
 {
   MetaMonitorManager *manager = META_MONITOR_MANAGER (manager_kms);
   uint32_t *connectors;
@@ -1649,14 +1922,21 @@ meta_monitor_manager_kms_flip_crtc (MetaMonitorManagerKms *manager_kms,
     }
 
   if (manager_kms->page_flips_not_supported)
-    meta_monitor_manager_kms_apply_crtc_mode (manager_kms,
-                                              crtc,
-                                              x, y,
-                                              fb_id);
+    {
+      if (meta_monitor_manager_kms_apply_crtc_mode (manager_kms,
+                                                    crtc,
+                                                    x, y,
+                                                    fb_id))
+        {
+          *fb_in_use = TRUE;
+          return FALSE;
+        }
+    }
 
   if (ret != 0)
     return FALSE;
 
+  *fb_in_use = TRUE;
   g_closure_ref (flip_closure);
 
   return TRUE;
@@ -1721,6 +2001,8 @@ meta_monitor_manager_kms_class_init (MetaMonitorManagerKmsClass *klass)
 
   manager_class->read_current = meta_monitor_manager_kms_read_current;
   manager_class->read_edid = meta_monitor_manager_kms_read_edid;
+  manager_class->ensure_initial_config = meta_monitor_manager_kms_ensure_initial_config;
+  manager_class->apply_monitors_config = meta_monitor_manager_kms_apply_monitors_config;
   manager_class->apply_configuration = meta_monitor_manager_kms_apply_configuration;
   manager_class->set_power_save_mode = meta_monitor_manager_kms_set_power_save_mode;
   manager_class->get_crtc_gamma = meta_monitor_manager_kms_get_crtc_gamma;
@@ -1729,9 +2011,9 @@ meta_monitor_manager_kms_class_init (MetaMonitorManagerKmsClass *klass)
 
 MetaMonitorTransform
 meta_monitor_manager_kms_get_view_transform (MetaMonitorManagerKms *manager,
-                                             MetaCRTC              *crtc)
+                                             MetaCrtc              *crtc)
 {
-  MetaCRTCKms *crtc_kms;
+  MetaCrtcKms *crtc_kms;
 
   crtc_kms = crtc->driver_private;
   if ((1 << crtc->transform) & crtc_kms->all_hw_transforms)
