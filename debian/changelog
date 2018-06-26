@@ -1,3 +1,12 @@
+mutter (3.28.2-2~ubuntu18.04.1) bionic; urgency=medium
+
+  [ Marco Trevisan (Treviño) ]
+  * Backport from cosmic (LP: #1778703)
+    - Hybrid GPU: 'shallow' crash while interacting with the
+      secondary screen (LP: #1758528)
+
+ -- Marco Trevisan (Treviño) <marco@ubuntu.com>  Tue, 26 Jun 2018 15:24:45 +0200
+
 mutter (3.28.2-2) unstable; urgency=medium
 
   * Team upload
