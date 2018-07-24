@@ -1,3 +1,9 @@
+mutter (3.28.3-1~ubuntu18.04.1) bionic; urgency=medium
+
+  * No-change backport to bionic (LP: #1783311)
+
+ -- Iain Lane <iain@orangesquash.org.uk>  Tue, 24 Jul 2018 12:20:56 +0100
+
 mutter (3.28.3-1) unstable; urgency=medium
 
   * New upstream release
