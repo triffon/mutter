@@ -143,7 +143,10 @@ meta_gpu_kms_apply_crtc_mode (MetaGpuKms *gpu_kms,
                       connectors, n_connectors,
                       mode) != 0)
     {
-      g_warning ("Failed to set CRTC mode %s: %m", crtc->current_mode->name);
+      if (mode)
+        g_warning ("Failed to set CRTC mode %s: %m", crtc->current_mode->name);
+      else
+        g_warning ("Failed to disable CRTC");
       g_free (connectors);
       return FALSE;
     }
@@ -800,6 +803,13 @@ meta_gpu_kms_new (MetaMonitorManagerKms  *monitor_manager_kms,
    * For now, to avoid this situation, only create the MetaGpuKms when the GPU has any connectors.
    */
   drm_resources = drmModeGetResources (kms_fd);
+
+  if (!drm_resources)
+    {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED, "No resources");
+      meta_launcher_close_restricted (launcher, kms_fd);
+      return NULL;
+    }
 
   n_connectors = drm_resources->count_connectors;
 
