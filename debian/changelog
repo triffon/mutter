@@ -1,3 +1,9 @@
+mutter (3.28.3-2~ubuntu18.04.1) bionic; urgency=medium
+
+  * No-change backport from unstable to bionic
+
+ -- Marco Trevisan (Treviño) <marco@ubuntu.com>  Fri, 03 Aug 2018 05:20:10 +0100
+
 mutter (3.28.3-2) unstable; urgency=medium
 
   * Team upload
@@ -33,6 +39,12 @@ mutter (3.28.3-2) unstable; urgency=medium
   * Update symbols file
 
  -- Simon McVittie <smcv@debian.org>  Tue, 31 Jul 2018 15:35:03 +0100
+
+mutter (3.28.3-1~ubuntu18.04.1) bionic; urgency=medium
+
+  * No-change backport to bionic (LP: #1783311)
+
+ -- Iain Lane <iain@orangesquash.org.uk>  Tue, 24 Jul 2018 12:20:56 +0100
 
 mutter (3.28.3-1) unstable; urgency=medium
 
