@@ -55,12 +55,14 @@ Build-Depends: debhelper (>= 11),
                zenity
 Rules-Requires-Root: no
 Standards-Version: 4.2.1
-Vcs-Git: https://salsa.debian.org/gnome-team/mutter.git
-Vcs-Browser: https://salsa.debian.org/gnome-team/mutter
+XS-Debian-Vcs-Browser: https://salsa.debian.org/gnome-team/mutter
+XS-Debian-Vcs-Git: https://salsa.debian.org/gnome-team/mutter.git
+Vcs-Browser: https://git.launchpad.net/~ubuntu-desktop/ubuntu/+source/mutter
+Vcs-Git: https://git.launchpad.net/~ubuntu-desktop/ubuntu/+source/mutter -b ubuntu/cosmic
 
 Package: mutter
 Architecture: any
-Depends: gnome-settings-daemon,
+Depends: gnome-settings-daemon-schemas,
          gsettings-desktop-schemas (>= 3.21.4),
          mutter-common (>= ${source:Version}),
          zenity,

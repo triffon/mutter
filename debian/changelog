@@ -1,3 +1,11 @@
+mutter (3.30.2-1~ubuntu18.10.2) cosmic; urgency=medium
+
+  * Update gbp.conf and Vcs metadata for cosmic
+  * control: Depend on g-s-d-schemas instead of g-s-d. We only need the
+    schemas. (LP: #1808796)
+
+ -- Iain Lane <iain.lane@canonical.com>  Mon, 17 Dec 2018 10:53:41 +0000
+
 mutter (3.30.2-1~ubuntu18.10.1) cosmic; urgency=medium
 
   * SRU backport from unstable / disco to cosmic. (LP: #1804448)
