@@ -1,3 +1,10 @@
+mutter (3.30.2-1~ubuntu18.10.2-trifon) UNRELEASED; urgency=medium
+
+ * Applied patch to allow workspace layout to be overridden
+ * Source: https://gitlab.gnome.org/GNOME/mutter/issues/270
+
+ -- Trifon Trifonov <triffon@gmail.com>  Fri, 11 Jan 2019 14:14:49 +0200
+
 mutter (3.30.2-1~ubuntu18.10.2) cosmic; urgency=medium
 
   * Update gbp.conf and Vcs metadata for cosmic
